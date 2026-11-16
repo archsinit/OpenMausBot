@@ -1,8 +1,9 @@
 # Installed Pi first-request context comparison
 
-This records the first desktop/browser-removal deployment. For the subsequent
-phone/Data/helper removal and latest installed measurements, see
-[the second-phase results](lean-removal.md#installed-first-request-comparison).
+This records the first desktop/browser-removal deployment. The subsequent
+phone/Data/helper removal is documented in [the second-phase results](lean-removal.md#installed-first-request-comparison).
+For the latest instruction rewrite, indexed guides and lazy-tool measurements,
+see [concise context](concise-context.md).
 
 Implementation commit: `648c16157bbddfc58bc9751f03387cdd46f1ee3f`.
 Installed fork: `0.1.161-archsinit.1`, on `maus-desktop`.

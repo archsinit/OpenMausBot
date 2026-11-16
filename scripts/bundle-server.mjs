@@ -2,7 +2,7 @@
 // packaged app ships no node_modules. Entry points keep their exact relative
 // paths under dist-server, where the server locates each proxy by path.
 import { build } from "esbuild";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { serverLocalePlugin } from "./server-locale-plugin.mjs";
@@ -167,3 +167,4 @@ writeFileSync(join(root, "dist-server", "package.json"), `${JSON.stringify({ typ
 // the server's keys, so nothing reads the copies.
 rmSync(join(root, "dist-server", "src", "locales"), { recursive: true, force: true });
 removeAutomationArtifacts(join(root, "dist-server"));
+cpSync(join(server, "agent-guides"), join(root, "dist-server", "agent-guides"), { recursive: true });

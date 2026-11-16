@@ -83,7 +83,7 @@ describe("the agents tool bridge switch", () => {
 
   it("is a saved setting like the other feature flags: kept by a patch and by the stored file, a boolean only", () => {
     expect(parseConfigPatch({ features: { agentsToolBridge: true } })).toEqual({ features: { agentsToolBridge: true } });
-    expect(parseStoredConfig({ features: { agentsToolBridge: true, browser: true } })).toEqual({ features: { agentsToolBridge: true, browser: true } });
+    expect(parseStoredConfig({ features: { agentsToolBridge: true, browser: true } })).toEqual({ features: { agentsToolBridge: true } });
     expect(agentsToolBridgeEnabled(parseStoredConfig({ features: { agentsToolBridge: true } }), {})).toBe(true);
     expect(() => parseConfigPatch({ features: { agentsToolBridge: "yes" } })).toThrow("features.agentsToolBridge");
     // the other flags are still read beside it, and an unknown one still drops
@@ -702,12 +702,12 @@ describe("the name a bridged call is given", () => {
 
   it("is the tool it ran on a turn that was bridged, for any tool of today's catalog, and its own for anything else", () => {
     bridgedAgents("thread-bridged", agents(), ON, bot, CLAUDE, {}, HOST);
-    for (const tool of ["list_triggers", "vm_exec", "shared_computer", "create_bot", "create_options_card", "memory_log", "post_to_room"]) {
+    for (const tool of ["list_triggers", "list_bots", "coordinate_bots", "create_bot", "create_options_card", "memory_log", "post_to_room"]) {
       expect(bridgedToolTitle("thread-bridged", "mcp__agents__use_tool", JSON.stringify({ name: tool, arguments: {} }, null, 2)), tool).toBe(`mcp__agents__${tool}`);
       expect(bridgedToolTitle("thread-bridged", "agents_use_tool", { name: tool }), tool).toBe(`agents_${tool}`);
       expect(bridgedToolTitle("thread-bridged", "use_tool", { name: tool }), tool).toBe(tool);
     }
-    expect(bridgedToolTitle("thread-bridged", "mcp__agents__use_tool", { name: "made_up" })).toBe("mcp__agents__use_tool");
+    for (const name of ["made_up", "vm_exec", "shared_computer"]) expect(bridgedToolTitle("thread-bridged", "mcp__agents__use_tool", { name })).toBe("mcp__agents__use_tool");
     expect(bridgedToolTitle("thread-bridged", "mcp__agents__use_tool", { name: FIND_TOOL })).toBe("mcp__agents__use_tool");
     expect(bridgedToolTitle("thread-bridged", "mcp__agents__use_tool", undefined)).toBe("mcp__agents__use_tool");
     expect(bridgedToolTitle("thread-bridged", "mcp__agents__list_triggers", {})).toBe("mcp__agents__list_triggers");
@@ -794,12 +794,12 @@ describe("the prompt of a bridged turn", () => {
     expect(buildSystemPrompt("You are Kiwi.", "Be brief.", parts, { env: {} })).toEqual(plain);
     expect(buildSystemPrompt("You are Kiwi.", "Be brief.", parts, {})).toEqual(plain);
     expect(plain.text).not.toContain(FIND_TOOL);
-    expect(plain.sections.map((section) => section.id)).toEqual(["persona", "soul", "routine", "memory", "credential", "reply-habits"]);
+    expect(plain.sections.map((section) => section.id)).toEqual(["core", "persona", "soul", "routine", "memory", "credential", "reply-habits"]);
   });
 
   it("has the section only when this turn was asked to bridge, once, right after the soul", () => {
     const built = buildSystemPrompt("You are Kiwi.", "Be brief.", parts, bridged);
-    expect(built.sections.map((section) => section.id)).toEqual(["persona", "soul", "tool-bridge", "routine", "memory", "credential", "reply-habits"]);
+    expect(built.sections.map((section) => section.id)).toEqual(["core", "persona", "soul", "tool-bridge", "routine", "memory", "credential", "reply-habits"]);
     const section = built.sections.find((entry) => entry.id === "tool-bridge")!;
     expect(section.text).toBe(AGENTS_TOOL_BRIDGE_PROMPT);
     expect(section.bytes).toBe(Buffer.byteLength(AGENTS_TOOL_BRIDGE_PROMPT, "utf8"));
@@ -833,8 +833,8 @@ describe("the prompt of a bridged turn", () => {
     const sentences = AGENTS_TOOL_BRIDGE_PROMPT.trim().split(/(?<=\.)\s+/);
     const aboutTheBridge = sentences.filter((sentence) => sentence.includes(FIND_TOOL) || sentence.includes(USE_TOOL));
     expect(aboutTheBridge).toHaveLength(1);
-    expect(aboutTheBridge[0]!.startsWith(`If ${FIND_TOOL} and ${USE_TOOL} are in your tool list, `)).toBe(true);
-    expect(sentences.filter((sentence) => !aboutTheBridge.includes(sentence))).toEqual(["A tool that is in your tool list is always called directly."]);
+    expect(aboutTheBridge[0]!.startsWith(`If ${FIND_TOOL}/${USE_TOOL} are listed, `)).toBe(true);
+    expect(sentences.filter((sentence) => !aboutTheBridge.includes(sentence))).toEqual(["Call listed tools directly."]);
     // one sentence-run, joined to its neighbours like every other section
     expect(AGENTS_TOOL_BRIDGE_PROMPT.startsWith(" ")).toBe(true);
     expect(AGENTS_TOOL_BRIDGE_PROMPT).not.toMatch(/\n/);

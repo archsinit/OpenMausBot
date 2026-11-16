@@ -30,6 +30,13 @@ This is a product-surface removal, not an operating-system sandbox. An
 independently installed extension, custom integration or unrestricted shell
 program can still perform actions outside this app's built-in capabilities.
 
+## Lean initial context
+
+Workflow instructions live in indexed files and Pi loads task tools on demand.
+Matched complete first-request overhead is about 5.8k characters, down 93.1%
+from the previous fork. Authored context and permission boundaries are retained.
+See [the context rewrite and measurements](docs/concise-context.md).
+
 ## Requirements
 
 - Node.js 24 or later

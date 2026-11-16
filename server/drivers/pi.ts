@@ -9,6 +9,7 @@ import { join } from "node:path";
 
 import { PROVIDER_CREDENTIAL_ENV, stripWorkspaceCredentialEnv } from "../config.ts";
 import { openStartupModelCatalog, unconfirmedModelCatalog, writeStartupModelCache } from "../startup-model-catalog.ts";
+import { piSystemPromptArgs } from "./pi-system-prompt.ts";
 import { augmentedPath } from "../env-path.ts";
 import { describeSpawnFailure, execCliBoxed, killCliTree, spawnCli } from "../procs.ts";
 import { instanceEnvNames } from "../bot-box/env.ts";
@@ -476,7 +477,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         } catch {}
         throw err;
       }
-      const childArgs = [...PI_ARGS, "-e", SPAWNED_PROXIES.piMcpExtension];
+      const childArgs = [...PI_ARGS, ...piSystemPromptArgs(turn.cwd, { ...process.env, ...input.environment }), "-e", SPAWNED_PROXIES.piMcpExtension];
 
       // spawnCli can throw synchronously, before settle() could remove the credential file.
       const child = (() => {

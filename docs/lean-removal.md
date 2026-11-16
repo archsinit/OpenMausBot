@@ -1,7 +1,8 @@
 # Phone automation, Data and specialized helper removal
 
 This follows the desktop/browser removal. It is permanent product retirement,
-not a hidden feature flag.
+not a hidden feature flag. The later [concise-context phase](concise-context.md)
+rewrites instructions and loads tools on demand without further feature retirement.
 
 ## Removed
 

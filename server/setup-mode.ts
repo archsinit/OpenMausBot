@@ -78,15 +78,12 @@ const CHIEF_CLAUSE =
 
 function buildSetupPrompt(profileAside: string, apps: SetupConnectedApps, cwd?: string, chief?: boolean): string {
   return (
-    "\n\nThe user explicitly asked you to set yourself up. For this setup request, help configure the bot from what the user tells you." +
+    "\n\nExplicit setup request: configure this job, preserving existing person-authored instructions." +
     (chief ? CHIEF_CLAUSE : "") +
-    ` First ask at most four questions that change what you would build: what the job is, when it should happen (on demand, on a schedule, or when something arrives), which apps or accounts it touches, and ${folderClause(cwd)}.` +
-    " Then, before any tool call, tell the user in plain language what you intend: who you will be, what you will do and when, where you will work, what you will need from them, and what you will not do. Ask for missing choices, not an extra yes for already-requested actions: changes to your own profile and routines apply immediately, and the person sees each with an Undo." +
-    " First send one message describing the changes you are about to request, then make the tool calls. Follow each result: if applied, continue without another confirmation; if pending, end the turn and wait for its in-app decision. Do not repeat the list or claim success from the permission mode alone." +
-    ` Use propose_profile for your identity, standing rules ${profileAside}, and the working folder (cwd), trigger for a schedule or webhook the user describes, and request_credential for any missing token.` +
-    connectedAppsClause(apps) +
-    " Full Access does not supply answers, credentials, or broader permissions for another bot. A credential request still needs the user's secure entry. Report failed or cancelled changes honestly." +
-    " Finish by saying exactly what remains for the user to do by hand, such as creating a third-party application or bot token, or deciding a pending review."
+    ` Clarify only missing job, timing, apps/accounts and ${folderClause(cwd)}. Explain scope, changes and exclusions before tools, not an extra yes for already-requested actions.` +
+    ` Use propose_profile for identity, rules ${profileAside} and cwd; trigger for requested schedules/events; request_credential for tokens.` +
+    " Follow results: applied continues with Undo; pending ends the turn for the in-app decision. Never infer success from Full Access or expand another bot's permissions. Report failure/cancellation and remaining manual steps." +
+    connectedAppsClause(apps)
   );
 }
 

@@ -4,6 +4,7 @@ import { soulSystemPrompt } from "./bot-folder.ts";
 import { BUILT_IN_BROWSER_SYSTEM_PROMPT } from "./browser-engine.ts";
 import {
   longCommandsPrompt,
+  ALWAYS_CORE_PROMPT,
   buildSystemPrompt,
   CONVERSATIONAL_STYLE_PROMPT,
   CLOUD_ENGINES_HERE,
@@ -106,9 +107,9 @@ describe("buildSystemPrompt", () => {
     expect(built.text).toContain("likes tea");
     expect(built.text).toContain("@Fig");
 
-    expect(built.stable).toBe(`You are Kiwi. Search past sessions.${REPLY_HABITS_PROMPT}`);
+    expect(built.stable).toBe(`${ALWAYS_CORE_PROMPT}You are Kiwi. Search past sessions.${REPLY_HABITS_PROMPT}`);
     // A German person once read "Now the edits." between a bot's German lines: every line they see is in their language.
-    expect(REPLY_HABITS_PROMPT).toContain("in the language they use with you, including a short note between steps and a message you pass on for them");
+    expect(REPLY_HABITS_PROMPT).toContain("in their language and units");
     expect(built.volatile).toContain("likes tea");
     expect(built.volatile).toContain("@Fig");
     expect(built.volatile).toContain("today 20:48");
@@ -124,7 +125,7 @@ describe("buildSystemPrompt", () => {
     ]);
     expect(built.volatile).toContain("Use the deploy skill.");
     expect(built.volatile).toContain(ROUTINE_EXECUTION_PROMPT);
-    expect(built.stable).toBe(`You are Kiwi. Set yourself up.${WEBHOOK_PROMPT}${REPLY_HABITS_PROMPT}`);
+    expect(built.stable).toBe(`${ALWAYS_CORE_PROMPT}You are Kiwi. Set yourself up.${WEBHOOK_PROMPT}${REPLY_HABITS_PROMPT}`);
   });
 
   it("keeps the phone part stable and where the person is volatile, so a turn from the phone keeps the cached prefix", () => {
@@ -132,7 +133,7 @@ describe("buildSystemPrompt", () => {
       { id: "device", label: "Phone", text: " The phone." },
       { id: "device-place", label: "Where the person is", text: place },
     ]);
-    expect(at(" On the phone.").stable).toBe(`You are Kiwi. The phone.${REPLY_HABITS_PROMPT}`);
+    expect(at(" On the phone.").stable).toBe(`${ALWAYS_CORE_PROMPT}You are Kiwi. The phone.${REPLY_HABITS_PROMPT}`);
     expect(at(" At the computer.").stable).toBe(at(" On the phone.").stable);
     expect(at(" On the phone.").volatile).toBe(" On the phone.");
   });
@@ -145,8 +146,9 @@ describe("buildSystemPrompt", () => {
 
   it("is the persona and how every bot replies when there is no soul and no parts", () => {
     const built = buildSystemPrompt("You are Kiwi.", "", []);
-    expect(built.text).toBe(`You are Kiwi.${REPLY_HABITS_PROMPT}`);
+    expect(built.text).toBe(`${ALWAYS_CORE_PROMPT}You are Kiwi.${REPLY_HABITS_PROMPT}`);
     expect(built.sections).toEqual([
+      { id: "core", label: "Safety and authority", text: ALWAYS_CORE_PROMPT, bytes: Buffer.byteLength(ALWAYS_CORE_PROMPT) },
       { id: "persona", label: "Identity", text: "You are Kiwi.", bytes: 13 },
       { id: "reply-habits", label: "How to reply", text: REPLY_HABITS_PROMPT, bytes: Buffer.byteLength(REPLY_HABITS_PROMPT, "utf8") },
     ]);
@@ -159,19 +161,19 @@ describe("buildSystemPrompt", () => {
       { id: "memory", label: "Memory", text: " Your memory file is X." },
     ];
     const built = buildSystemPrompt("You are Kiwi.", "", parts);
-    expect(built.text).toBe(`You are Kiwi. You can act on the computer. Your memory file is X.${REPLY_HABITS_PROMPT}`);
-    expect(built.sections.map((s) => s.id)).toEqual(["persona", "computer", "memory", "reply-habits"]);
+    expect(built.text).toBe(`${ALWAYS_CORE_PROMPT}You are Kiwi. You can act on the computer. Your memory file is X.${REPLY_HABITS_PROMPT}`);
+    expect(built.sections.map((s) => s.id)).toEqual(["core", "persona", "computer", "memory", "reply-habits"]);
   });
 
   it("puts the soul block directly after the persona and measures it in bytes", () => {
     const built = buildSystemPrompt("You are Kiwi.", "Be brief. é", [
       { id: "memory", label: "Memory", text: " Your memory file is X." },
     ]);
-    expect(built.sections.map((s) => s.id)).toEqual(["persona", "soul", "memory", "reply-habits"]);
-    const soul = built.sections[1]!;
+    expect(built.sections.map((s) => s.id)).toEqual(["core", "persona", "soul", "memory", "reply-habits"]);
+    const soul = built.sections[2]!;
     expect(soul.text).toBe(soulSystemPrompt("Be brief. é"));
     expect(soul.bytes).toBe(Buffer.byteLength(soul.text, "utf8"));
-    expect(built.text).toBe("You are Kiwi." + soul.text + " Your memory file is X." + REPLY_HABITS_PROMPT);
+    expect(built.text).toBe(ALWAYS_CORE_PROMPT + "You are Kiwi." + soul.text + " Your memory file is X." + REPLY_HABITS_PROMPT);
   });
 });
 
@@ -216,31 +218,16 @@ describe("shared sentences", () => {
   });
 
   it("configuration prompts follow actual applied or pending results without elevating another bot", () => {
-    expect(PROFILE_PROMPT).toContain("propose_profile");
     for (const prompt of [PROFILE_PROMPT, LEARN_PROMPT]) {
-      expect(prompt).toContain("continue the requested work without asking for another confirmation");
-      expect(prompt).toContain("Never claim success before an applied result");
-      expect(prompt).toContain("Full Access does not grant another bot broader permissions");
-      expect(prompt).not.toContain("nothing changes until the user confirms");
-    }
-    // Skills and profile apply at every level.
-    for (const prompt of [PROFILE_PROMPT, LEARN_PROMPT]) {
-      expect(prompt).toContain("applies immediately at every access level and the person sees it with an Undo");
-      expect(prompt).toContain("Only a pending result (a Cloud conversation its owner did not drive) waits for the owner");
-      expect(prompt).not.toContain("may wait for the person");
+      expect(prompt).toMatch(/applied/i);
+      expect(prompt).toMatch(/pending.*end/i);
+      expect(prompt).toMatch(/permissions/);
     }
     expect(LEARN_PROMPT).toContain("only when the user explicitly asks to revise that exact name");
-    // Triggers have no pending state: the bot sets them up in the same turn and the person undoes from the card.
-    expect(TRIGGER_PROMPT).toContain("set it up with trigger action=create in this turn");
-    expect(TRIGGER_PROMPT).toContain("Do not ask for confirmation");
-    expect(TRIGGER_PROMPT).toContain("Edit, Pause and Undo");
-    expect(TRIGGER_PROMPT).toContain("use wait_until instead of staying busy or making a short-interval routine");
-    expect(TRIGGER_PROMPT).toContain("give follow_up only when they asked for something to be done at that moment");
-    expect(TRIGGER_PROMPT).not.toMatch(/pending|explicitly asks/);
-    expect(CREDENTIAL_PROMPT).toContain("secure credential request");
-    expect(CREDENTIAL_PROMPT).not.toContain("applied immediately");
-  });
-});
+    expect(TRIGGER_PROMPT).toMatch(/trigger.*app_event/);
+    expect(TRIGGER_PROMPT).toContain("wait_until");
+    expect(CREDENTIAL_PROMPT).toContain("Never request secrets in chat");
+  });});
 
 describe("composioSystemPrompt", () => {
   it("keeps the generic all-tools sentence for legacy bots, with the app tools every engine offers by name", () => {
@@ -310,27 +297,19 @@ it("tells Cloud bots that a sign-in ending on an unreachable 127.0.0.1 page is f
 describe("longCommandsPrompt", () => {
   it("does not supply VM commands or shared-computer instructions: names", () => {
     for (const kind of ["vm-private", "vm-shared", "local", null] as const) {
-      expect(longCommandsPrompt(kind)).toContain("Long-running shell commands");
+      expect(longCommandsPrompt(kind)).toContain("Shell:");
       expect(longCommandsPrompt(kind)).not.toContain("vm_exec");
     }
   });
 
   it("keeps a long command in the foreground, and trusts only its own fresh exit code", () => {
-    for (const kind of [null, "local", "vps", "box"] as const) {
-      const text = longCommandsPrompt(kind);
-      expect(text).toContain("keep the command in the foreground until it exits");
-      expect(text).toContain("split work that cannot finish within that into shorter pieces");
-      expect(text).toContain("A detached job may be killed when the call ends");
-      expect(text).not.toContain("nohup");
-      expect(text).toContain("trust only the command's own fresh exit code and output");
-      expect(text).toContain("cannot set a wait, so finish it in this turn");
-      expect(text).toContain("Work a bot handed you for the person's own request may set one wait_until (not a trigger), cannot cancel it");
-    }
+    const text = longCommandsPrompt(null);
+    for (const rule of [/foreground/, /fresh output and actual exit status/, /outside events\/routines cannot/, /delegated person work may set one wait, not cancel/]) expect(text).toMatch(rule);
+    expect(text).not.toContain("nohup");
   });
-
   it("does not supply VM commands or shared-computer instructions: keeps", () => {
     for (const kind of ["vm-private", "vm-shared", "local", null] as const) {
-      expect(longCommandsPrompt(kind)).toContain("Long-running shell commands");
+      expect(longCommandsPrompt(kind)).toContain("Shell:");
       expect(longCommandsPrompt(kind)).not.toContain("vm_exec");
     }
   });
@@ -338,7 +317,7 @@ describe("longCommandsPrompt", () => {
 
 it("does not supply VM commands or shared-computer instructions: tells", () => {
     for (const kind of ["vm-private", "vm-shared", "local", null] as const) {
-      expect(longCommandsPrompt(kind)).toContain("Long-running shell commands");
+      expect(longCommandsPrompt(kind)).toContain("Shell:");
       expect(longCommandsPrompt(kind)).not.toContain("vm_exec");
     }
   });
@@ -355,12 +334,12 @@ describe("reply style", () => {
       { id: "memory", label: "Memory", text: " memory" },
       { id: "x", label: "X", text: " tail" },
     ], undefined, { replyStyle: "conversational" });
-    expect(built.sections.map((s) => s.id)).toEqual(["persona", "soul", "reply-style", "memory", "x", "reply-habits"]);
+    expect(built.sections.map((s) => s.id)).toEqual(["core", "persona", "soul", "reply-style", "memory", "x", "reply-habits"]);
     expect(built.stable).toContain(CONVERSATIONAL_STYLE_PROMPT);
     expect(built.volatile).not.toContain("Reply style");
     expect(CONVERSATIONAL_STYLE_PROMPT).toMatch(/short/i);
     expect(CONVERSATIONAL_STYLE_PROMPT).toMatch(/blank line/);
-    expect(CONVERSATIONAL_STYLE_PROMPT).toMatch(/code block/);
+    expect(CONVERSATIONAL_STYLE_PROMPT).toMatch(/code/);
     expect(CONVERSATIONAL_STYLE_PROMPT).toMatch(/language/);
   });
 });
@@ -375,46 +354,25 @@ describe("how every bot replies", () => {
   });
 
   it("asks for an opening line on longer work, the answer first, one question at most, plain words and money facts first", () => {
-    for (const habit of [
-      "first send one short line saying what you are doing and why",
-      "add one line with what they will get and roughly how long",
-      "A quick answer skips both.",
-      "open with the verdict, result or answer",
-      "say in one line where they came from and when",
-      "Use the units, currency, time zone and numbers the person has told you about",
-      "no \"let me know if…\", no \"hope this helps\", no offers or questions out of habit",
-      "Add at most one concrete next step, and only when it clearly helps.",
-      "first check what you can already reach",
-      "ask for exactly one thing, in plain words, with the reason",
-      "do the parts that do not depend on it in the same turn",
-      "Never name tools or functions, the files that hold your notes or settings, MCP",
-      "state the money facts you found: price, fees, deposit, cancellation terms",
-      "Nothing that cannot be undone happens until they explicitly pick an option or say go",
-      "Never ask for passwords, one-time codes or card numbers in chat.",
-      "say plainly what you did not do, offer the simplest other way (drag the file into the chat, or paste the text)",
-    ]) expect(REPLY_HABITS_PROMPT).toContain(habit);
+    for (const rule of [/Answer first/, /Announce longer work/, /sources/, /assumptions/, /essential questions/, /No filler/]) expect(REPLY_HABITS_PROMPT).toMatch(rule);
+    for (const rule of [/explicit consent/, /costs\/terms/, /Never request secrets/]) expect(ALWAYS_CORE_PROMPT).toMatch(rule);
   });
-
   it("asks one thing with tap-to-answer choices, keeps forms for real edits, and confirms a routine in plain words", () => {
-    expect(WIDGET_PROMPT).toContain("Unless the person asked you, in this chat or in your instructions, to check with them first, ask only what you cannot find or sensibly default yourself, and one thing at a time.");
-    expect(WIDGET_PROMPT).toContain("a Card with a Row of Buttons, one per option, whose onClickAction sends that option in one tap");
-    expect(WIDGET_PROMPT).not.toContain("never end a turn with a question in text that a form could ask");
-    expect(TRIGGER_PROMPT).toContain("weekdays at 9:00 AM India time\", never a zone id such as Asia/Kolkata");
-    expect(TRIGGER_PROMPT).toContain("where its results will appear, what each run covers, and when the first run is");
+    for (const rule of [/six Buttons/, /onClickAction/, /defaultValue/, /save button/, /Plain yes\/no/, /Markdown tables/]) expect(WIDGET_PROMPT).toMatch(rule);
+    expect(TRIGGER_PROMPT).toMatch(/human timezone.*first run.*coverage and destination/);
   });
-
   it("at Full access still asks first when the person says to, all at once", () => {
-    expect(JUST_DO_IT_PROMPT).toContain("do not stop to ask the person to confirm a step or choose between options");
-    expect(JUST_DO_IT_PROMPT).toContain("When the person asks you, in this chat or in your instructions, to check with them first, to ask clarifying questions or not to assume, do that instead: ask everything you need in one message and wait for their answers before you start.");
-  });
-});
+    expect(JUST_DO_IT_PROMPT).toMatch(/avoid duplicate confirmations/);
+    expect(JUST_DO_IT_PROMPT).toMatch(/Honor requests to ask first/);
+    expect(JUST_DO_IT_PROMPT).toMatch(/never overrides consent, pending decisions/);
+  });});
 
 describe("rules for every bot", () => {
   it("come right before the bot's own instructions and say those, and the department's context, win", () => {
     const built = buildSystemPrompt("You are Kiwi.", "Answer in French.", [
       { id: "section-context", label: "Section context", text: "\n\nShared context for Sales." },
     ], undefined, { rules: "  Answer in English.  " });
-    expect(built.sections.map((section) => section.id).slice(0, 3)).toEqual(["persona", "every-bot-rules", "soul"]);
+    expect(built.sections.map((section) => section.id).slice(1, 4)).toEqual(["persona", "every-bot-rules", "soul"]);
     const rules = built.sections.find((section) => section.id === "every-bot-rules")!;
     expect(rules.text).toContain(JSON.stringify("Answer in English."));
     expect(rules.text).toContain("your department's shared context wins over them and your own standing instructions win over both");

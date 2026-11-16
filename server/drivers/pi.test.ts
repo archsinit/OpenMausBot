@@ -984,9 +984,9 @@ describe("PiDriver turns (fake CLI)", () => {
     expect(recorder.events.some((e) => e.type === "request.resolved")).toBe(true);
   });
 
-  it("per-bot Ask restores host approval on a legacy full-auto instance", async () => {
+  it("keeps Ask on a legacy full-auto instance without advertising desktop automation", async () => {
     await create("permission", {}, true);
-    expect(instance.adapter.capabilities.localComputerMcp).toBe(true);
+    expect(instance.adapter.capabilities.localComputerMcp).toBe(false);
     const localComputer = {
       command: "/cua-driver",
       args: ["mcp"],

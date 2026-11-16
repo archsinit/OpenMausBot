@@ -79,15 +79,15 @@ describe("setupSystemPrompt", () => {
     for (const tool of ["propose_profile", "trigger", "skill_manage", "request_credential"]) {
       expect(prompt).toContain(tool);
     }
-    expect(prompt).toContain("at most four questions");
-    expect(prompt).toContain("Ask for missing choices, not an extra yes");
+    expect(prompt).toContain("Clarify only missing job, timing, apps/accounts");
+    expect(prompt).toContain("not an extra yes for already-requested actions");
   });
 
   it("never mentions skill_manage when active with skills off (or unspecified)", () => {
     for (const prompt of [setupSystemPrompt(true, { connectedApps: AVAILABLE }), setupSystemPrompt(true, { skills: false, connectedApps: AVAILABLE })]) {
       expect(prompt).not.toContain("skill_manage");
       expect(prompt).toContain("propose_profile");
-      expect(prompt).toContain("trigger for a schedule or webhook");
+      expect(prompt).toContain("trigger for requested schedules/events");
       expect(prompt).toContain("request_credential");
       expect(prompt).toContain("describe procedures plainly in your standing instructions");
     }
@@ -98,8 +98,8 @@ describe("setupSystemPrompt working-folder clause and result ordering", () => {
   it("names the current folder and tells the bot to offer to keep it", () => {
     const text = setupSystemPrompt(true, { skills: true, cwd: "/Users/me/Projects/site", connectedApps: AVAILABLE });
     expect(text).toContain("today that is /Users/me/Projects/site; offer to keep it");
-    expect(text).toContain("propose_profile for your identity, standing rules");
-    expect(text).toContain("and the working folder (cwd)");
+    expect(text).toContain("propose_profile for identity, rules");
+    expect(text).toContain("and cwd");
   });
 
   it("says there is no folder yet when the bot works in its private workspace", () => {
@@ -110,12 +110,12 @@ describe("setupSystemPrompt working-folder clause and result ordering", () => {
 
   it("explains the requested changes before tools and follows applied versus pending outcomes", () => {
     const text = setupSystemPrompt(true, { connectedApps: AVAILABLE });
-    expect(text).toContain("First send one message describing the changes you are about to request, then make the tool calls");
-    expect(text).toContain("if applied, continue without another confirmation");
-    expect(text).toContain("if pending, end the turn and wait");
-    expect(text).toContain("Do not repeat the list or claim success from the permission mode alone");
-    expect(text).toContain("A credential request still needs the user's secure entry");
-    expect(text).toContain("Full Access does not supply answers, credentials, or broader permissions for another bot");
+    expect(text).toContain("Explain scope, changes and exclusions before tools");
+    expect(text).toContain("applied continues with Undo");
+    expect(text).toContain("pending ends the turn");
+    expect(text).toContain("Never infer success from Full Access");
+    expect(text).toContain("request_credential for tokens");
+    expect(text).toContain("expand another bot's permissions");
     expect(text).not.toContain("each of which the user must confirm");
     expect(text).not.toContain("propose it paused");
   });
@@ -208,7 +208,7 @@ describe("setupSystemPrompt connected apps", () => {
       expect(text, name).not.toContain("point them to the Access section");
       expect(text, name).not.toContain("(OAuth)");
       expect(text, name).toContain(
-        "Finish by saying exactly what remains for the user to do by hand, such as creating a third-party application or bot token, or deciding a pending review.",
+        "Report failure/cancellation and remaining manual steps.",
       );
     }
   });

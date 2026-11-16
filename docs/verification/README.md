@@ -346,6 +346,12 @@ sent mentions, multiline scrolling and responsive wrapping in real chat views.
 The [Group and Goal Local VM recipe](group-local-vm.md) checks per-speaker
 desktop routing, cancellation, and computer authority cleanup.
 
+## Concise context and on-demand tools
+
+For context changes, test direct and room dispatch with isolated fake-engine fixtures. Assert that authored rules, soul, profile, memory and room bulletins survive; guides are readable outside cwd; missing/partial catalogs, guest confinement and scopes without a reader fall back inline. Relative file paths must resolve identically for default and custom cwd, and tenant-specific memory roots must not be silently aliased.
+
+Exercise lazy discovery against actual offline Pi as well as mocks: discovery must only activate permitted original tools, preserve approvals/validation, and not execute actions. Inspect the complete provider-built JSON, including nested `input[].tools`, after every application hook. Load an exiting capture observer **last**; an earlier observer misses returned payload transformations. Use synthetic credentials, block provider transport, repeat captures, and keep raw payloads/private workspaces out of Git. App-only prompt previews are not full-request measurements. See [the rewrite evidence](../concise-context.md).
+
 ## Evidence
 
 The [Gemini speech fixture](gemini-speech.md) checks write-only credentials,

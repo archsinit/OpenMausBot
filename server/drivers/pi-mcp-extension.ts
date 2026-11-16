@@ -6,9 +6,10 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { allowsTool, canUseMcpServer, parseToolScope, type ToolIdentity } from "../../shared/tool-scope.ts";
 import { ASK_USER_TOOL, formatQuestionAnswers, MAX_OPTIONS, MAX_QUESTIONS, parseAskQuestions } from "../../shared/ask-question.ts";
-import { CALL_TOOL, directoryCallTarget, isDirectoryTool } from "../mcp-directory.ts";
+import { CALL_TOOL, directoryCallTarget, isDirectoryTool, terms } from "../mcp-directory.ts";
 import { REMOTE_MCP_STARTUP_MS } from "../mcp-http.ts";
 import { AGENTS_TOOL_TIMEOUT_SECONDS } from "./agents-tool-limit.ts";
+import { compactNativeToolProse } from "./pi-native-prose.ts";
 
 interface McpServerDef {
   command: string;
@@ -63,6 +64,7 @@ interface PiToolDefinition {
   parameters: TSchema;
   /** Pi 1.0+: declared to the model and never callable from other tools, as Pi documents for tools that ask the user. */
   exposure?: "model-only";
+  defaultActive?: boolean;
   execute(
     toolCallId: string,
     params: unknown,
@@ -72,10 +74,11 @@ interface PiToolDefinition {
   ): Promise<{ content: PiToolContent[]; details: Record<string, never> }>;
 }
 
-/** The slice of Pi 0.84's ExtensionAPI this standalone file uses; the user's installed Pi supplies it. */
+/** The standalone extension uses the user's installed Pi API; optional methods support older versions. */
 interface PiExtensionApi {
   registerTool(definition: PiToolDefinition): void;
   on(event: string, handler: (event?: Record<string, unknown>, context?: { abort?(): void }) => unknown): void;
+  getAllTools?(): Array<{ name: string }>;
   getActiveTools?(): string[];
   setActiveTools?(names: string[]): void;
 }
@@ -527,7 +530,7 @@ function askUserTool(allowed: () => boolean): PiToolDefinition {
     name: ASK_USER_TOOL,
     label: "Ask the person",
     description:
-      "Ask the person questions when the decision is theirs. Offer concrete options where they exist; they can always answer in their own words. Ask up to six questions in one call rather than one at a time. Each question takes one answer.",
+      "Ask up to six single-answer questions when the decision is the person's. Offer concrete options; free-text answers are always allowed.",
     parameters: Type.Object({
       questions: Type.Array(Type.Object({
         question: Type.String({ description: "The question to show the person." }),
@@ -587,6 +590,9 @@ export default async function (pi: PiExtensionApi): Promise<void> {
   const scope = parsed.scope;
   if (scope !== undefined && (typeof pi.getActiveTools !== "function" || typeof pi.setActiveTools !== "function")) throw new Error("Pi tool selection enforcement APIs are unavailable");
 
+  const lazy = typeof pi.getAllTools === "function" && typeof pi.getActiveTools === "function" && typeof pi.setActiveTools === "function";
+  let loaderName = "search_tools";
+  const catalog: Array<{ name: string; description: string; server: string }> = [];
   const used = new Set<string>();
   const identities = new Map<string, ToolIdentity>();
   const directoryTools = new Map<string, string>();
@@ -594,10 +600,13 @@ export default async function (pi: PiExtensionApi): Promise<void> {
   const clients: StdioMcp[] = [];
   const serverEntries = Object.entries(config.mcpServers ?? {}).filter(([name]) => scope === undefined || canUseMcpServer(scope, name));
 
-  if (scope !== undefined) {
-    const allowed = (name: string) => directoryTools.has(name)
+  const allowed = (name: string) => !enforcementFailed && (scope === undefined
+    || (name === loaderName && lazy && catalog.length > 0)
+    || (directoryTools.has(name)
       ? canUseMcpServer(scope, directoryTools.get(name)!)
-      : allowsTool(scope, identities.get(name) ?? { kind: "native", name });
+      : allowsTool(scope, identities.get(name) ?? { kind: "native", name })));
+
+  if (scope !== undefined) {
     const intersect = () => {
       if (enforcementFailed) throw new Error("Pi tool selection enforcement is unavailable");
       try {
@@ -629,8 +638,7 @@ export default async function (pi: PiExtensionApi): Promise<void> {
       const declared = (name: string) => selected.has(name) && allowed(name);
       const payload = event?.payload;
       if (!payload || typeof payload !== "object") return payload;
-      const body = payload as { tools?: unknown[] };
-      if (Array.isArray(body.tools)) body.tools = body.tools.flatMap((value) => {
+      const filterTools = (values: unknown[]) => values.flatMap((value) => {
         if (!value || typeof value !== "object") return [];
         const tool = value as { name?: string; function?: { name?: string }; functionDeclarations?: Array<{ name?: string }> };
         if (Array.isArray(tool.functionDeclarations)) {
@@ -640,14 +648,27 @@ export default async function (pi: PiExtensionApi): Promise<void> {
         const name = tool.function?.name ?? tool.name;
         return typeof name === "string" && declared(name) ? [tool] : [];
       });
-      return payload;
+      const filterDeclarations = (value: unknown): void => {
+        if (!value || typeof value !== "object") return;
+        const body = value as { tools?: unknown[]; input?: unknown[] };
+        if (Array.isArray(body.tools)) body.tools = filterTools(body.tools);
+        // Codex serializes system-message tool deltas inside input[].tools as well.
+        if (Array.isArray(body.input)) for (const item of body.input) filterDeclarations(item);
+      };
+      filterDeclarations(payload);
+      return compactNativeToolProse(payload);
     });
   }
+
+  if (scope === undefined) pi.on("before_provider_request", (event) => compactNativeToolProse(event?.payload));
 
   if (config.askUser === true) {
     const identity: ToolIdentity = { kind: "native", name: ASK_USER_TOOL };
     if (scope === undefined || allowsTool(scope, identity)) {
-      pi.registerTool(askUserTool(() => scope === undefined || (!enforcementFailed && allowsTool(scope, identity))));
+      const tool = askUserTool(() => scope === undefined || (!enforcementFailed && allowsTool(scope, identity)));
+      pi.registerTool({ ...tool, ...(lazy ? { defaultActive: false } : {}) });
+      identities.set(ASK_USER_TOOL, identity);
+      catalog.push({ name: ASK_USER_TOOL, server: "native", description: tool.description });
       // MCP tools are named server_tool; keep one from taking this name.
       used.add(ASK_USER_TOOL);
     }
@@ -691,6 +712,7 @@ export default async function (pi: PiExtensionApi): Promise<void> {
         pi.registerTool({
           name,
           label: `${serverName}:${toolName}`,
+          ...(lazy ? { defaultActive: false } : {}),
           description: typeof tool.description === "string" ? tool.description : `${toolName} (MCP tool from ${serverName})`,
           parameters,
           async execute(_toolCallId, params, signal, _onUpdate, ctx) {
@@ -727,6 +749,7 @@ export default async function (pi: PiExtensionApi): Promise<void> {
         used.add(name);
         identities.set(name, identity);
         if (directoryTool) directoryTools.set(name, serverName);
+        catalog.push({ name, server: serverName, description: typeof tool.description === "string" ? tool.description : toolName });
         registered += 1;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -736,6 +759,39 @@ export default async function (pi: PiExtensionApi): Promise<void> {
 
     if (registered > 0) clients.push(client);
     else client.dispose();
+  }
+
+  if (lazy && catalog.length > 0) {
+    if (used.has(loaderName)) loaderName = allocateToolName("omb", "search_tools", used);
+    pi.registerTool({
+      name: loaderName,
+      label: "Search tools",
+      description: "Find and load up to 3 permitted tools by capability or server (questions, email, apps, widgets, HTML, publishing). Returns exact names for the next tool call; never runs them.",
+      parameters: Type.Object({ query: Type.String({ minLength: 1, maxLength: 1000 }) }),
+      async execute(_id, params) {
+        if (enforcementFailed) throw new Error("Tool selection enforcement is unavailable");
+        const query = (params as { query?: unknown })?.query;
+        if (typeof query !== "string" || !query.trim()) throw new Error("Provide a capability or server name");
+        const words = terms(query.slice(0, 1000));
+        const known = new Set(pi.getAllTools!().map((tool) => tool.name));
+        const matches = catalog.filter((tool) => known.has(tool.name) && allowed(tool.name))
+          .map((tool) => {
+            const name = terms(`${tool.name} ${tool.server}`);
+            const description = terms(tool.description);
+            return { tool, score: words.reduce((score, word) => score + (name.includes(word) ? 4 : description.includes(word) ? 1 : 0), 0) };
+          })
+          .filter((match) => match.score > 0)
+          .sort((a, b) => b.score - a.score || a.tool.name.localeCompare(b.tool.name))
+          .slice(0, 3).map(({ tool }) => tool);
+        // Only this extension's catalog may add tools; never restore other inactive native or third-party tools.
+        const active = pi.getActiveTools!();
+        pi.setActiveTools!([...new Set([...active.filter(allowed), ...matches.map((tool) => tool.name)])]);
+        const selected = new Set(pi.getActiveTools!());
+        if (matches.some((tool) => !selected.has(tool.name))) throw new Error("Pi could not activate the matching tools");
+        const text = matches.map((tool) => `${tool.name}: ${tool.description.replace(/\s+/g, " ").trim().slice(0, 160)}`).join("\n");
+        return { content: [{ type: "text", text: text || "No permitted tools match. Try a capability or server name." }], details: {} };
+      },
+    });
   }
 
   pi.on("session_shutdown", () => {
