@@ -20,18 +20,24 @@ Indexed mode requires a known native file reader (Pi, Claude or Codex), a permit
 
 Matched empty-history `Hi` captures use the same Pi 1.5.2 model, frozen fixture state and provider serializer, with synthetic credentials and no provider transport. Counts are Unicode characters in complete provider JSON, excluding only the two human characters—not token estimates or app-preview sizes.
 
-| Component | Previous indexed build | New candidate |
+| Component | Previous indexed build | New installed build |
 | --- | ---: | ---: |
 | Native instructions | 2,431 | 371 |
 | Tool declarations | 71,375 | 2,008 |
-| App prefix | 20,626 | 10,470 |
+| App prefix | 20,626 | 10,467 |
 | JSON framing/escaping/controls | 551 | 482 |
-| **Complete initial overhead** | **94,983** | **13,331** |
+| **Complete initial overhead** | **94,983** | **13,328** |
 | Initially declared tools | 64 | 5 |
 
-**85.96% smaller**, without removing features. The actual populated prior live request had 98 initial tools and 25,753 reported input tokens; that is a different environment, not the denominator in this matched comparison. No populated-user after token count is claimed. Authored context, history and tools actually loaded during work can increase future requests.
+**85.97% smaller**, without removing features. The actual populated prior live request had 98 initial tools and 25,753 reported input tokens; that is a different environment, not the denominator in this matched comparison. No populated-user after token count is claimed. Authored context, history and tools actually loaded during work can increase future requests.
 
-The final candidate was captured twice after all payload hooks, equal except cache key. Deployment results will be recorded after installing this committed implementation. The old approximately 5.8k-character reduced-feature build is not this branch.
+The installed build was captured twice after all payload hooks, equal except cache key. Its staged candidate measured 13,331; the installed guide path is three characters shorter. The old approximately 5.8k-character reduced-feature build is not this branch.
+
+## Current context-layer deployment
+
+Committed and pushed context implementation `22ecfe63a`, followed by the verified app-owned native-base asset in `17aaef77c9d3de9aafb9788237d8da9591144ee4`, before deployment. Installed as upstream version `0.1.165`; `FORK-BUILD.json` records the branch, implementation and package SHA-256 `a737fb0f4d78e01865ed2b7a280ca91f3701a4c10b3dea6a38b77c51c808c5a2`.
+
+Latest private package/workspace backup: `~/.local/state/openmausbot-fork-backups/20261116T194424Z/`; the pre-reduction full indexed installation is also backed up at `20261116T193523Z/`. Service and HTTPS health passed. All twenty-nine guide assets are readable. Existing message rows stayed **114 → 114** with prior conversation fields and model selections verified unchanged. No live test message or provider call was used to verify the update.
 
 ## Initial deployment
 
