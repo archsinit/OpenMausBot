@@ -180,6 +180,8 @@ export function verificationServerEnvironment(parentEnv: NodeJS.ProcessEnv, data
   for (const key of ["OMB_TAILNET_NAME", "OMB_TAILNET_ADDRESSES", "OMB_TEST_TAILNET_STAND_IN"]) if (parentEnv[key]) childEnv[key] = parentEnv[key];
   // Warm summaries' minutes as seconds (server/warm-summary.ts), and the switch that turns them off.
   for (const key of ["OMB_WARM_SUMMARY_TIME_SCALE", "OMB_WARM_SUMMARY"]) if (parentEnv[key]) childEnv[key] = parentEnv[key];
+  // Claude Code's tool search (server/drivers/claude-tool-search.ts): a test turns it off to see a bridged Claude turn.
+  if (parentEnv.ENABLE_TOOL_SEARCH) childEnv.ENABLE_TOOL_SEARCH = parentEnv.ENABLE_TOOL_SEARCH;
   // A loopback fake only: the key never reaches a real provider.
   const liveUrl = parentEnv.OMB_OPENAI_LIVE_URL?.trim() ?? "";
   if (/^http:\/\/127\.0\.0\.1:\d{1,5}$/.test(liveUrl)) {

@@ -12,7 +12,8 @@ import { bridgedCallName } from "./agents-bridge-names.ts";
 import { TOOL_BRIDGE_ENV } from "./drivers/agents-bridge.ts";
 import { decodeInjectId } from "./drivers/local-inject.ts";
 import { onThisNetwork } from "./drivers/openai-compat.ts";
-import { claudeCliSupports, parseClaudeCliVersion } from "./drivers/claude.ts";
+import { claudeCliSupports, parseClaudeCliVersion, resolveClaudeConfigDir } from "./drivers/claude.ts";
+import { claudeToolSearchOn, claudeToolSearchSetting } from "./drivers/claude-tool-search.ts";
 import { AGENTS_NODE_FLAG, SPAWNED_PROXIES } from "./proxy-paths.ts";
 
 export { TOOL_BRIDGE_ENV };
@@ -271,6 +272,17 @@ export function engineBridgeRefusal(
   return "this engine keeps its own tool permissions";
 }
 
+/** Whether a Claude turn on `engine` runs with tool search, so the agents server sends only a few tools whole and the rest as
+ * names (claudeAgentsMount): fewer bytes than the bridge's own two tools and its prompt sentence, and every tool keeps its
+ * own name. Read as the driver reads it, from the launch folder's settings, the person's own and the environment. */
+function claudeDefersAgentsTools(engine: BridgeEngine | null | undefined, env: NodeJS.ProcessEnv, host: EngineHost = { home: homedir(), managedPolicyFiles: [] }): boolean {
+  if (engine?.driverKind !== "claudeAgent") return false;
+  const configDir = (engine.config as { configDir?: unknown } | undefined)?.configDir;
+  const turnEnv: NodeJS.ProcessEnv = { ...env, ...engine.environment, HOME: host.home };
+  if (typeof configDir === "string" && configDir.trim()) turnEnv.CLAUDE_CONFIG_DIR = resolveClaudeConfigDir(configDir, turnEnv);
+  return claudeToolSearchOn(claudeToolSearchSetting(engine.cwd ?? host.home, turnEnv));
+}
+
 /** Why a turn of `bot` on `engine` is not bridged, or null: the one decision. Security: anything thrown
  * means no bridge, and the log names only the error's class and code, never its message (it may hold a
  * path or file content). */
@@ -282,7 +294,9 @@ export function agentsToolBridgeRefusal(
   host?: EngineHost,
 ): string | null {
   try {
-    if (!agentsToolBridgeEnabled(cfg, env) && (env[TOOL_BRIDGE_ENV] === "0" || !runsLocalModel(bot, engine))) return "the switch is off";
+    const localModel = runsLocalModel(bot, engine);
+    if (!agentsToolBridgeEnabled(cfg, env) && (env[TOOL_BRIDGE_ENV] === "0" || !localModel)) return "the switch is off";
+    if (!localModel && claudeDefersAgentsTools(engine, env, host)) return "Claude Code defers the agents tools on this turn";
     // Security: selection gates match the name in the call, so any selection, even one that permits
     // everything or cannot be read, means no bridge.
     const selection = bot ? parseToolScope(bot.toolScope) : undefined;

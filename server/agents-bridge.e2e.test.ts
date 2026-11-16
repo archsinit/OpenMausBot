@@ -39,8 +39,9 @@ async function withFixture(run: (helpers: {
   /** What the fake engine was launched with for the turn just sent. */
   launched(): Promise<Launched>;
   // hang: the engine keeps its turn open until it is interrupted
-}) => Promise<void>, engine: Record<string, string> = { FAKE_CLAUDE_MODE: "hang" }) {
-  const fixture = await launchVerificationServer({ ...process.env, ...engine });
+}) => Promise<void>, engine: Record<string, string> = { FAKE_CLAUDE_MODE: "hang" }, toolSearch = "false") {
+  // Claude Code's tool search defers the agents tools instead of bridging them, so a bridged Claude turn has it off.
+  const fixture = await launchVerificationServer({ ...process.env, ENABLE_TOOL_SEARCH: toolSearch, ...engine });
   try {
     await run({
       api: async (method, path, body) => {
@@ -104,6 +105,28 @@ const refusalOf = (answer: Answer): string => {
   return textOf(answer);
 };
 
+it("defers the agents tools instead of bridging them while Claude Code's tool search is on, whatever the switch says", async () => {
+  await withFixture(async ({ api, control, launched }) => {
+    const { bot } = await control(["new-bot", "--name", "Deferred fixture"]);
+    for (const [switched, text] of [[false, "Stay active."], [true, "Stay active again."]] as const) {
+      if (switched) expect((await api("PATCH", "/api/config", { features: { agentsToolBridge: true } })).status).toBe(200);
+      await control(["send", "--bot", bot.id, "--text", text]);
+      const turn = await launched();
+      const agents = turn.mcpConfig.mcpServers.agents!;
+      expect(agents.env.OMB_AGENTS_TOOL_BRIDGE, `switch ${switched}`).toBe("0");
+      expect(agents.env[DEFER_TOOLS_ENV], `switch ${switched}`).toBe("1");
+      expect(turn.systemPrompt).not.toContain(AGENTS_TOOL_BRIDGE_PROMPT);
+      await withServer(agents, async (ask) => {
+        const listed = (await ask("tools/list")).result!.tools! as Array<BridgeTool & { _meta?: Record<string, unknown> }>;
+        expect(listed.some((tool) => tool._meta?.[ALWAYS_LOAD_META] === false)).toBe(true);
+        expect(listed.map((tool) => tool.name)).not.toContain("find_tool");
+      });
+      await control(["interrupt", "--bot", bot.id]);
+      await control(["wait", "--bot", bot.id, "--timeout", "30"]);
+    }
+  }, { FAKE_CLAUDE_MODE: "hang" }, "");
+}, hostTimeout(60_000));
+
 it("keeps a turn on the whole catalog until the switch is on, then mounts the bridge and says so, in a chat and in a room", async () => {
   await withFixture(async ({ api, control, launched }) => {
     const { bot } = await control(["new-bot", "--name", "Bridge fixture"]);
@@ -114,13 +137,13 @@ it("keeps a turn on the whole catalog until the switch is on, then mounts the br
     const before = await launched();
     const unbridged = before.mcpConfig.mcpServers.agents!;
     expect(unbridged.env.OMB_AGENTS_TOOL_BRIDGE).toBe("0");
-    // A Claude turn marks all but a few tools deferred (agents-claude-defer.ts); the bridge, once on, lists none so marked.
-    expect(unbridged.env[DEFER_TOOLS_ENV]).toBe("1");
+    // With tool search off nothing is marked deferred (agents-claude-defer.ts).
+    expect(unbridged.env[DEFER_TOOLS_ENV]).toBeUndefined();
     expect(before.systemPrompt).not.toContain("find_tool");
     let whole: BridgeTool[] = [];
     await withServer(unbridged, async (ask) => {
       const listed = (await ask("tools/list")).result!.tools! as Array<BridgeTool & { _meta?: Record<string, unknown> }>;
-      expect(listed.some((tool) => tool._meta?.[ALWAYS_LOAD_META] === false)).toBe(true);
+      expect(listed.some((tool) => tool._meta?.[ALWAYS_LOAD_META] === false)).toBe(false);
       whole = listed.map(({ _meta: _marks, ...tool }) => tool);
       expect(whole.map((tool) => tool.name)).toEqual(expect.arrayContaining(["coordinate_bots", "trigger", "trigger_info", "session_search"]));
       expect(whole.map((tool) => tool.name)).not.toEqual(expect.arrayContaining(["find_tool"]));
