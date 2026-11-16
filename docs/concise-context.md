@@ -45,6 +45,8 @@ Captures use synthetic credentials and loopback-only networking, and stop before
 
 ## Deployment
 
-Committed and pushed implementation `f98f8902b984f5ec0486080fbd1d5bcb76c444aa` before deployment. Installed `0.1.161-archsinit.3` on `maus-desktop`; service active and health/version checks passed. Package SHA-256: `f8c2df4bcc227013331f55ce824d5c17dc3e5675e1abb893579c6bc7fd4fdbce` (also recorded in installed `FORK-BUILD.json`).\n\nPrivate package/workspace backup: `~/.local/state/openmausbot-fork-backups/20261116T131624Z/`. Live message rows stayed **83 → 83**, and the existing Pi/model/medium-reasoning selection stayed unchanged. Retirement endpoints still return 410; retired settings remain absent. The live app-only preview contains the installed guide index, and all eight guide files are readable. Two installed full-provider captures are identical except cache key and yield the table above. No live test messages were sent.
+Committed and pushed implementation `f98f8902b984f5ec0486080fbd1d5bcb76c444aa` before deployment. Installed `0.1.161-archsinit.3` on `maus-desktop`; service active and health/version checks passed. Package SHA-256: `f8c2df4bcc227013331f55ce824d5c17dc3e5675e1abb893579c6bc7fd4fdbce` (also recorded in installed `FORK-BUILD.json`).
+
+Private package/workspace backup: `~/.local/state/openmausbot-fork-backups/20261116T131624Z/`. Live message rows stayed **83 → 83**, and the existing Pi/model/medium-reasoning selection stayed unchanged. Retirement endpoints still return 410; retired settings remain absent. The live app-only preview contains the installed guide index, and all eight guide files are readable. Two installed full-provider captures are identical except cache key and yield the table above. No live test messages were sent.
 
 Existing chat/native history is not rewritten or deleted. Start a fresh context to measure the new initial loadout; continuing an older conversation can retain its historical prompt content.
