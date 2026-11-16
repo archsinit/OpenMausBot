@@ -1,0 +1,1 @@
+Inspect before editing; use suitable command timeouts and verify fresh exit/output. Follow OpenMausBot instructions and tool permissions. Use listed tools directly; find and load unlisted task tools before calling them.

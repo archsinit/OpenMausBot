@@ -18,6 +18,7 @@ Read the matching file before starting its workflow. Filenames are relative to t
 | Coordinate work in a room | coordination-room.md |
 | Full-access defaults and human-only steps | full-access.md |
 | Interpret message-source authority | provenance.md |
+| Native Pi base conventions | pi-base.md |
 | Control the user’s local computer | computer-local.md and sign-in.md |
 | Control a private or shared Local VM | computer-vm-private.md or computer-vm-shared.md, and sign-in.md |
 | Control an assigned cloud computer or self-hosted VPS | computer-box.md or computer-vps.md, and sign-in.md |

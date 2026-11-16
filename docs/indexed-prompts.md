@@ -6,7 +6,7 @@ Branch `indexed-prompt-guides` starts from upstream `main` at `49968d7f12f381ac3
 
 This is the upstream app with workflow prose moved into files, not a reduced-feature app. Browser/desktop/phone automation, Data, specialized helpers and all other upstream features remain. Tool execution handlers, schema constraints, approvals, settings and permissions are unchanged. Pi declarations now load on demand; only recognized stock tool prose is compacted. The stock Pi base is concise, while operator SYSTEM files and other authored resources retain precedence.
 
-`server/prompt-guides/INDEX.md` maps workflows to twenty-eight catalog resources including the index: credentials/MCP configuration, threads, widgets, automations, skills, profiles, shared team memory, shell/VM commands, and Chief/peer/room coordination. The initial prompt points to the index; the model reads the matching instructions before starting that workflow. Safety policies, current routing facts and unknown/new upstream prose remain inline. See [the update-maintenance contract](context-maintenance.md) for the isolated integration seams and conservative fallbacks.
+`server/prompt-guides/INDEX.md` maps workflows to twenty-nine catalog resources including the index: credentials/MCP configuration, threads, widgets, automations, skills, profiles, shared team memory, shell/VM commands, and Chief/peer/room coordination. The initial prompt points to the index; the model reads the matching instructions before starting that workflow. Safety policies, current routing facts and unknown/new upstream prose remain inline. See [the update-maintenance contract](context-maintenance.md) for the isolated integration seams and conservative fallbacks.
 
 The guides retain upstream workflow prose; indexed mode keeps concise safety/routing summaries inline. Original inline exports and default function outputs are covered by byte-fingerprint tests. Mandatory policy excerpts stay inline, including secure credential entry, applied/pending/failed result handling, authority boundaries and waits. Authored soul, rules, profile, memory, section context, actual rosters/IDs, available secret names, room bulletins, requester constraints and active event/assignment instructions remain in context.
 
@@ -41,7 +41,7 @@ The previous installation and private workspace were backed up under `~/.local/s
 
 ## Verification
 
-- **26 suites / 531 tests passed**: verbatim prose/default-output fingerprints, scope/catalog fallbacks, live-fact preservation, direct/room dispatch with an isolated fake engine, original inline room combinations, widgets/pages, coordination, task cwd, tool selection and repository ratchets.
+- **26 suites / 532 tests passed**: verbatim prose/default-output fingerprints, scope/catalog fallbacks, live-fact preservation, direct/room dispatch with an isolated fake engine, original inline room combinations, widgets/pages, coordination, task cwd, tool selection and repository ratchets.
 - Frontend/server TypeScript and changed-source lint passed; production server build passed.
 - Packaged server smoke passed without reachable `node_modules`, including CLI, MCP, backup worker, desktop entry, container launcher and enterprise layer.
 - A separate offline packaged nested `agents-proxy.js` process returned its 49-tool catalog; coordination, widgets, HTML, publishing and automations were checked. No tool was executed by that probe.

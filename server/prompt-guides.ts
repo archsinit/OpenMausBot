@@ -31,6 +31,7 @@ export const PROMPT_GUIDE_FILES = [
   "replies.md",
   "full-access.md",
   "provenance.md",
+  "pi-base.md",
 ] as const;
 
 export function guideRoot(root = SERVER_ROOT): string {

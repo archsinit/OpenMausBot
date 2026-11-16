@@ -11,7 +11,7 @@ This branch keeps upstream features, settings, APIs, tool implementations, valid
 | Collaboration procedures | Existing coordination guides and exact-paragraph compaction | Optional guided mode; original identity/authority facts and complete rosters remain |
 | Pi tool declarations | `server/drivers/pi-tool-discovery.ts` | Register original MCP/ask-user definitions through a small adapter and finish discovery |
 | Native tool-description prose | `server/drivers/pi-native-prose.ts` | Final provider-payload hook, exact recognized stock schemas only |
-| Native Pi base instructions | `server/drivers/pi-system-prompt.ts` | Documented `--system-prompt` CLI option; operator SYSTEM files take precedence |
+| Native Pi base instructions | `server/drivers/pi-system-prompt.ts` | Documented `--system-prompt` option with a verified app-owned asset, never cwd-sensitive prose; operator SYSTEM files take precedence |
 
 The guide catalog is copied by the existing server bundler. npm, Electron and Docker already copy that server tree. No new user setting, permission grant or filesystem mount is introduced.
 
