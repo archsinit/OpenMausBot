@@ -29,10 +29,6 @@ vi.mock("@/lib/analytics", () => ({ track: vi.fn() }));
 vi.mock("@/lib/live-call-media", () => ({ dismissLiveNotice: vi.fn() }));
 
 const { KeysPage } = await import("./KeysPage");
-const { track } = await import("@/lib/analytics");
-const { BOAT_OFFER, boatClaimMailto } = await import("@/lib/boat-offer");
-const { BOAT_OFFER_NOTICE } = await import("@/lib/notices");
-const { applyBrand, DEFAULT_BRAND } = await import("@/lib/brand");
 const { LiveKeyNeeded } = await import("../LiveKeyNeeded");
 const { openKeySettings } = await import("./key-focus");
 
@@ -78,7 +74,7 @@ beforeEach(() => {
   fx.dispatch.mockImplementation((action: { type: string; config?: Record<string, unknown> }) => {
     if (action.type === "configStatus") setConfig(action.config!);
   });
-  fx.config = { composio: { configured: false }, box: { configured: false }, vps: { configured: false, sshAlias: "" } };
+  fx.config = { composio: { configured: false } };
   fx.instances = [];
   host = document.createElement("div");
   document.body.append(host);
@@ -190,10 +186,10 @@ describe("the keys page", () => {
   });
 
   it("opens a section that holds a saved key, and counts what is connected", () => {
-    setConfig({ ...fx.config, box: { configured: true, last4: "c3d4" } });
+    setConfig({ ...fx.config, composio: { configured: true, last4: "c3d4" } });
     page();
-    expect(expanded("computers")).toBe("true");
-    expect(section("computers").textContent).toContain("1 connected");
+    expect(expanded("apps")).toBe("true");
+    expect(section("apps").textContent).toContain("1 connected");
   });
 
   it("filters rows live by name, purpose and section, and says so when nothing matches", () => {
@@ -202,7 +198,7 @@ describe("the keys page", () => {
     type(search, "fish");
     expect(rowsShown()).toEqual(["fishAudio"]);
     type(search, "Computers and browser");
-    expect(rowsShown()).toEqual(["box", "vps", "onePassword"]);
+    expect(rowsShown()).toEqual(["onePassword"]);
     type(search, "research");
     expect(rowsShown()).toEqual(["treg"]);
     type(search, "zzz");
@@ -255,8 +251,8 @@ describe("the keys page", () => {
   it("clears a search that would hide the row a link asks for", async () => {
     page();
     type(host.querySelector<HTMLInputElement>("[data-keys-search]")!, "fish");
-    flushSync(() => { openKeySettings("box"); });
-    await vi.waitFor(() => expect(document.activeElement).toBe(row("box")!.querySelector("[data-key-input]")));
+    flushSync(() => { openKeySettings("anthropic"); });
+    await vi.waitFor(() => expect(document.activeElement).toBe(row("anthropic")!.querySelector("[data-key-input]")));
     expect(host.querySelector<HTMLInputElement>("[data-keys-search]")!.value).toBe("");
   });
 
@@ -285,15 +281,15 @@ describe("the keys page", () => {
   });
 
   it("confirms a key the server checked on save as Connected", async () => {
-    fx.api.mockImplementation(async () => ({ ...fx.config, box: { configured: true, last4: "c3d4" } }));
+    fx.api.mockImplementation(async () => ({ ...fx.config, composio: { configured: true, last4: "c3d4" } }));
     setConfig({ ...fx.config });
     page();
-    flushSync(() => section("computers").querySelector<HTMLButtonElement>("button[aria-expanded]")!.click());
-    const input = row("box")!.querySelector<HTMLInputElement>("[data-key-input]")!;
-    type(input, "boat_dummy_fixture_key_c3d4");
+    flushSync(() => section("apps").querySelector<HTMLButtonElement>("button[aria-expanded]")!.click());
+    const input = row("composio")!.querySelector<HTMLInputElement>("[data-key-input]")!;
+    type(input, "ak_dummy_fixture_key_c3d4");
     flushSync(() => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
-    await vi.waitFor(() => expect(row("box")!.querySelector("[data-key-masked]")?.textContent).toContain("••••••••c3d4"));
-    expect(row("box")!.textContent).toContain("Connected");
+    await vi.waitFor(() => expect(row("composio")!.querySelector("[data-key-masked]")?.textContent).toContain("••••••••c3d4"));
+    expect(row("composio")!.textContent).toContain("Connected");
     expect(fx.api).toHaveBeenCalledOnce();
   });
 });
@@ -368,68 +364,41 @@ describe("the Ollama row", () => {
   });
 });
 
-describe("Boat's credit offer on the Boat card", () => {
-  const offer = () => row("box")!.querySelector<HTMLElement>("[data-boat-offer]");
-  const buttons = () => [...offer()!.querySelectorAll<HTMLButtonElement>("button")];
-  const openComputers = () => flushSync(() => section("computers").querySelector<HTMLButtonElement>("button[aria-expanded]")!.click());
-  afterEach(() => {
-    BOAT_OFFER.until = null;
-    applyBrand({ brand: DEFAULT_BRAND, source: "default", file: "" });
-    delete (window as unknown as { ogb?: unknown }).ogb;
-    vi.unstubAllGlobals();
-  });
-
-  it("is always on the Boat card while the offer runs: with no key, a saved key, one a Cloud plan includes, and after its popup closed", () => {
-    page(); openComputers();
+describe("retired automation offers", () => {
+  it("does not restore Boat or VPS cards from saved credentials or an included plan", () => {
     for (const box of [{ configured: false }, { configured: true, last4: "c3d4" }, { configured: false, included: true }]) {
-      setConfig({ ...fx.config, box });
-      expect(offer(), JSON.stringify(box)).not.toBeNull();
-      expect(offer()!.closest("[hidden]")).toBeNull();
-      const words = offer()!.textContent!;
-      for (const text of ["$50 of Boat credit for you", "Boat runs the cloud computers behind MausBot.", "You claim it yourself: it isn't automatic."]) {
-        expect(words).toContain(text);
-      }
-      expect(buttons().map((button) => button.textContent)).toEqual(["Get Boat", "I bought it: claim my $50"]);
+      flushSync(() => setConfig({ ...fx.config, box, vps: { configured: true, sshAlias: "fixture" } }));
+      page();
+      expect(row("box")).toBeNull();
+      expect(row("vps")).toBeNull();
+      expect(host.querySelector("[data-boat-offer]")).toBeNull();
     }
-    vi.stubGlobal("localStorage", { getItem: (key: string) => (key === BOAT_OFFER_NOTICE ? "1" : null), setItem: () => {}, removeItem: () => {} });
-    page();
-    expect(offer(), "closing the popup never takes it from Settings").not.toBeNull();
-    type(host.querySelector<HTMLInputElement>("[data-keys-search]")!, "boat");
-    expect(rowsShown()).toContain("box"); expect(offer()!.closest("[hidden]")).toBeNull();
   });
 
-  it("Get Boat opens boat.dev and the claim drafts the email to Boat; both stay for a later visit and save nothing", async () => {
-    const openExternal = vi.fn(async () => true);
-    (window as unknown as { ogb?: unknown }).ogb = { openExternal };
-    page(); openComputers();
-    flushSync(() => buttons()[0]!.click());
-    await vi.waitFor(() => expect(openExternal).toHaveBeenCalledWith("https://boat.dev"));
-    flushSync(() => buttons()[1]!.click());
-    await vi.waitFor(() => expect(openExternal).toHaveBeenCalledWith(boatClaimMailto()));
-    await vi.waitFor(() => expect(track).toHaveBeenCalledWith("boat_offer", { action: "claim", place: "settings" }));
-    expect(track).toHaveBeenCalledWith("boat_offer", { action: "get_boat", place: "settings" });
-    expect(offer()).not.toBeNull();
+  it("offers no Boat purchase or claim actions and saves nothing", () => {
+    page();
+    const labels = [...host.querySelectorAll("button")].map((button) => button.textContent);
+    expect(labels).not.toContain("Get Boat");
+    expect(labels).not.toContain("I bought it: claim my $50");
     expect(fx.api).not.toHaveBeenCalled();
   });
 
-  it("goes from its end date on, and on a branded build, while the Boat card stays", () => {
-    BOAT_OFFER.until = Date.now() - 1;
+  it("has no searchable automation or specialized inference keys", () => {
     page();
-    expect(row("box")).not.toBeNull(); expect(offer()).toBeNull();
-    BOAT_OFFER.until = null;
-    applyBrand({ brand: { name: "Acme Bots" }, source: "file", file: "brand.json" });
-    page();
-    expect(row("box")).not.toBeNull(); expect(offer()).toBeNull();
+    const search = host.querySelector<HTMLInputElement>("[data-keys-search]")!;
+    for (const query of ["boat", "vps", "jev", "typesafe", "workers ai", "decisions"]) {
+      type(search, query);
+      expect(rowsShown(), query).toEqual([]);
+    }
   });
 });
 
-describe("Self-hosted VPS alias", () => {
-  it("says any Linux machine with Docker over SSH works, including one on a Tailscale network", async () => {
-    const { VpsConnection } = await import("./KeyPanels");
-    render(() => createElement(VpsConnection, { key: "vps" }));
-    const field = host.querySelector<HTMLInputElement>('input[aria-label="Self-hosted VPS SSH config alias"]')!;
-    const text = field.closest("div.flex-col")!.textContent!;
-    expect(text).toContain("Any Linux machine with Docker that you reach over SSH works");
-    expect(text).toContain("Tailscale name as the alias's HostName");
+describe("retained service keys", () => {
+  it("keeps ordinary AI, voice and image keys without a VPS alias field", () => {
+    page();
+    expect(host.querySelector('input[aria-label="Self-hosted VPS SSH config alias"]')).toBeNull();
+    for (const id of ["openai", "anthropic", "openrouter", "liveKey", "elevenlabs", "fishAudio", "imageOpenai", "imageGemini", "imageCustom"]) {
+      expect(row(id), id).not.toBeNull();
+    }
   });
 });

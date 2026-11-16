@@ -205,12 +205,6 @@ const ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
   { method: "GET", path: /^\/api\/live\/call$/ },
   { method: "PATCH", path: /^\/api\/live\/settings$/ },
 
-  // The phone's own apps as bot tools: it registers, long-polls for jobs, leases and answers them.
-  { method: "PUT", path: /^\/api\/phones\/self$/ },
-  { method: "GET", path: /^\/api\/phones\/self$/ },
-  { method: "DELETE", path: /^\/api\/phones\/self$/ },
-  { method: "GET", path: /^\/api\/phones\/self\/jobs$/ },
-  { method: "POST", path: /^\/api\/phones\/self\/jobs\/[\w-]+\/(?:lease|result)$/ },
   // The phone's closed-app alert registration: its own device token, never another phone's.
   { method: "PUT", path: /^\/api\/push\/device$/ },
   { method: "GET", path: /^\/api\/push\/device$/ },
@@ -297,6 +291,9 @@ export function denyReason({ path, method, authenticated }: RouteRequest): Denia
     return { status: 401, error: "pair this device from Remote access settings on the host computer" };
   }
 
+  if (/^\/api\/(?:phones|bots\/[^/]+\/phone)(?:\/|$)/.test(path)) {
+    return { status: 410, error: "Phone automation is unsupported" };
+  }
   if (isRetiredAutomationPath(path)) return { status: 410, error: "Desktop and browser automation is unsupported" };
 
   if (ALLOWED.some((route) => route.method === method && route.path.test(path))) return null;

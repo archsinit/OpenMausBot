@@ -1327,7 +1327,8 @@ describe("credential env preference", () => {
       for (const entry of Object.values(instanceConfigs(cfg))) {
         for (const value of Object.values(entry.environment ?? {})) expect(Object.values(included)).not.toContain(value);
       }
-      saveConfig({ tts: { voice: "chosen" }, decider: { enabled: true, jobs: { roomRouting: true } } });
+      expect(() => saveConfig({ decider: { enabled: true, jobs: { roomRouting: true } } })).toThrow("settings have been removed");
+      saveConfig({ tts: { voice: "chosen" } });
       const disk = readFileSync(join(DATA_DIR, "config.json"), "utf8");
       const runtime = JSON.stringify([loadConfig(), instanceConfigs(loadConfig()), persistableInstanceConfigs(loadConfig())]);
       for (const token of [included.OMB_CLOUD_BOAT_TOKEN, included.OMB_CLOUD_VOICE_TOKEN, included.OMB_CLOUD_DECIDER_TOKEN]) {
@@ -1342,6 +1343,18 @@ describe("credential env preference", () => {
     } finally {
       vi.unstubAllEnvs();
     }
+  });
+
+  it("cannot restore specialized inference from legacy configuration or credential environment", () => {
+    writeFileSync(join(DATA_DIR, "config.json"), JSON.stringify({ decider: { enabled: true, key: "synthetic-old" }, openrouter: { key: "synthetic-main-model" }, features: { usbPhoneTakeover: true, phonePush: true } }));
+    vi.stubEnv("OMB_JEV_API_KEY", "synthetic-env");
+    vi.stubEnv("OMB_OPENROUTER_DECIDER_KEY", "synthetic-env");
+    try {
+      const cfg = loadConfig();
+      expect(cfg.decider).toEqual({ enabled: false, provider: "off" });
+      expect(cfg.openrouter?.key).toBe("synthetic-main-model");
+      expect(cfg.features).toEqual({ phonePush: true });
+    } finally { vi.unstubAllEnvs(); }
   });
 
   it("saves and removes the verified domain without replacing existing settings", () => {

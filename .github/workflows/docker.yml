@@ -488,7 +488,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build image
         run: docker build -t openmausbot:arm64 .
-      - name: Boot the container; prove the server, UI and DuckDB work on arm64
+      - name: Boot the container; prove the server, UI and native rendering work on arm64
         run: |
           set -euo pipefail
           test "$(docker image inspect -f '{{.Architecture}}' openmausbot:arm64)" = arm64
@@ -499,7 +499,8 @@ jobs:
             if [ "$i" = "40" ]; then docker logs omb; echo "server never became healthy"; exit 1; fi
           done
           docker exec omb curl -sf http://127.0.0.1:8799/ | grep -qi "<html" || { docker logs omb; echo "UI not served"; exit 1; }
-          docker exec -w /app/duckdb omb node --input-type=module -e "const { DuckDBInstance } = await import('@duckdb/node-api'); const c = await (await DuckDBInstance.create()).connect(); const r = await c.runAndReadAll('select 42 as x'); if (Number(r.getRows()[0][0]) !== 42) process.exit(1)"
+          docker exec -w /app/duckdb omb node --input-type=module -e "const { Resvg } = await import('@resvg/resvg-js'); const png = new Resvg('<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"2\" height=\"2\"/>').render().asPng(); if (png.subarray(1, 4).toString() !== 'PNG') process.exit(1); await import('@1password/sdk')"
+          docker exec omb sh -ec 'test ! -e /app/duckdb/node_modules/@duckdb; test ! -e /app/skills/phone-harness; test ! -e /app/skills/data-dashboards; test ! -e /app/dist-server/drivers/phone-proxy.js'
           test "$(docker exec omb id -un)" = maus
           docker exec omb sh -ec 'test -z "$(command -v agent-browser)"; test -z "$(command -v chromium)"; test ! -e /opt/openmausbot-browser'
 

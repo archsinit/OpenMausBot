@@ -67,7 +67,7 @@ jobs:
           if HOME=/tmp/omb-pack/home node cli.js serve --tunnel --port 18798 --data-dir /tmp/omb-pack/data2 > tunnel.log 2>&1; then echo "serve --tunnel should refuse without login"; exit 1; fi
           grep -q "run openmausbot login first" tunnel.log
           kill %1; wait %1 || true
-      - name: Prove an npm install brings the Data engine's native modules
+      - name: Prove an npm install retains rendering and credentials without DuckDB
         working-directory: /tmp/omb-pack/package
         run: |
           set -euo pipefail
@@ -76,9 +76,11 @@ jobs:
             import { createRequire } from "node:module";
             import { pathToFileURL } from "node:url";
             const require = createRequire(pathToFileURL("dist-server/index.js"));
-            const { DuckDBInstance } = require("@duckdb/node-api");
-            const reader = await (await (await DuckDBInstance.create(":memory:")).connect()).runAndReadAll("select 42");
-            if (reader.getRows()[0][0] !== 42) throw new Error("DuckDB answered " + JSON.stringify(reader.getRows()));
+            import { existsSync } from "node:fs";
+            if (existsSync("node_modules/@duckdb")) throw new Error("DuckDB shipped");
+            for (const p of ["skills/phone-harness", "skills/data-dashboards", "dist-server/drivers/phone-proxy.js"]) {
+              if (existsSync(p)) throw new Error("Retired artifact shipped: " + p);
+            }
             const { Resvg } = require("@resvg/resvg-js");
             const png = new Resvg("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"2\" height=\"2\"/>").render().asPng();
             if (png.subarray(1, 4).toString() !== "PNG") throw new Error("resvg did not render a PNG");

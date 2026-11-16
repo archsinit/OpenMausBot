@@ -324,12 +324,11 @@ const bridge = {
   /** Arms exactly one display-media request from the current renderer frame. */
   beginScreenPreviewIntent: () => ipcRenderer.sendSync("screen:preview-intent"),
   screenFrame: () => ipcRenderer.invoke("screen:frame"),
-  /** Physical USB devices only; network ADB is deliberately excluded. */
+  /** Compatibility stubs for pages that still call the retired phone bridge. */
   androidDevice: {
-    status: () => ipcRenderer.invoke("android-device:status"),
-    frame: (serial) => ipcRenderer.invoke("android-device:frame", serial),
-    input: (serial, payload) =>
-      ipcRenderer.invoke("android-device:input", serial, payload).then(() => undefined),
+    status: async () => { throw new Error("Phone automation is unsupported"); },
+    frame: async () => { throw new Error("Phone automation is unsupported"); },
+    input: async () => { throw new Error("Phone automation is unsupported"); },
   },
   speechStart: (options) => ipcRenderer.invoke("speech:start", options),
   speechStop: () => ipcRenderer.invoke("speech:stop"),

@@ -14,17 +14,17 @@ vi.mock("@/lib/analytics", () => ({
 }));
 
 describe("Settings › AI › Routing and extraction", () => {
-  it("is a section of AI now, Routing and extraction, and old links land there", async () => {
+  it("redirects old links to Overview", async () => {
     const { fullContext, resolveSettingsTarget } = await import("./settings/settings-index");
-    expect(resolveSettingsTarget("decisionModel", fullContext())).toEqual({ page: "ai", anchor: "routing" });
+    expect(resolveSettingsTarget("decisionModel", fullContext())).toEqual({ page: "overview" });
   });
 
-  it("matches searches for decision, extraction, jev, typesafe, cloudflare and routing", async () => {
+  it("does not offer specialized inference in search", async () => {
     const { fullContext, searchSettings } = await import("./settings/settings-index");
     const { t } = await import("@/lib/i18n");
     const find = (query: string) => searchSettings(query, fullContext({ advanced: true }), (entry) => t(entry.labelKey), (page) => t(page.labelKey));
     for (const query of ["decision", "extraction", "jev", "typesafe", "cloudflare", "workers ai", "routing"]) {
-      expect(find(query).some((hit) => hit.entry.anchor === "routing"), query).toBe(true);
+      expect(find(query).some((hit) => hit.entry.anchor === "routing"), query).toBe(false);
     }
     expect(find("backups").some((hit) => hit.entry.anchor === "routing")).toBe(false);
   });

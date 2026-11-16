@@ -33,7 +33,7 @@ afterEach(() => {
 });
 
 describe("Settings in another language", () => {
-  const NAV = ["settings.page.bots", "settings.page.desktops", "settings.page.spending", "settings.page.data", "settings.page.account",
+  const NAV = ["settings.page.bots", "settings.page.spending", "settings.page.data", "settings.page.account",
     "settings.page.browser", "settings.section.general", "settings.section.appearance", "settings.section.phoneDevices",
     "settings.advancedMode.title"] as const;
 
@@ -41,6 +41,8 @@ describe("Settings in another language", () => {
     for (const locale of ["pt-br", "ja"] as const) {
       setLocale(locale);
       const html = await renderSettings();
+      expect(html).not.toContain('data-settings-page="desktops"');
+      expect(html).not.toContain('data-settings-block="routing"');
       for (const key of NAV) {
         expect(locales[locale][key], `${locale} ${key}`).toBeTruthy();
         expect(html, `${locale} ${key}`).toContain(locales[locale][key]!.replaceAll("&", "&amp;"));

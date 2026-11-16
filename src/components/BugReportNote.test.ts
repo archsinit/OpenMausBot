@@ -14,12 +14,12 @@ const text = (html: string) => html.replace(/<[^>]+>/g, "").replace(/&#x27;/g, "
 const person = (bugReport?: Message["bugReport"]): Message => ({ id: "m1", role: "user", kind: "text", text: "@devs the calendar never syncs", at: 1, ...(bugReport ? { bugReport } : {}) } as Message);
 
 describe("a @devs report's status, under the message that sent it", () => {
-  it("says it was received, then fixed, coming in an update, then here", () => {
+  it("does not add report status to historical user messages", () => {
     const shown = (bugReport: Message["bugReport"]) => text(renderToStaticMarkup(createElement(UserLineNote, { message: person(bugReport) })));
-    expect(shown({ id: "r1", status: "received" })).toBe("Bug report sent · Got it, we're looking");
-    expect(shown({ id: "r1", status: "fixed" })).toBe("Bug report · Fixed, coming in an update");
-    expect(shown({ id: "r1", status: "fixed", fixedIn: "0.1.135" })).toBe("Bug report · Fixed in 0.1.135, coming in your next update");
-    expect(shown({ id: "r1", status: "fixed", fixedIn: "0.1.135", running: true })).toBe("Bug report · Fixed in 0.1.135");
+    expect(shown({ id: "r1", status: "received" })).toBe("");
+    expect(shown({ id: "r1", status: "fixed" })).toBe("");
+    expect(shown({ id: "r1", status: "fixed", fixedIn: "0.1.135" })).toBe("");
+    expect(shown({ id: "r1", status: "fixed", fixedIn: "0.1.135", running: true })).toBe("");
     // A message that sent no report shows nothing.
     expect(renderToStaticMarkup(createElement(UserLineNote, { message: person() }))).toBe("");
   });
@@ -40,7 +40,7 @@ describe("the one line that says the fix runs here", () => {
   it("asks whether to try again, in the app's language", () => {
     expect(shown(line({ id: "r1", status: "fixed", fixedIn: "0.1.135", running: true }))).toBe("Fixed in 0.1.135. Want to try again?");
     setLocale("de");
-    expect(shown(line({ id: "r1", status: "fixed", fixedIn: "0.1.135", running: true }))).toBe("Behoben in 0.1.135. Möchtest du es noch einmal versuchen?");
+    expect(shown(line({ id: "r1", status: "fixed", fixedIn: "0.1.135", running: true }))).toBe("Fixed in 0.1.135. Want to try again?");
     // A client older than the field, or a row without it, reads the server's words.
     expect(shown(line())).toBe("Fixed in 0.1.135. Want to try again?");
   });

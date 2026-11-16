@@ -5,8 +5,7 @@ import {
   verifyCloudflaredExecutable,
 } from "./prepare-cloudflared.mjs";
 import { fileURLToPath } from "node:url";
-import { pinnedDuckdbVersion, pinnedOnePasswordVersion, pinnedResvgVersion, verifyDuckdbTree } from "./prepare-duckdb.mjs";
-import { LIPO_ARCH, isMachO, writeThinMachO } from "./mac-thin.mjs";
+import { pinnedOnePasswordVersion, pinnedResvgVersion, verifyDuckdbTree } from "./prepare-duckdb.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -68,9 +67,6 @@ async function validateCloudflared(resources, platform, required) {
   );
 }
 
-// The DuckDB binding the server requires at runtime (server/data/engine.ts):
-// the pinned packages, the native binding beside its library, and on macOS
-// only this app's slice, so an Intel Mac never gets an arm64-only dylib.
 async function validateDuckdb(resources, platform, arch, required) {
   const duckdb = path.join(resources, "duckdb");
   const present = await lstat(duckdb).then(() => true, (error) => {
@@ -80,28 +76,9 @@ async function validateDuckdb(resources, platform, arch, required) {
   // Unit fixtures carry only the resources they test; a real build fails
   // closed because electron-builder only warns about a missing `from`.
   if (!present && !required) return;
-  if (!arch) throw new Error(`Unsupported DuckDB package architecture: ${arch}`);
+  if (!arch) throw new Error(`Unsupported native resource architecture: ${arch}`);
   await requireRealDirectory(duckdb, platform === "win32" ? undefined : 0o755);
-  await verifyDuckdbTree(duckdb, platform, arch, pinnedDuckdbVersion(root), pinnedResvgVersion(root), pinnedOnePasswordVersion(root));
-}
-
-// Google ships macOS Platform Tools universal, and the shared top-level
-// extraResources entry copies that tree into both single-arch apps. Keep only
-// this app's slice, before electron-builder signs the nested code.
-async function thinMacPlatformTools(resources, arch) {
-  const root = path.join(resources, "android-platform-tools", "darwin");
-  let entries;
-  try {
-    entries = await readdir(root, { recursive: true, withFileTypes: true });
-  } catch (error) {
-    if (error?.code === "ENOENT") return;
-    throw error;
-  }
-  if (!arch) throw new Error("Unsupported macOS package architecture for Android Platform Tools");
-  for (const entry of entries) {
-    const file = path.join(entry.parentPath, entry.name);
-    if (entry.isFile() && await isMachO(file)) await writeThinMachO(file, file, LIPO_ARCH[arch]);
-  }
+  await verifyDuckdbTree(duckdb, platform, arch, pinnedResvgVersion(root), pinnedOnePasswordVersion(root));
 }
 
 // electron-builder normalizes copied resource directories to 0775. That is
@@ -115,7 +92,7 @@ export default async function afterPack(context) {
       : path.join(context.appOutDir, "resources")
   );
   await validateCloudflared(resources, context.electronPlatformName, Boolean(context.packager));
-  for (const name of ["browser-engine", "cua-linux-x64", "cua-driver", "cua-driver.exe", "cua-driver-background.exe", "cua-sdk"]) {
+  for (const name of ["browser-engine", "cua-linux-x64", "cua-driver", "cua-driver.exe", "cua-driver-background.exe", "cua-sdk", "android-platform-tools", "skills/phone-harness", "skills/data-dashboards", "server/drivers/phone-proxy.js", "server/server/drivers/phone-proxy.js", "server/data", "server/server/data"]) {
     const present = await lstat(path.join(resources, name)).then(() => true, (error) => {
       if (error?.code === "ENOENT") return false;
       throw error;
@@ -124,6 +101,4 @@ export default async function afterPack(context) {
   }
   const arch = { 1: "x64", 3: "arm64" }[context.arch];
   await validateDuckdb(resources, context.electronPlatformName, arch, Boolean(context.packager));
-  if (context.electronPlatformName === "darwin") await thinMacPlatformTools(resources, arch);
-
 }

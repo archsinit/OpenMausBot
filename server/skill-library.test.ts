@@ -109,24 +109,26 @@ describe("bundled verification skill", () => {
   });
 });
 
-describe("bundled data-dashboards skill", () => {
+describe("retired bundled Data guide and preserved standalone HTML template", () => {
   const skills = loadBundledSkills(join(process.cwd(), "skills"));
-  const guide = skills.find((skill) => skill.manifest.id === "data-dashboards")?.instructions ?? "";
+  const guide = readFileSync(join(process.cwd(), "skills", "data-dashboards", "SKILL.md"), "utf8");
   const template = readFileSync(join(process.cwd(), "skills", "data-dashboards", "dashboard.html"), "utf8");
   const ids = (text: string) => selectBundledSkills(text, [], skills).map((skill) => skill.manifest.id);
 
-  it("mounts for dashboards and charts with no capability, and stays out of other turns", () => {
+  it("never loads the retired Data or phone automation guides into runtime turns", () => {
+    expect(skills.map((skill) => skill.manifest.id)).not.toContain("phone-harness");
+    expect(skills.map((skill) => skill.manifest.id)).not.toContain("data-dashboards");
     for (const text of ["Build me a sales dashboard", "Chart revenue by month", "can you visualise this?", "Show our KPIs on a page", "make a graph of signups", "graph it by week"]) {
-      expect(ids(text), text).toContain("data-dashboards");
+      expect(ids(text), text).not.toContain("data-dashboards");
     }
     for (const text of ["Write a paragraph about photography", "fix the typo in my biography", "summarize this email", "book a call for Friday"]) {
       expect(ids(text), text).not.toContain("data-dashboards");
     }
   });
 
-  it("mounts for a page to look at, and its page guide names the shell's own building blocks and versions", () => {
+  it("does not inject the retired guide for a page while retaining its reference HTML compatibility checks", () => {
     for (const text of ["Make me a pricing page", "build a landing page for the bake sale", "Can you mock-up a signup form as a page?", "a quick prototype of the settings screen"]) {
-      expect(ids(text), text).toContain("data-dashboards");
+      expect(ids(text), text).not.toContain("data-dashboards");
     }
     for (const module of JSX_PAGE_MODULES.filter((name) => !name.includes("/"))) expect(guide, module).toContain(`\`${module}\``);
     const minor = (version: string) => version.split(".").slice(0, 2).join(".");

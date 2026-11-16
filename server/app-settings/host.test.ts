@@ -449,7 +449,7 @@ describe("every other setting applies at once with Undo, Full access or not", ()
 
   it("never takes a key or token in a value", async () => {
     const fx = fixture();
-    for (const [id, value] of [["bots.settings", { botId: "kiwi", apiKey: OPENAI_KEY }], ["ai.routing", { enabled: true, openrouterKey: OPENAI_KEY }], ["ai.images", { key: OPENAI_KEY }]] as const) {
+    for (const [id, value] of [["bots.settings", { botId: "kiwi", apiKey: OPENAI_KEY }], ["ai.images", { key: OPENAI_KEY }]] as const) {
       const refused = await fx.set(id, JSON.stringify(value));
       expect(refused.status, id).toBe(400);
       expect(refused.body.error, id).toContain("Never put a key or token in the value");
@@ -458,12 +458,11 @@ describe("every other setting applies at once with Undo, Full access or not", ()
     expect(JSON.stringify(fx.messages)).not.toContain(OPENAI_KEY);
   });
 
-  it("picks a custom decision endpoint with Undo, but never sets its address", async () => {
+  it("refuses retired decision settings without saving or posting a card", async () => {
     const { set, saved } = fixture();
-    expect((await set("ai.routing", JSON.stringify({ provider: "custom", customModel: "m-1", customApi: "decisions" }))).status).toBe(200);
-    expect(saved).toEqual([{ decider: { provider: "custom", customModel: "m-1", customApi: "decisions" } }]);
-    expect((await set("ai.routing", JSON.stringify({ customBaseUrl: "https://elsewhere.example.com" }))).status).toBe(400);
-    expect(saved).toHaveLength(1);
+    expect((await set("ai.routing", JSON.stringify({ provider: "custom", customModel: "m-1", customApi: "decisions" }))).status).toBe(404);
+    expect((await set("ai.routing", JSON.stringify({ customBaseUrl: "https://elsewhere.example.com" }))).status).toBe(404);
+    expect(saved).toEqual([]);
   });
 
   it("a window preference is refused while no window is open, and nothing is posted", async () => {

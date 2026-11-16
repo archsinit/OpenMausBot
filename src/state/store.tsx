@@ -731,6 +731,7 @@ export type Action =
   | { type: "togglePlugins"; open?: boolean; surface?: "apps" | "mcp" }
   | { type: "toggleComputer"; open?: boolean; botId?: string }
   | { type: "toggleDataPanel"; open?: boolean; botId?: string }
+  | { type: "toggleFilesPanel"; open?: boolean; botId?: string }
   | { type: "openDataResult"; botId: string; cardId: string }
   | { type: "dataResultFocusConsumed"; requestId: number }
   | { type: "openSignIn"; botId: string; messageId: string; url: string; site: string; place: import("../../shared/wire").Surface }
@@ -1412,11 +1413,8 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, focusMessage: { ...state.focusMessage, consumed: true } };
     case "unreadDividerDone":
       return state.unreadDivider?.threadId === action.threadId ? { ...state, unreadDivider: null } : state;
-    case "openDataResult": {
-      if (!state.bots.some((bot) => bot.id === action.botId)) return state;
-      const selected = reducer(reducer(state, { type: "select", id: action.botId }), { type: "toggleDataPanel", open: true });
-      return { ...selected, dataResultFocus: { botId: action.botId, id: action.cardId, requestId: (state.dataResultFocus?.requestId ?? 0) + 1, consumed: false } };
-    }
+    case "openDataResult":
+      return state;
     case "dataResultFocusConsumed":
       return state.dataResultFocus?.requestId === action.requestId
         ? { ...state, dataResultFocus: { ...state.dataResultFocus, consumed: true } } : state;
@@ -1431,7 +1429,9 @@ export function reducer(state: AppState, action: Action): AppState {
         ? { ...state, signInFocus: { ...state.signInFocus, consumed: true } } : state;
     case "toggleComputer":
       return { ...state, computerOpen: false };
-    case "toggleDataPanel": {
+    case "toggleDataPanel":
+      return state;
+    case "toggleFilesPanel": {
       const open = action.open ?? !state.computerOpen;
       return {
         ...state, selectedId: action.botId !== undefined && state.bots.some((bot) => bot.id === action.botId) ? action.botId : state.selectedId,
@@ -2575,9 +2575,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             () => {},
           );
           break;
-        case "openDataResult":
         case "select": {
-          const id = action.type === "select" ? action.id : action.botId;
+          const id = action.id;
           const bot = stateRef.current.bots.find((b) => b.id === id);
           const group = stateRef.current.groups.find((g) => g.id === id);
           if (bot?.unread) {

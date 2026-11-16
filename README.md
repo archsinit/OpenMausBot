@@ -6,19 +6,25 @@ Apache-2.0. Upstream attribution and third-party notices are retained.
 
 ## This fork's scope
 
-Desktop and browser automation have been removed from the product:
+Desktop/browser/phone automation, the built-in Data workspace, and dedicated
+inference/debugging tools have been removed from the product:
 
 - No agent-controlled browser, desktop, VM, cloud computer or screen viewer.
 - No computer selection, browser profiles/proxy settings, saved screen steps,
   browser sign-in/fill-login tools, or desktop-hosted meeting automation.
 - No automation provisioning or viewer transports; old endpoints return 410.
 - No bundled automation Chrome, CUA runtime, or CLI browser installer.
+- No USB/paired-phone screen reading, app control, taps, swipes or typing.
+- No built-in SQL/Data workspace, Data tools or DuckDB runtime.
+- No dedicated decision/extraction tools or automatic developer bug reports.
 - Legacy configuration cannot re-enable these capabilities.
 
 The ordinary browser-based chat interface and Electron chat shell remain.
 External sign-in links for AI providers and connected apps are not browser
 automation and are preserved. Shell/file tools, connected apps, team chat,
-ordinary scheduled tasks, skills, Files and Data remain available.
+ordinary scheduled tasks, skills and Files remain available. Widgets, HTML
+previews and public page/app publishing are explicitly retained, as are mobile
+chat, phone pairing/push, attachments and ordinary error/activity logs.
 
 This is a product-surface removal, not an operating-system sandbox. An
 independently installed extension, custom integration or unrestricted shell
@@ -53,7 +59,8 @@ Some historical upstream automation modules, tests and verification recipes
 remain for staged source cleanup. They are not supported features of this fork.
 The retirement regression tests cover exposed tools, prompts, routes, stale
 configuration, direct and room turns, and frontend entry points. See the
-[implementation verification](docs/automation-removal.md) and
+[desktop/browser verification](docs/automation-removal.md),
+[phone/Data/helper removal](docs/lean-removal.md), and
 [installed Pi full-context comparison](docs/context-comparison.md).
 
 ## Build a self-hosted package

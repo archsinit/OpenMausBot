@@ -13,7 +13,6 @@ import { TeamPeopleCard } from "../../CloudAccountSettings";
 import { CloudKeepHere } from "../../CloudKeepHere";
 import { CustomDomainSettings } from "../../CustomDomainSettings";
 import { preloadConnectedApps } from "@/lib/connected-apps";
-import { DecisionModelSettings } from "../../DecisionModelSettings";
 import { DefaultBotSidebarRow } from "../../DefaultBotControls";
 import { EnginesSettings } from "../../EnginesSettings";
 import { ImageGenerationSettings } from "../../ImageGenerationSettings";
@@ -136,7 +135,6 @@ export function AiPage() {
         </SettingsGroup>
       )}
       <AdvancedSection anchor="backup-model"><SettingsGroup label={t("settings.ai.backupModel")} block="backup-model"><AutomaticRecoverySettings /></SettingsGroup></AdvancedSection>
-      <AdvancedSection anchor="routing"><DecisionModelSettings /></AdvancedSection>
       <AdvancedSection anchor="images"><ImageGenerationSettings /></AdvancedSection>
     </AdminOnly>
   </>;

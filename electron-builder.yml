@@ -91,8 +91,12 @@ extraResources:
     to: companion
   - from: skills
     to: skills
-  - from: dist-native/android-platform-tools
-    to: android-platform-tools
+    filter:
+      - "**/*"
+      - "!phone-harness"
+      - "!phone-harness/**"
+      - "!data-dashboards"
+      - "!data-dashboards/**"
 
 mac:
   # Two single-arch artifacts rather than one universal binary: the app is
@@ -116,11 +120,7 @@ mac:
       to: OpenMausBot Speech.app
     - from: dist-native/cloudflared/darwin-${arch}/cloudflared
       to: cloudflared/cloudflared
-    # The Data engine's native modules (DuckDB, resvg; server/data/engine.ts)
-    # as a node_modules tree the server requires at runtime; prepare-duckdb
-    # stages this arch's slice. The copy names the node_modules directory
-    # itself: electron-builder's resource filter drops a root-level
-    # node_modules entry of any tree it copies (app-builder-lib util/filter).
+    # Runtime native addons and 1Password keep their legacy resource path.
     - from: dist-native/duckdb/darwin-${arch}/node_modules
       to: duckdb/node_modules
   extendInfo:

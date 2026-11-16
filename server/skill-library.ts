@@ -79,6 +79,7 @@ export function loadBundledSkills(root = process.env.OMB_SKILLS_DIR || join(proc
   if (!existsSync(root)) return [];
   const skills: BundledSkill[] = [];
   for (const name of readdirSync(root).sort()) {
+    if (name === "phone-harness" || name === "data-dashboards") continue;
     const directory = join(root, name);
     const skill = loadSkillDirectory(directory);
     if (skill) skills.push(skill);

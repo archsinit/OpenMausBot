@@ -25,6 +25,13 @@ describe("legacy automation state migration", () => {
     expect(bot.tasks[0].title).toBe("Unpinned");
   });
 
+  it("drops phone automation grants without discarding mobile chat history", () => {
+    const bot = { id: "fixture", phoneApps: { mail: true }, resumeCursors: { pi: "old-phone-tools" }, tasks: [{ title: "Chat", resumeCursors: { pi: "inherited-phone" } }] };
+    expect(dropAutomationState(bot)).toBe(true);
+    expect(bot).not.toHaveProperty("phoneApps");
+    expect(bot.tasks[0]).toEqual({ title: "Chat", resumeCursors: {} });
+  });
+
   it("does not invalidate an ordinary shell/file session", () => {
     const bot = { id: "fixture", resumeCursors: { pi: "ordinary" }, cwd: "/synthetic/workspace", tasks: [] };
     expect(dropAutomationState(bot)).toBe(false);

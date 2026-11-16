@@ -17,6 +17,12 @@ export function createUnsupportedComputerSharing() {
   };
 }
 
+export function registerUnsupportedAndroidIpc(ipcMain, guard) {
+  for (const channel of ["android-device:status", "android-device:frame", "android-device:input"]) {
+    ipcMain.handle(channel, guard(channel, async () => { throw new Error("Phone automation is unsupported"); }));
+  }
+}
+
 export function registerUnsupportedCuaIpc(ipcMain, guard) {
   for (const channel of ["cua:connection", "cua:permissions", "cua:linux-status", "cua:linux-enable", "cua:linux-disable", "cua:linux-retry"]) {
     ipcMain.handle(channel, guard(channel, () => channel === "cua:connection" ? unavailableConnection : unavailableStatus));

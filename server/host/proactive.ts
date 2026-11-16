@@ -149,6 +149,7 @@ export function createProactive(deps: ProactiveDeps) {
   });
   const checks = createRoutineChecks({
     dataDir: deps.dataDir, reads, mayRead, fenced, runs, timeZone: brief.timeZone, dismissedFrom: brief.dismissedFrom,
+    isDefaultWatch: (routine) => routine.id === watchRecord().routineId,
     report: async (found) => {
       await brief.report(found);
       if (found.gmail) suggestion.consider({ gmailConnected: found.gmail.connected, ...(found.gmail.address ? { inbox: found.gmail.address } : {}) });

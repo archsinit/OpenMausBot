@@ -92,7 +92,8 @@ export interface RoutineChecksDeps {
   /** The person's recent dismissals of mail from these senders, newest first. */
   dismissedFrom(): string[];
   report(report: CheckReport): void | Promise<void>;
-  /** The helper models' inbox triage (server/host/inbox-triage.ts); absent or not ready means an AI run sorts mail. */
+  isDefaultWatch?(routine: Routine): boolean;
+  /** The helper models' inbox triage; the default watch never falls back to an AI run for mail. */
   inbox?: Pick<InboxTriage, "ready" | "triage">;
   /** Emails a routine's checks had sorted: by a run whose answer was kept, or by the helper models. */
   sorted?(routineId: string, count: number): void;
@@ -289,12 +290,12 @@ export function createRoutineChecks(deps: RoutineChecksDeps): RoutineChecks & {
           if (advanced !== undefined && !heldMail) entry.mailCursor = advanced;
         } else if (helpers && plan.batch.length && !aiAllowed) {
           // The helper models did not answer this time and no fenced AI may sort: the mail waits for the next check.
-        } else if (plan.batch.length && aiAllowed) {
+        } else if (plan.batch.length && aiAllowed && !deps.isDefaultWatch?.(routine)) {
           items.mail = plan.batch;
           pending.mail = [...plan.batch.map((email) => email.id), ...plan.quiet.map((email) => email.id)];
           pending.replies = plan.batch.map((email) => ({ threadId: email.threadId, to: addressOf(email.from) }));
           if (advanced !== undefined) pending.mailCursor = advanced;
-        } else {
+        } else if (!deps.isDefaultWatch?.(routine)) {
           if (plan.batch.length && !context.hold) report.unfenced = true;
           const sorted = plan.batch.length && context.hold ? [] : [...plan.batch, ...plan.quiet];
           entry.judged = keepNewest([...new Set([...(entry.judged ?? []), ...sorted.map((email) => email.id)])], MAX_JUDGED);

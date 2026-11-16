@@ -1,5 +1,5 @@
 import { useMemo, useState, type JSX } from "react";
-import { Bug, Copy, Cpu, Download, Gauge, ListChecks, MessagesSquare, MoreHorizontal, RotateCcw, Search, Share, SquarePen, UserPlus, UserRound, Users } from "lucide-react";
+import { Bug, Copy, Cpu, Download, Files, Gauge, ListChecks, MessagesSquare, MoreHorizontal, RotateCcw, Search, Share, SquarePen, UserPlus, UserRound, Users } from "lucide-react";
 import { currentTaskBot, openBotThread, useStore, visibleMessages, type Bot } from "@/state/store";
 import { useAdvancedMode } from "@/lib/interface-mode";
 import { useShowThreads } from "@/lib/thread-preferences";
@@ -74,7 +74,7 @@ export function useChatMoreItems(profile: Bot, phoneHeader = false): { items: Si
     } satisfies SidebarMenuItem] : [];
   const items: SidebarMenuItem[] = [
     ...phoneItems,
-    { key: "data", label: t("computer.tab.data"), icon: <Gauge size={16} />, onSelect: () => dispatch({ type: "toggleDataPanel" }) },
+    { key: "files", label: t("computer.tab.files"), icon: <Files size={16} />, onSelect: () => dispatch({ type: "toggleFilesPanel" }) },
     {
       key: "find",
       label: t("chat.find"),

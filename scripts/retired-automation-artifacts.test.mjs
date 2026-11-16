@@ -12,7 +12,10 @@ describe("automation-free packaging", () => {
         for (const name of RETIRED_AUTOMATION_ARTIFACTS) {
           const file = join(directory, prefix, name);
           mkdirSync(dirname(file), { recursive: true });
-          writeFileSync(file, "synthetic");
+          if (name === "data") {
+            mkdirSync(file, { recursive: true });
+            writeFileSync(join(file, "engine.js"), "synthetic");
+          } else writeFileSync(file, "synthetic");
         }
       }
       writeFileSync(join(directory, "index.js"), "chat");
@@ -31,11 +34,11 @@ describe("automation-free packaging", () => {
     const root = new URL("../", import.meta.url);
     const pkg = JSON.parse(readFileSync(new URL("package.json", root), "utf8"));
     for (const [name, command] of Object.entries(pkg.scripts)) {
-      expect(name).not.toMatch(/^build:(?:cua|browser)(?:$|:)/);
-      expect(command).not.toMatch(/pnpm build:(?:cua|browser)(?:$|\s|:)/);
+      expect(name).not.toMatch(/^build:(?:cua|browser|android-tools)(?:$|:)/);
+      expect(command).not.toMatch(/pnpm build:(?:cua|browser|android-tools)(?:$|\s|:)/);
     }
     const packaging = readFileSync(new URL("electron-builder.yml", root), "utf8");
-    expect(packaging).not.toMatch(/from: dist-native\/(?:browser|cua|\$\{arch\}\/cua)/);
+    expect(packaging).not.toMatch(/from: dist-native\/(?:browser|cua|android-platform-tools|\$\{arch\}\/cua)/);
     expect(packaging).not.toContain("NSAccessibilityUsageDescription");
     expect(packaging).not.toContain("NSScreenCaptureUsageDescription");
   });

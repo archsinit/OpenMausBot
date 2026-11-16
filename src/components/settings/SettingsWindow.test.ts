@@ -55,7 +55,7 @@ describe("the Settings window", () => {
   it("opens with the place, Your account and This app, each headed by an identity row", () => {
     fixture.advanced = true;
     const html = render();
-    expect(navPages(html)).toEqual(["overview", "phone", "ai", "bots", "desktops", "vault", "usage", "transfer", "data", "account", "app", "general", "appearance"]);
+    expect(navPages(html)).toEqual(["overview", "phone", "ai", "bots", "vault", "usage", "transfer", "data", "account", "app", "general", "appearance"]);
     expect(html).toContain("This computer");
     expect(html).toContain("Your account");
     expect(html).toContain("This app");
@@ -91,7 +91,7 @@ describe("the Settings window", () => {
     expect(navPages(render("overview"))).toEqual(SIMPLE_NAV);
     fixture.advanced = true;
     const advanced = navPages(render("overview"));
-    for (const page of ["bots", "desktops", "usage", "data", "general"]) expect(advanced).toContain(page);
+    for (const page of ["bots", "usage", "data", "general"]) expect(advanced).toContain(page);
   });
 
   it("keeps the rows a Simple person needs: language and notifications on This app", () => {
@@ -236,7 +236,7 @@ describe("the Settings window", () => {
   });
 
   it("opens an old page's link on its new page", () => {
-    expect(render("decisionModel")).toMatch(/data-settings-page-open="ai"/);
+    expect(render("decisionModel")).toMatch(/data-settings-page-open="overview"/);
     expect(render("companion")).toMatch(/data-settings-page-open="phone"/);
     expect(render("logins")).toMatch(/data-settings-page-open="vault"/);
   });

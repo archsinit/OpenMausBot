@@ -38,7 +38,7 @@ describe("an empty key row", () => {
   });
 
   it("keeps a key's warning in view before it is added", () => {
-    expect(render({ id: "box" })).toContain("Boat is a paid service after its trial.");
+    expect(() => render({ id: "box" })).toThrow("no key box");
     expect(render({ id: "openai" })).toContain("Codex doesn&#x27;t use this key");
   });
 });
@@ -75,7 +75,7 @@ describe("a saved key", () => {
     fixture.config = { savedKeys: { ttsKey: { configured: true, last4: "11aa" }, openaiLiveKey: { configured: true, last4: "22bb" } } };
     expect(render({ id: "elevenlabs" })).toContain("••••••••11aa");
     expect(render({ id: "liveKey" })).toContain("••••••••22bb");
-    expect(render({ id: "jev" })).toContain("<input");
+    expect(render({ id: "imageOpenai" })).toContain("<input");
   });
 
   it("marks a key its provider has since rejected as not working, keeping it in view to replace", () => {
@@ -127,8 +127,8 @@ describe("a saved key", () => {
 
 describe("a key that comes with the Cloud plan", () => {
   it("says it is included and offers the person's own key only on request", () => {
-    fixture.config = { box: { configured: true, included: true } };
-    const html = render({ id: "box" });
+    fixture.config = { composio: { mode: "managed", configured: true } };
+    const html = render({ id: "composio" });
     expect(html).toContain("Included with your Cloud plan");
     expect(html).toContain("Use your own key");
     expect(html).not.toContain("<input");

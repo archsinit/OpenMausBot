@@ -26,6 +26,7 @@ cpSync(join(root, "dist-server"), join(out, "dist-server"), { recursive: true })
 removeAutomationArtifacts(join(out, "dist-server"));
 cpSync(join(root, "dist"), join(out, "dist"), { recursive: true });
 if (existsSync(join(root, "skills"))) cpSync(join(root, "skills"), join(out, "skills"), { recursive: true });
+for (const name of ["phone-harness", "data-dashboards"]) rmSync(join(out, "skills", name), { recursive: true, force: true });
 // The enterprise layer, under the path the server loads it from.
 // Source-available under its own license; inert without OMB_LICENSE_KEY.
 const enterpriseBundle = join(root, "dist-server", "enterprise", "server", "index.js");
@@ -51,13 +52,11 @@ writeFileSync(
       license: "Apache-2.0",
       type: "module",
       bin: { openmausbot: "cli.js" },
-      // Never bundled, so npm installs them beside the server: DuckDB and
-      // resvg are native addons that npm picks per platform from their
+      // resvg is a native addon that npm picks per platform from its
       // optional packages, and the 1Password SDK reads its WebAssembly core
       // from beside itself.
       dependencies: {
         "@1password/sdk": app.dependencies["@1password/sdk"],
-        "@duckdb/node-api": app.dependencies["@duckdb/node-api"],
         "@resvg/resvg-js": app.dependencies["@resvg/resvg-js"],
       },
       files: ["cli.js", "dist-server", "dist", "skills", "enterprise", "LICENSE", "README.md"],
@@ -76,8 +75,10 @@ writeFileSync(
   `# openmausbot
 
 Your own team of AI bots, with guided terminal setup. Requires Node 24+.
-This is the archsinit fork without desktop or browser automation. Install the
-local fork tarball explicitly; the public npm package is the upstream product.
+This is the archsinit fork without desktop/browser/phone automation, the built-in
+Data workspace or specialized decision/extraction/debug-reporting tools. Widgets,
+HTML previews, public publishing and mobile chat remain. Install the local fork
+tarball explicitly; the public npm package is the upstream product.
 
 \`\`\`sh
 npm install -g ./openmausbot-${app.version}.tgz

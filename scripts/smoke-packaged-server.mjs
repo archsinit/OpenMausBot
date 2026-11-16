@@ -120,10 +120,13 @@ let retirementReport = null;
 if (listening) {
   try {
     const config = await (await fetch(`http://127.0.0.1:${port}/api/config`)).json();
-    for (const field of ["box", "vps", "localVm", "browserProfiles", "browserEngine"]) assert(!(field in config));
+    for (const field of ["box", "vps", "localVm", "browserProfiles", "browserEngine", "phone", "decider"]) assert(!(field in config));
     assert(!("browser" in config.features));
-    for (const path of ["/api/browser-engine/install", "/api/local-computer/run"]) {
+    for (const path of ["/api/browser-engine/install", "/api/local-computer/run", "/api/phones", "/api/bots/packaged-retirement-probe/data"]) {
       assert.equal((await fetch(`http://127.0.0.1:${port}${path}`, { method: "POST" })).status, 410);
+    }
+    for (const name of ["drivers/phone-proxy.js", "server/drivers/phone-proxy.js", "data", "server/data"]) {
+      assert(!existsSync(join(staging, "server", name)), `Retired artifact shipped: ${name}`);
     }
     retirementReport = { absent: true };
   } catch (error) { retirementReport = { error: String(error) }; }
@@ -138,7 +141,7 @@ writeFileSync(
   [
     'import { existsSync } from "node:fs";',
     'import { SPAWNED_PROXIES } from "./proxy-paths.js";',
-    'const retired = new Set(["localComputer", "containerMcp", "vpsContainerMcp", "dweb"]);',
+    'const retired = new Set(["localComputer", "containerMcp", "vpsContainerMcp", "dweb", "phone"]);',
     "const missing = Object.entries(SPAWNED_PROXIES).filter(([name, p]) => !retired.has(name) && !existsSync(p));",
     "const retiredPresent = Object.entries(SPAWNED_PROXIES).filter(([name, p]) => retired.has(name) && existsSync(p));",
     "console.log(JSON.stringify({ resolved: SPAWNED_PROXIES, missing, retiredPresent }));",

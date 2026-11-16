@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { cloudHomeConfiguration } from "../server/cloud-home.ts";
@@ -42,11 +42,7 @@ function chain(target: string): Step[] {
 }
 const shipped = () => all.filter(s => s.name !== "build" && s.name !== "edge" && s.name !== "tunnel").flatMap(s => s.steps);
 const npmInstall = (step: Step) => step.op === "RUN" && /\bnpm install\b/.test(step.args);
-const browserRun = () => chain("runtime").find(step => step.op === "RUN" && step.args.includes("agent-browser install"))!;
 const grokRun = (steps: Step[]) => steps.findIndex(step => step.op === "RUN" && step.args.includes("https://x.ai/cli/install.sh"));
-// The keys step parses Chrome for Testing's JSON with jq, as on GitHub's runners.
-const jq = process.platform === "win32" ? "" : spawnSync("sh", ["-c", "command -v jq"], { encoding: "utf8" }).stdout.trim();
-
 const temporaryDirectories: string[] = [];
 afterEach(() => {
   for (const directory of temporaryDirectories.splice(0)) rmSync(directory, { recursive: true, force: true });
@@ -61,19 +57,15 @@ describe("container images", () => {
     expect(chain("server")).toContainEqual({ op: "ARG", args: 'ENGINES=""' });
   });
 
-  it("puts the browser and the engines beneath the per-commit app files, so a code change leaves them as they were", () => {
+  it("puts retained engines beneath the per-commit app files, so a code change leaves them as they were", () => {
     for (const target of ["server", "cloud-home"]) {
       const steps = chain(target);
       const heavy = steps.flatMap((step, i) => (npmInstall(step) ? [i] : []));
       const app = steps.flatMap((step, i) => (step.op === "COPY" && !/--from=(?:edge|tunnel) /.test(step.args) ? [i] : []));
-      // agent-browser + Chrome, then (Cloud home only) pnpm in the tools layer, then the engines, then the app files
-      // (and the Cloud home's Caddyfile)
-      expect(heavy, target).toHaveLength(target === "cloud-home" ? 3 : 2);
+      expect(heavy, target).toHaveLength(target === "cloud-home" ? 2 : 1);
       const fromBuild = steps.flatMap((step, i) => (step.op === "COPY" && step.args.includes("--from=build") ? [i] : []));
       expect(fromBuild, target).toHaveLength(4);
       expect(Math.max(...heavy), target).toBeLessThan(Math.min(...app));
-      // The Data engine's native tree (DuckDB, resvg) changes on a version bump,
-      // not per commit, so it is copied before the per-commit app files.
       const native = steps.findIndex(step => step.op === "COPY" && step.args.includes("/dist-native/duckdb/"));
       expect(native, target).toBeGreaterThan(-1);
       expect(native, target).toBeLessThan(Math.min(...fromBuild.filter(i => i !== native)));
@@ -125,7 +117,6 @@ describe("container images", () => {
     expect(home.slice(0, grok)).toContainEqual({ op: "ARG", args: "GROK_VERSION=1.0.41" });
     // pinned, so an engine release or a code change does not re-pull it
     expect(grok).toBeLessThan(home.findLastIndex(npmInstall));
-    expect(grok).toBeGreaterThan(home.indexOf(browserRun()));
     expect(grok).toBeLessThan(home.findIndex(step => step.args.includes("--from=build")));
     const { args } = home[grok];
     // the installer and the version check write only to a throwaway home, gone by the end of the step
@@ -142,7 +133,7 @@ describe("container images", () => {
     const cache = new RegExp(/cache = re\.compile\(r"(.*)"\)/.exec(scan)![1]);
     const removed = shipped().flatMap(step => [...step.args.matchAll(/\brm -rf ([^;&|]+)/g)].flatMap(match => match[1].trim().split(/\s+/)));
     const throwaway = [...new Set(removed.filter(path => path.startsWith("/tmp/")))].sort();
-    expect(throwaway).toEqual(["/tmp/grok-install", "/tmp/node-compile-cache", "/tmp/npm-cache", "/tmp/omb-build-home", "/tmp/uv-install"]);
+    expect(throwaway).toEqual(["/tmp/grok-install", "/tmp/node-compile-cache", "/tmp/omb-build-home", "/tmp/uv-install"]);
     for (const path of throwaway) expect(cache.test(`${path.slice(1)}/leftover`), path).toBe(true);
     expect(scan).toContain('grok = files["usr/local/bin/grok"]');
   });
@@ -160,12 +151,10 @@ describe("container images", () => {
     expect(last(home, "EXPOSE")).toBe("8080");
     expect(last(home, "CMD")).toBe('["node", "/app/dist-server/cloud-home-start.js"]');
     expect(last(home, "HEALTHCHECK")).toContain("http://127.0.0.1:8080/api/health");
-    expect(last(chain("runtime"), "ENV")).toMatch(/^AGENT_BROWSER_EXECUTABLE_PATH=\/opt\/openmausbot-browser\/chrome .*NODE_ENV=production$/);
+    expect(last(chain("runtime"), "ENV")).toMatch(/^OMB_DUCKDB_DIR=\/app\/duckdb .*NODE_ENV=production$/);
   });
 
   it("hands the Cloud home's server every setting the image's ENV gives it", () => {
-    // The root supervisor passes the server an allow-listed environment; a setting the image sets but the list drops is
-    // lost silently (OMB_DUCKDB_DIR was: the server then found neither the 1Password SDK nor DuckDB in /app/duckdb).
     const image: Record<string, string> = {};
     for (const step of chain("cloud-home").filter(step => step.op === "ENV")) {
       for (const [, name, value] of step.args.matchAll(/(?:^|\s)([A-Z][A-Z0-9_]*)=(\S*)/g)) image[name] = value;
@@ -188,36 +177,24 @@ describe("container images", () => {
     }
   });
 
-  it.skipIf(process.platform === "win32")("keeps only agent-browser's native binary, and refuses when the command is not one", () => {
-    const { args } = browserRun();
-    const start = args.indexOf("native=");
-    const end = args.indexOf("&& agent-browser --version", start);
-    expect(start).toBeGreaterThan(args.indexOf("agent-browser install"));
-    expect(end).toBeGreaterThan(start);
-    const prune = args.slice(start, end);
-    const run = (target: string, elf = true) => {
-      const root = mkdtempSync(join(tmpdir(), "omb-agent-browser-"));
-      temporaryDirectories.push(root);
-      const bin = join(root, "lib/node_modules/agent-browser/bin");
-      mkdirSync(bin, { recursive: true });
-      mkdirSync(join(root, "bin"));
-      const names = ["agent-browser-darwin-arm64", "agent-browser-linux-arm64", "agent-browser-linux-musl-x64", "agent-browser-linux-x64", "agent-browser-win32-x64.exe", "agent-browser.js"];
-      for (const name of names) writeFileSync(join(bin, name), name === "agent-browser-linux-x64" && elf ? "\x7fELF\x02\x01" : "#!/usr/bin/env node\n", { mode: 0o755 });
-      symlinkSync(join(bin, target), join(root, "bin/agent-browser"));
-      const result = spawnSync("sh", ["-c", prune], { env: { PATH: `${join(root, "bin")}:/usr/bin:/bin` }, encoding: "utf8" });
-      return { status: result.status, left: readdirSync(bin).sort(), names };
-    };
-    expect(run("agent-browser-linux-x64")).toMatchObject({ status: 0, left: ["agent-browser-linux-x64", "agent-browser.js"] });
-    // npm linking the JS wrapper instead must stop the build, not delete every native binary
-    const wrapper = run("agent-browser.js");
-    expect(wrapper.status).not.toBe(0);
-    expect(wrapper.left).toEqual(wrapper.names);
-    const script = run("agent-browser-linux-x64", false);
-    expect(script.status).not.toBe(0);
-    expect(script.left).toEqual(script.names);
+  it("excludes browser, phone automation and Data resources while retaining rendering and credentials", () => {
+    for (const target of ["server", "cloud-home"]) {
+      const runtime = chain(target).map(step => step.args).join("\n");
+      expect(runtime).not.toMatch(/agent-browser|chromium|android-platform-tools|phone-proxy|@duckdb/);
+      expect(runtime).not.toContain("AGENT_BROWSER_EXECUTABLE_PATH");
+    }
+    const build = all.find(stage => stage.name === "build")!.steps.map(step => step.args).join("\n");
+    expect(build).toContain("rm -rf skills/phone-harness skills/data-dashboards");
+    const staging = readFileSync(new URL("./prepare-duckdb.mjs", import.meta.url), "utf8");
+    expect(staging).toContain('const resvgVersion = pinnedResvgVersion(root)');
+    expect(staging).toContain('const onePasswordVersion = pinnedOnePasswordVersion(root)');
+    expect(staging).not.toMatch(/pinnedDuckdbVersion|DUCKDB_PACKAGES/);
+    const retirement = readFileSync(new URL("./retired-automation-artifacts.mjs", import.meta.url), "utf8");
+    expect(retirement).toContain('"drivers/phone-proxy.js"');
+    expect(retirement).toContain('"data"');
   });
 
-  it("builds the server image for linux/arm64 too: the DuckDB tree and the browser follow the image's CPU", () => {
+  it("builds the server image for linux/arm64 with target-specific rendering and credentials", () => {
     // The JavaScript build runs once on the build host; only the native tree is per CPU, staged after it.
     const build = all.find(s => s.name === "build")!;
     expect(build.platform).toBe("$BUILDPLATFORM");
@@ -238,10 +215,6 @@ describe("container images", () => {
         expect(readFileSync(join(root, "dist-native/duckdb/target/arch"), "utf8"), targetArch).toBe(arch);
       }
     }
-    // Chrome for Testing has no Linux ARM64 build: an arm64 image takes Debian's Chromium at the same path.
-    const runtime = chain("runtime");
-    expect(runtime.slice(0, runtime.indexOf(browserRun()))).toContainEqual({ op: "ARG", args: "TARGETARCH" });
-    expect(browserRun().args).toMatch(/if \[ "\$TARGETARCH" = arm64 \]; then .*apt-get install -y --no-install-recommends chromium .*ln -s \/usr\/lib\/chromium\/chromium \/opt\/openmausbot-browser\/chrome; +else .*agent-browser install .*; +fi/);
     // Published for both CPUs; the Cloud home (Fly, amd64) stays as it is.
     const steps = workflow.jobs.publish.steps as { id?: string; uses?: string; with?: Record<string, string> }[];
     const server = steps.findIndex(step => step.uses?.startsWith("docker/build-push-action@") && step.id !== "home");
@@ -250,13 +223,17 @@ describe("container images", () => {
     expect(qemu).toBeLessThan(server);
     expect(steps[server].with!.platforms).toBe("linux/amd64,linux/arm64");
     expect(steps.find(step => step.id === "home")!.with).not.toHaveProperty("platforms");
-    // and an arm64 runner proves the arm64 image boots, serves and browses before anything is published
     const arm = workflow.jobs["arm64-smoke"];
     expect(arm["runs-on"]).toBe("ubuntu-24.04-arm");
     expect(workflow.jobs.publish.needs).toEqual(expect.arrayContaining(["build-and-smoke", "arm64-smoke"]));
     const armRun = (arm.steps as { run?: string }[]).map(step => step.run ?? "").join("\n");
     expect(armRun).toContain("/api/health");
-    expect(armRun).toContain("agent-browser --session ci-browser open");
+    expect(armRun).toContain("@resvg/resvg-js");
+    expect(armRun).toContain("@1password/sdk");
+    expect(armRun).toContain("test ! -e /app/duckdb/node_modules/@duckdb");
+    expect(armRun).toContain("test ! -e /app/skills/phone-harness");
+    expect(armRun).toContain("test ! -e /app/skills/data-dashboards");
+    expect(armRun).toContain("test ! -e /app/dist-server/drivers/phone-proxy.js");
   });
 
   it("builds Cloud home from the same Dockerfile in CI, with its own layer cache", () => {
@@ -270,23 +247,12 @@ describe("container images", () => {
     expect(home.with!["build-args"]).not.toContain("BASE_IMAGE");
     expect(home.with!["cache-from"].split("\n")).toEqual(expect.arrayContaining(["type=gha", "type=gha,scope=cloud-home"]));
     expect(home.with!["cache-to"]).toBe("type=gha,scope=cloud-home,mode=max");
-    // Both builds key the browser layer on the same Chrome, so they share it.
-    for (const build of [server, home]) expect(build.with!["build-args"]).toContain("CHROME_CACHE_TAG=${{ steps.keys.outputs.chrome }}");
-    // and the arm64 one on Debian's newest Chromium, so a security update rebuilds it
-    for (const build of [server, home]) expect(build.with!["build-args"]).toContain("CHROMIUM_CACHE_TAG=${{ steps.keys.outputs.chromium }}");
+    for (const build of [server, home]) expect(build.with!["build-args"] ?? "").not.toMatch(/CHROME|CHROMIUM/);
     expect(home.with!["build-args"]).toContain("CLOUD_HOME_ENGINES=${{ steps.keys.outputs.engines }}");
     expect(home.with!["build-args"]).toContain("ENGINES_CACHE_TAG=${{ steps.keys.outputs.engines_tag }}");
   });
 
-  it("keys the browser and engine layers on the versions they install, so a release rebuilds them", () => {
-    const runtime = all.find(s => s.name === "runtime")!.steps;
-    const declared = runtime.findIndex(step => step.op === "ARG" && step.args.startsWith("CHROME_CACHE_TAG="));
-    // declared after the apt step, so a Chrome release rebuilds only the browser layer
-    expect(declared).toBeGreaterThan(runtime.findIndex(step => step.op === "RUN" && step.args.startsWith("apt-get update")));
-    expect(declared).toBeLessThan(runtime.indexOf(browserRun()));
-    expect(browserRun().args).toContain("${CHROME_CACHE_TAG");
-    expect(runtime.findIndex(step => step.op === "ARG" && step.args.startsWith("CHROMIUM_CACHE_TAG="))).toBeLessThan(runtime.indexOf(browserRun()));
-    expect(browserRun().args).toContain("${CHROMIUM_CACHE_TAG");
+  it("keys retained engine layers on the versions they install, so a release rebuilds them", () => {
     const home = all.find(s => s.name === "cloud-home")!.steps;
     expect(home).toContainEqual({ op: "ARG", args: 'CLOUD_HOME_ENGINES="@anthropic-ai/claude-code @openai/codex"' });
     // the engines' install, not the tools layer's pinned pnpm beneath it
@@ -303,6 +269,8 @@ describe("container images", () => {
       const root = mkdtempSync(join(tmpdir(), "omb-engines-"));
       temporaryDirectories.push(root);
       writeFileSync(join(root, "plan"), broken.join("\n") + "\n");
+      // The Docker instruction's absolute cleanup paths must never reach the test host.
+      writeFileSync(join(root, "rm"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
       writeFileSync(join(root, "npm"), `#!/bin/sh\necho "$*" >> "${root}/npm.log"\nsed -n "$(wc -l < "${root}/npm.log")p" "${root}/plan" > "${root}/broken"\n`, { mode: 0o755 });
       for (const cli of ["claude", "codex"]) {
         writeFileSync(join(root, cli), `#!/bin/sh\ngrep -qx ${cli} "${root}/broken" && { echo "Missing optional dependency" >&2; exit 1; }\necho ${cli} 1.0\n`, { mode: 0o755 });
@@ -313,7 +281,8 @@ describe("container images", () => {
       const installs = readFileSync(join(root, "npm.log"), "utf8").trim().split("\n");
       return { status: result.status, installs: installs.length, stderr: result.stderr };
     };
-    expect(run([""])).toMatchObject({ status: 0, installs: 1 });
+    const healthy = run([""]);
+    expect(healthy, healthy.stderr).toMatchObject({ status: 0, installs: 1 });
     // npm leaving out Codex's platform package the first time: a second install puts it in
     expect(run(["codex", ""])).toMatchObject({ status: 0, installs: 2 });
     const stillBroken = run(["codex", "codex"]);
@@ -324,35 +293,30 @@ describe("container images", () => {
     expect(run(["claude", "claude"], "@anthropic-ai/claude-code @openai/codex").status).not.toBe(0);
   });
 
-  it.skipIf(!jq)("resolves the current Chrome and engine releases, and keys on the date when a lookup fails", () => {
+  it.skipIf(process.platform === "win32")("resolves current engine releases, and keys on the date when a lookup fails", () => {
     const keys = (workflow.jobs.publish.steps as { id?: string; run?: string; env?: Record<string, string> }[]).find(step => step.id === "keys")!;
     const resolve = (ok: boolean) => {
       const root = mkdtempSync(join(tmpdir(), "omb-docker-keys-"));
       temporaryDirectories.push(root);
       const fake = (name: string, body: string) => writeFileSync(join(root, name), `#!/bin/sh\n${ok ? body : "exit 1"}\n`, { mode: 0o755 });
-      fake("curl", `case "$*" in *madison*) printf ' chromium | 150.0.7871.100-1~deb12u1 | bookworm          | arm64\\n chromium | 156.0.8078.73-1~deb12u1  | bookworm-security | arm64\\n';; *) echo '{"channels":{"Stable":{"version":"154.0.8037.92","downloads":{}}}}';; esac`);
       fake("npm", `case "$2" in @anthropic-ai/claude-code@latest) echo 2.1.291;; @openai/codex@latest) echo 0.160.1;; *) exit 1;; esac`);
       const output = join(root, "output");
       writeFileSync(output, "");
       const result = spawnSync("bash", ["-e", "-c", keys.run!], {
-        env: { ...keys.env, PATH: `${root}:${dirname(jq)}:/usr/bin:/bin`, GITHUB_OUTPUT: output }, encoding: "utf8",
+        env: { ...keys.env, PATH: `${root}:/usr/bin:/bin`, GITHUB_OUTPUT: output }, encoding: "utf8",
       });
       expect(result.status, result.stderr).toBe(0);
       return Object.fromEntries(readFileSync(output, "utf8").trim().split("\n").map(line => [line.slice(0, line.indexOf("=")), line.slice(line.indexOf("=") + 1)]));
     };
     expect(resolve(true)).toEqual({
-      chrome: "154.0.8037.92",
-      chromium: "156.0.8078.73-1~deb12u1",
       engines: "@anthropic-ai/claude-code@2.1.291 @openai/codex@0.160.1",
       engines_tag: "",
     });
     const today = `date-${new Date().toISOString().slice(0, 10)}`;
-    expect(resolve(false)).toEqual({ chrome: today, chromium: today, engines: "@anthropic-ai/claude-code @openai/codex", engines_tag: today });
+    expect(resolve(false)).toEqual({ engines: "@anthropic-ai/claude-code @openai/codex", engines_tag: today });
   });
 
-  // An init collects browser processes whose parents exit, and Chrome gets the
-  // shared memory OpenMausBot's desktop containers give it.
-  it("runs every compose service of the server image with an init and Chrome's shared memory", () => {
+  it("preserves init and shared-memory sizing for every compose server service", () => {
     for (const file of ["../compose.yaml", "../deploy/docker-compose.yml", "../deploy/podman/compose.yaml"]) {
       const service = parse(readFileSync(new URL(file, import.meta.url), "utf8")).services.omb;
       expect(service.init, file).toBe(true);

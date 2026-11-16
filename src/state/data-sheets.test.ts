@@ -77,30 +77,16 @@ afterAll(() => {
 });
 
 describe("data sheets in the store", () => {
-  it("opens the referenced bot's Data result, including repeated clicks", () => {
-    const opened = reducer(seen, { type: "openDataResult", botId: "bot", cardId: "c_1" });
-    expect(opened).toMatchObject({ selectedId: "bot", computerOpen: true, activeView: "chat", dataResultFocus: { botId: "bot", id: "c_1", requestId: 1 } });
-    expect(reducer(opened, { type: "openDataResult", botId: "bot", cardId: "c_1" }).dataResultFocus?.requestId).toBe(2);
-    const consumed = reducer(opened, { type: "dataResultFocusConsumed", requestId: 1 });
-    expect(consumed.dataResultFocus?.consumed).toBe(true);
-    expect(reducer(consumed, { type: "openDataResult", botId: "bot", cardId: "c_1" }).dataResultFocus).toMatchObject({ consumed: false, requestId: 2 });
-    expect(reducer(opened, { type: "openDataResult", botId: "deleted", cardId: "c_1" })).toBe(opened);
-  });
-  it("opens a receipt's bot the way selecting it does: unread clears and the read is posted", async () => {
-    const other: BotAnnouncement = { ...bot, id: "other", name: "Other", unread: true, tasks: [{ ...bot.tasks![0]!, unread: true }] };
+  it("ignores historical result opens without selecting or marking another bot read", async () => {
+    const other: BotAnnouncement = { ...bot, id: "other", name: "Other", unread: true };
     await send({ kind: "bot", bot: other as unknown as Extract<ServerFrame, { kind: "bot" }>["bot"] });
-    expect(seen.selectedId).toBe("bot");
-    expect(seen.bots.find((candidate) => candidate.id === "other")?.unread).toBe(true);
-    expect(sent("/api/bots/other/read")).toHaveLength(0);
+    expect(reducer(seen, { type: "openDataResult", botId: "bot", cardId: "c_1" })).toBe(seen);
     dispatch({ type: "openDataResult", botId: "other", cardId: "c_1" });
     await settle();
-    expect(seen).toMatchObject({ selectedId: "other", activeView: "chat", computerOpen: true, dataResultFocus: { botId: "other", id: "c_1", consumed: false } });
-    const openedBot = seen.bots.find((candidate) => candidate.id === "other");
-    expect(openedBot?.unread).toBe(false);
-    expect(openedBot?.tasks?.[0]?.unread).toBe(false);
-    expect(sent("/api/bots/other/read").map((request) => [request.method, request.body])).toEqual([["POST", { threadId: "thread" }]]);
-    dispatch({ type: "select", id: "bot" });
-    await settle();
+    expect(seen.selectedId).toBe("bot");
+    expect(seen.computerOpen).toBe(false);
+    expect(seen.bots.find((candidate) => candidate.id === "other")?.unread).toBe(true);
+    expect(sent("/api/bots/other/read")).toHaveLength(0);
   });
   it("start empty and are not fetched with the app", () => {
     expect(seen.dataSheets).toEqual({});

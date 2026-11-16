@@ -209,7 +209,7 @@ export function createToolBridge(inputTools: readonly BridgeTool[]): ToolBridge 
   function use(args: unknown): BridgeRoute {
     const name = record(args) && typeof args.name === "string" ? args.name : "";
     const input = record(args) ? args.arguments : undefined;
-    if (isRemovedAutomationTool(name)) return { answer: { text: "Desktop and browser automation is not available.", isError: true } };
+    if (isRemovedAutomationTool(name)) return { answer: { text: "This built-in product tool has been retired.", isError: true } };
     if (!name.trim() || (input != null && !record(input))) return { answer: { text: USE_USAGE, isError: true } };
     // Security: a name outside the profile is passed on, so the proxy's one unknown-tool check refuses it
     // exactly as it would a direct call.

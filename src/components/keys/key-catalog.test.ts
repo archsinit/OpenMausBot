@@ -6,6 +6,8 @@ import { WORKSPACE_CREDENTIAL_ENV } from "../../../server/credential-env.ts";
 import { CREDENTIAL_TARGETS, credentialConfigPatch, desktopCredentialSlot, isConfigCredentialTarget } from "../../../shared/credential-request";
 import { KEY_CATALOG, KEY_SECTIONS, keyEntry, keyForInstance, keyHidden, keyMatches, looksLikeOtherKey, savedState, shownKeyEntry, type KeyId } from "./key-catalog";
 
+const RETIRED_KEYS = { boxToken: "BOX_TOKEN", jevApiKey: "OMB_JEV_API_KEY", openrouterDeciderKey: "OMB_OPENROUTER_DECIDER_KEY", workersAiToken: "OMB_WORKERS_AI_TOKEN", customDeciderKey: "OMB_CUSTOM_DECIDER_KEY" } as const;
+
 const NOT_A_PERSONS_KEY: Record<string, string> = {
   OMB_ANTHROPIC_API_URL: "the address the Anthropic key goes to, set by a hosted install",
   OMB_HOSTED_MODEL_TOKEN: "a hosted install's model token",
@@ -31,7 +33,7 @@ describe("every credential has one home on the keys page", () => {
   it("files each workspace credential under exactly one row, in one section", () => {
     for (const env of WORKSPACE_CREDENTIAL_ENV) {
       const rows = KEY_CATALOG.filter((entry) => entry.env.includes(env)).map((entry) => entry.id);
-      if (env in NOT_A_PERSONS_KEY) expect(rows, env).toEqual([]);
+      if (env in NOT_A_PERSONS_KEY || Object.values(RETIRED_KEYS).some((retired) => retired === env)) expect(rows, env).toEqual([]);
       else expect(rows, env).toHaveLength(1);
     }
     for (const entry of KEY_CATALOG) expect(KEY_SECTIONS.map((section) => section.id)).toContain(entry.section);
@@ -44,12 +46,13 @@ describe("every credential has one home on the keys page", () => {
     expect(stored.length).toBeGreaterThan(10);
     for (const { name, env } of stored) {
       const home = KEY_CATALOG.find((entry) => entry.env.includes(env));
+      if (name in RETIRED_KEYS) { expect(home, name).toBeUndefined(); continue; }
       expect(home, name).toBeDefined();
       if (home?.target) expect(home.target.slot, name).toBe(name);
     }
     const homed = (name: string) => KEY_CATALOG.some((entry) => entry.target?.slot === name)
       || stored.some((row) => row.name === name && KEY_CATALOG.some((entry) => entry.env.includes(row.env)));
-    for (const name of patched) expect(homed(name), name).toBe(true);
+    for (const name of patched) expect(homed(name), name).toBe(!(name in RETIRED_KEYS));
   });
 
   // A key saved from a bot's card lands exactly where its Settings row puts it: the same desktop slot, or the same config.
@@ -62,6 +65,7 @@ describe("every credential has one home on the keys page", () => {
     };
     expect(Object.keys(homes).sort()).toEqual(Object.keys(CREDENTIAL_TARGETS).sort());
     for (const [name, id] of Object.entries(homes) as Array<[keyof typeof CREDENTIAL_TARGETS, KeyId]>) {
+      if (name in RETIRED_KEYS) { expect(() => keyEntry(id)).toThrow(`no key ${id}`); continue; }
       const entry = keyEntry(id);
       if (!entry.target) {
         expect(entry.opens, name).toBe("logins");
@@ -110,7 +114,8 @@ describe("searching the keys", () => {
   it("matches a provider's name, what the key is for, and its section's title", () => {
     expect(found("fish")).toEqual(["fishAudio"]);
     expect(found("ElevenLabs")).toEqual(["elevenlabs"]);
-    expect(found("Computers and browser")).toEqual(["box", "vps", "onePassword"]);
+    expect(found("Computers and browser")).toEqual(["onePassword"]);
+    for (const query of ["boat", "vps", "jev", "workers ai", "decisions"]) expect(found(query)).toEqual([]);
     expect(found("voice")).toEqual(expect.arrayContaining(["liveCalls", "liveKey", "elevenlabs", "fishAudio"]));
     expect(found("openai")).toEqual(expect.arrayContaining(["openai", "liveCalls", "liveKey", "imageOpenai"]));
     expect(found("gmail")).toEqual(["composio"]);
@@ -138,9 +143,9 @@ describe("searching the keys", () => {
 describe("a key pasted into the wrong row", () => {
   it("names the provider the key belongs to", () => {
     expect(looksLikeOtherKey(keyEntry("openai"), "sk-ant-api03-abcdefghijkl")?.id).toBe("anthropic");
-    expect(looksLikeOtherKey(keyEntry("box"), "sk-proj-abcdefghijkl")?.id).toBe("openai");
+    expect(looksLikeOtherKey(keyEntry("composio"), "sk-proj-abcdefghijkl")?.id).toBe("openai");
     expect(looksLikeOtherKey(keyEntry("liveCalls"), "gsk_abcdefghijkl")?.id).toBe("groq");
-    expect(looksLikeOtherKey(keyEntry("composio"), "boat_abcdefghijkl")?.id).toBe("box");
+    expect(looksLikeOtherKey(keyEntry("composio"), "boat_abcdefghijkl")).toBeNull();
   });
 
   it("stays quiet for the row's own key and for keys with no telling shape", () => {

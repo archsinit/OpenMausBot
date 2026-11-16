@@ -15,7 +15,7 @@ describe("usbPhoneTakeoverEnabled", () => {
     [{ features: null }, false],
     [{ features: { usbPhoneTakeover: false } }, false],
     [{ features: { usbPhoneTakeover: "true" } }, false],
-    [ON, true],
+    [ON, false],
   ])("%j → %s", (cfg, on) => {
     expect(usbPhoneTakeoverEnabled(cfg)).toBe(on);
   });
@@ -23,7 +23,7 @@ describe("usbPhoneTakeoverEnabled", () => {
 
 describe("usbPhoneOffered", () => {
   it.each([
-    ["an engine that mounts the phone and a default-on phone skill", engine(true), [skill(true, "phoneMcp")], true],
+    ["an old engine and phone skill cannot restore automation", engine(true), [skill(true, "phoneMcp")], false],
     ["an engine that cannot mount the phone", engine(), [skill(true, "phoneMcp")], false],
     ["a phone skill that is off by default", engine(true), [skill(false, "phoneMcp")], false],
     ["no phone skill", engine(true), [skill(true, "computerMcp")], false],
@@ -56,8 +56,8 @@ describe("a saved config while a person holds the phone and no stream is open", 
     expect(hold.held).toBe(false);
   });
 
-  it("keeps the hold when it leaves the feature on", () => {
+  it("releases a legacy hold even when saved settings request the removed feature", () => {
     endHoldUnlessOn(heldUnwatched(), { features: { usbPhoneTakeover: true, browser: false } });
-    expect(hold.held).toBe(true);
+    expect(hold.held).toBe(false);
   });
 });

@@ -1,8 +1,8 @@
 import type { JsonObject, JsonValue } from "./schema.ts";
 
-export const AUTOMATION_CONFIG_FIELDS = ["box", "vps", "localVm", "browserProfiles", "browserEngine"] as const;
-export const AUTOMATION_FEATURE_FIELDS = ["browser", "sharedComputers", "savedSteps", "cloudComputerAutoReplace"] as const;
-export const AUTOMATION_BOT_FIELDS = ["computer", "cloudBackend", "autoStartVps", "browser", "browserProfile"] as const;
+export const AUTOMATION_CONFIG_FIELDS = ["box", "vps", "localVm", "browserProfiles", "browserEngine", "decider"] as const;
+export const AUTOMATION_FEATURE_FIELDS = ["browser", "sharedComputers", "savedSteps", "cloudComputerAutoReplace", "usbPhoneTakeover"] as const;
+export const AUTOMATION_BOT_FIELDS = ["computer", "cloudBackend", "autoStartVps", "browser", "browserProfile", "phoneApps"] as const;
 
 function object(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -16,7 +16,7 @@ export function assertNoAutomationConfig(value: unknown): void {
   const profileField = object(defaults?.profile) && AUTOMATION_BOT_FIELDS.find((key) => Object.hasOwn(defaults.profile as object, key));
   const cloudRoutine = Array.isArray(defaults?.routines) && defaults.routines.some((routine) => object(routine) && routine.runOn === "cloud");
   if (removed || profileField || cloudRoutine) {
-    throw Object.assign(new Error("Desktop and browser automation settings have been removed."), { status: 410, code: "automation_removed" });
+    throw Object.assign(new Error("Automation and specialized inference settings have been removed."), { status: 410, code: "automation_removed" });
   }
 }
 

@@ -5,13 +5,13 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { SourceError, type CalendarEvent, type ConnectedReads, type EmailHeader, type ReadApp } from "../connected-reads.ts";
 import type { Routine, RoutineRun } from "../routines.ts";
-import { CHECKS_FILE, createRoutineChecks, type CheckReport } from "./routine-checks.ts";
+import { CHECKS_FILE, createRoutineChecks, type CheckReport, type RoutineChecksDeps } from "./routine-checks.ts";
 
 const MINUTE = 60_000;
 const dirs: string[] = [];
 afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
 
-function setup(options: { fenced?: boolean; may?: (app: ReadApp) => boolean } = {}) {
+function setup(options: { fenced?: boolean; may?: (app: ReadApp) => boolean; defaultWatch?: boolean; inbox?: RoutineChecksDeps["inbox"] } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "omb-routine-checks-"));
   dirs.push(dir);
   let now = Date.parse("2026-10-22T08:00:00Z");
@@ -42,6 +42,8 @@ function setup(options: { fenced?: boolean; may?: (app: ReadApp) => boolean } = 
     dataDir: dir, reads, now: () => now, mayRead: (_bot, app) => options.may?.(app) ?? true, fenced: () => options.fenced ?? true,
     timeZone: () => "UTC", runs: () => runs, dismissedFrom: () => [], report: (report) => { reports.push(report); },
     sorted: (routineId, count) => sorted.push([routineId, count]),
+    isDefaultWatch: (routine) => options.defaultWatch === true && routine.id === "watch",
+    inbox: options.inbox,
   });
   const routine = (extra: Partial<Routine> = {}): Routine => ({
     id: "watch", name: "Keep an eye on my day", prompt: "Check my day.", target: "bot", botId: "chief", runOn: "maus", enabled: true,
@@ -68,6 +70,41 @@ const run = (key: string, status: RoutineRun["status"], deliver?: "brief"): Rout
 });
 
 describe("a routine's checks", () => {
+  it.each(["absent", "off", "unanswered"] as const)("default-watch new mail never falls back to a main-model run with helpers %s", async (mode) => {
+    let triaged = 0;
+    const s = setup({ defaultWatch: true, ...(mode === "absent" ? {} : { inbox: {
+      ready: () => mode !== "off",
+      triage: async () => { triaged++; return null; },
+    } }) });
+    s.mail("new", 1);
+    for (let tick = 0; tick < 2; tick++) {
+      expect((await s.checks.check(s.routine({ checks: ["mail"] }), { manual: false })).run).toBeUndefined();
+      s.advance(MINUTE);
+    }
+    expect(triaged).toBe(mode === "unanswered" ? 2 : 0);
+    expect(s.checks.pendingKeys()).toEqual([]);
+    expect(s.sorted).toEqual([]);
+    expect(JSON.parse(readFileSync(s.file, "utf8")).routines.watch.judged).toBeUndefined();
+  });
+
+  it("default-watch mail off preserves deterministic reminders and finished-run reports", async () => {
+    const s = setup({ defaultWatch: true });
+    s.mail("new", 1);
+    s.meeting("soon", 5);
+    s.runs.push({ ...run("other", "completed"), routineId: "other", finishedAt: s.now() - MINUTE });
+    expect((await s.checks.check(s.routine(), { manual: false, hold: "running" })).run).toBeUndefined();
+    expect(s.reports[0]!.remind!.map((event) => event.title)).toEqual(["soon"]);
+    expect(s.reports[0]!.runs).toHaveLength(1);
+  });
+
+  it.each([undefined, "brief"] as const)("explicit user mail routines still queue with helpers off (delivery %s)", async (deliver) => {
+    const s = setup({ defaultWatch: true, inbox: { ready: () => false, triage: async () => { throw new Error("disabled"); } } });
+    s.mail("new", 1);
+    const result = await s.checks.check(s.routine({ id: "user-mail", checks: ["mail"], deliver }), { manual: false });
+    expect(result.run?.prompt).toContain("Subject new");
+    expect(s.checks.items(result.run!.key)!.mail.map((email) => email.id)).toEqual(["new"]);
+  });
+
   it("nothing new means no run, and the brief still hears what needs no AI", async () => {
     const s = setup();
     const result = await s.checks.check(s.routine(), { manual: false });

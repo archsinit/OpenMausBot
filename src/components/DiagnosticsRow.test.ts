@@ -28,7 +28,7 @@ async function click(label: string) {
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
 }
 
-it("opens this computer's logs folder and says where it is; export still removes secrets", async () => {
+it("opens logs without offering diagnostic report export", async () => {
   const openLogsFolder = vi.fn().mockResolvedValue({ folder: FOLDER, opened: true });
   (window as { ogb?: unknown }).ogb = { openLogsFolder, exportDiagnostics: vi.fn() };
   await render();
@@ -36,7 +36,8 @@ it("opens this computer's logs folder and says where it is; export still removes
   await click("Open logs folder");
   expect(openLogsFolder).toHaveBeenCalledExactlyOnceWith();
   expect(host.querySelector("[data-logs-folder]")!.textContent).toBe(`Logs are in ${FOLDER}.`);
-  expect(button("Export diagnostics…")).toBeDefined();
+  expect(button("Export diagnostics…")).toBeUndefined();
+  expect(window.ogb?.exportDiagnostics).not.toHaveBeenCalled();
 });
 
 it("when the folder cannot be opened, says where it is instead", async () => {

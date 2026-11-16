@@ -81,7 +81,7 @@ import { useChiefStepOpen } from "@/lib/default-bot";
 import { useSessionEnded } from "@/lib/session-ended";
 import { PairPage } from "./pair/PairPage";
 import { WebPanelPage } from "@/components/WebPanelPage";
-import { DataWorkspacePanel } from "@/components/DataWorkspacePanel";
+import { FilesPanel } from "@/components/FilesPanel";
 import { AppPreviewPanel } from "@/components/published-apps/AppPreviewPanel";
 
 function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
@@ -362,7 +362,7 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
           ? <RemoteAgentSettingsPanel bot={bot} overlay={state.computerOpen && !twoSidePanelsFit} />
           : <BotSettingsDialog key={`settings:${bot.id}`} bot={bot} overlay={(state.inspectorOpen || state.computerOpen || (notificationFeed && state.notificationsOpen)) && !twoSidePanelsFit} />
       )}
-      {state.computerOpen && bot && <DataWorkspacePanel key={bot.id} bot={bot} />}
+      {state.computerOpen && bot && <FilesPanel key={bot.id} bot={bot} />}
       <AppPreviewPanel />
       {state.forkPanel && sidebarInline && <ForkPanel />}
       {!state.forkPanel && roomPanelOpen && group && (

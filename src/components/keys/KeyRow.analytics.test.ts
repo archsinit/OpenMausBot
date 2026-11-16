@@ -62,7 +62,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   fixture.values = [];
   fixture.refs = [];
-  fixture.config = { anthropic: { configured: false }, box: { configured: false } };
+  fixture.config = { anthropic: { configured: false } };
   vi.stubGlobal("window", {});
   vi.stubGlobal("document", { activeElement: null });
 });
@@ -120,21 +120,21 @@ describe("a key saved in Settings → API keys", () => {
     expectNoKeyIn(fixture.track.mock.calls);
   });
 
-  it("reports a Boat key boat.dev refused over the desktop bridge as rejected, from the Computer panel", async () => {
-    const setCredential = vi.fn().mockRejectedValue(new Error(`Error invoking remote method 'credential:set': KeyRejected: That doesn't look like a Boat API key: ${KEY.slice(0, 12)}`));
+  it("does not save or report a retired Boat key through the desktop bridge", () => {
+    const setCredential = vi.fn();
     vi.stubGlobal("window", { ogb: { setCredential } });
-    await enterKey({ id: "box", via: "computer_panel" });
-    expect(setCredential).toHaveBeenCalledWith("boxToken", KEY);
+    expect(() => render({ id: "box", via: "computer_panel" })).toThrow("no key box");
+    expect(setCredential).not.toHaveBeenCalled();
     expect(fixture.api).not.toHaveBeenCalled();
-    expect(fixture.track.mock.calls).toEqual([["api_key_saved", { provider: "boat", via: "computer_panel", result: "rejected" }]]);
-    expectNoKeyIn(fixture.track.mock.calls);
+    expect(fixture.track).not.toHaveBeenCalled();
   });
 
-  it("reports a Boat key the server checked as ok, without testing it again", async () => {
-    fixture.api.mockResolvedValueOnce({ box: { configured: true } });
-    await enterKey({ id: "box" });
+  it("reports a Composio key the server checked as ok, without testing it again", async () => {
+    fixture.api.mockResolvedValueOnce({ composio: { configured: true } });
+    await enterKey({ id: "composio" });
     expect(fixture.api).toHaveBeenCalledOnce();
-    expect(fixture.track.mock.calls).toEqual([["api_key_saved", { provider: "boat", via: "settings", result: "ok" }]]);
+    expect(fixture.track.mock.calls).toEqual([["api_key_saved", { provider: "composio", via: "settings", result: "ok" }]]);
+    expectNoKeyIn(fixture.track.mock.calls);
   });
 
   it("saves an xAI key through the desktop's encrypted store, so Remove clears the stored copy too", async () => {

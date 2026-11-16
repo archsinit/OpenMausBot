@@ -22,14 +22,17 @@ function nativelyRequired() {
 }
 
 describe("packaged native modules", () => {
-  it("finds the Data engine, chart rendering and 1Password loads in the server", () => {
-    expect(nativelyRequired()).toEqual(["@1password/sdk", "@duckdb/node-api", "@resvg/resvg-js"]);
+  it("retains rendering and 1Password while keeping DuckDB development-only", () => {
+    expect(nativelyRequired()).toEqual(expect.arrayContaining(["@1password/sdk", "@resvg/resvg-js"]));
+    const app = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+    expect(app.dependencies["@duckdb/node-api"]).toBeUndefined();
+    expect(app.devDependencies["@duckdb/node-api"]).toBeDefined();
   });
 
   it("declares every natively required package in the npm manifest at the app's exact pin", () => {
     const checkout = mkdtempSync(join(tmpdir(), "omb-npm-package-"));
     temporaryDirectories.push(checkout);
-    const pins = Object.fromEntries(nativelyRequired().map((name, i) => [name, `9.9.${i}`]));
+    const pins = Object.fromEntries(nativelyRequired().filter(name => name !== "@duckdb/node-api").map((name, i) => [name, `9.9.${i}`]));
     writeFileSync(join(checkout, "package.json"), JSON.stringify({ version: "0.0.1", dependencies: { ...pins, react: "19.0.0" } }));
     for (const file of ["dist-server/index.js", "dist-server/openmausbot.js", "dist/index.html", "LICENSE"]) {
       mkdirSync(join(checkout, file, ".."), { recursive: true });
@@ -37,7 +40,10 @@ describe("packaged native modules", () => {
     }
     mkdirSync(join(checkout, "scripts"));
     copyFileSync(join(root, "scripts", "build-npm-package.mjs"), join(checkout, "scripts", "build-npm-package.mjs"));
+    copyFileSync(join(root, "scripts", "retired-automation-artifacts.mjs"), join(checkout, "scripts", "retired-automation-artifacts.mjs"));
+    for (const name of ["phone-harness", "data-dashboards", "phone-connection", "create-verification-skill"]) mkdirSync(join(checkout, "skills", name), { recursive: true });
     execFileSync(process.execPath, [join(checkout, "scripts", "build-npm-package.mjs")], { stdio: "pipe" });
+    expect(readdirSync(join(checkout, "release/npm/skills")).sort()).toEqual(["create-verification-skill", "phone-connection"]);
     const manifest = JSON.parse(readFileSync(join(checkout, "release", "npm", "package.json"), "utf8"));
     expect(manifest.dependencies).toEqual(pins);
   });

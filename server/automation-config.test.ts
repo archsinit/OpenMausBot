@@ -27,12 +27,12 @@ describe("removed desktop and browser configuration", () => {
 
   for (const field of AUTOMATION_CONFIG_FIELDS) {
     it(`refuses direct configuration writes for ${field}`, () => {
-      expect(() => parseConfigPatch({ [field]: {} })).toThrow("automation settings have been removed");
+      expect(() => parseConfigPatch({ [field]: {} })).toThrow("settings have been removed");
     });
   }
   for (const field of AUTOMATION_FEATURE_FIELDS) {
     it(`refuses the retired ${field} feature even from stale clients`, () => {
-      expect(() => parseConfigPatch({ features: { [field]: true } })).toThrow("automation settings have been removed");
+      expect(() => parseConfigPatch({ features: { [field]: true } })).toThrow("settings have been removed");
     });
   }
 

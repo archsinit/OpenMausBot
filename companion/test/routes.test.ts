@@ -28,9 +28,6 @@ describe("what the app may do", () => {
   // Every request the phone apps make: if one fails, a phone screen is broken.
   const calls: Array<[string, string]> = [
     ["GET", "/api/health"],
-    ["PUT", "/api/phones/self"],
-    ["GET", "/api/phones/self/jobs"],
-    ["POST", "/api/phones/self/jobs/j1/result"],
     ["PUT", "/api/push/device"],
     ["GET", "/api/push/device"],
     ["DELETE", "/api/push/device"],
@@ -145,14 +142,17 @@ describe("what the app may do", () => {
   ];
 
   for (const [method, path] of calls) {
-    it(`allows ${method} ${path}`, () => expect(ask(method, path)).toBeNull());
+    it(`handles ${method} ${path}`, () => {
+      if (/\/(?:computer|local-computer)\//.test(path)) expect(ask(method, path)?.status).toBe(410);
+      else expect(ask(method, path)).toBeNull();
+    });
   }
 });
 
 describe("what it may not", () => {
   it("does not list phones to a phone", () => {
-    expect(ask("GET", "/api/phones")?.status).toBe(404);
-    expect(ask("DELETE", "/api/phones/companion%3Ad1")?.status).toBe(404);
+    expect(ask("GET", "/api/phones")?.status).toBe(410);
+    expect(ask("DELETE", "/api/phones/companion%3Ad1")?.status).toBe(410);
   });
 
   it("refuses host configuration, and says where it happens", () => {
@@ -161,7 +161,6 @@ describe("what it may not", () => {
       ["PATCH", "/api/config"],
       ["GET", "/api/devices"],
       ["GET", "/api/companion"],
-      ["POST", "/api/local-computer/start"],
       ["POST", "/api/webhooks"],
       ["POST", "/api/webhooks/wh_1/rotate"],
       ["DELETE", "/api/connectors/gmail"],
@@ -275,11 +274,11 @@ describe("what it may not", () => {
     expect(ask("GET", "/index.html")?.status).toBe(404);
   });
 
-  it("opens and previews only an explicitly granted cloud viewer", () => {
-    expect(allowed("POST", "/api/bots/bot_123/computer/join")).toBe(true);
-    expect(allowed("POST", "/api/bots/bot_123/computer/control")).toBe(true);
-    expect(allowed("POST", "/api/bots/bot_123/computer/screenshot")).toBe(true);
-    expect(allowed("POST", "/api/bots/bot_123/computer/viewer-close")).toBe(true);
+  it("refuses cloud viewers even with a retired grant", () => {
+    expect(allowed("POST", "/api/bots/bot_123/computer/join")).toBe(false);
+    expect(allowed("POST", "/api/bots/bot_123/computer/control")).toBe(false);
+    expect(allowed("POST", "/api/bots/bot_123/computer/screenshot")).toBe(false);
+    expect(allowed("POST", "/api/bots/bot_123/computer/viewer-close")).toBe(false);
     expect(allowed("GET", "/api/bots/bot_123/computer")).toBe(false);
     expect(allowed("GET", "/api/bots/bot_123/computer/control")).toBe(false);
     expect(allowed("GET", "/api/bots/bot_123/computer/viewer-close")).toBe(false);
@@ -288,8 +287,8 @@ describe("what it may not", () => {
     expect(allowed("POST", "/api/bots/bot_123/computer/exec")).toBe(false);
   });
 
-  it("previews a Local VM without reaching its lifecycle", () => {
-    expect(allowed("POST", "/api/bots/bot_123/local-computer/screenshot")).toBe(true);
+  it("classifies Local VM screenshots but refuses them and its lifecycle", () => {
+    expect(allowed("POST", "/api/bots/bot_123/local-computer/screenshot")).toBe(false);
     expect(isCloudDesktopAccess("POST", "/api/bots/bot_123/local-computer/screenshot")).toBe(true);
     expect(allowed("GET", "/api/bots/bot_123/local-computer/screenshot")).toBe(false);
     expect(allowed("GET", "/api/bots/bot_123/local-computer")).toBe(false);
@@ -299,8 +298,8 @@ describe("what it may not", () => {
     expect(allowed("POST", "/api/local-computer/screenshot")).toBe(false);
   });
 
-  it("joins a Local VM's live desktop only behind computer access", () => {
-    expect(allowed("POST", "/api/bots/bot_123/local-computer/join")).toBe(true);
+  it("classifies Local VM joins but refuses them", () => {
+    expect(allowed("POST", "/api/bots/bot_123/local-computer/join")).toBe(false);
     expect(isCloudDesktopAccess("POST", "/api/bots/bot_123/local-computer/join")).toBe(true);
     expect(allowed("GET", "/api/bots/bot_123/local-computer/join")).toBe(false);
     expect(allowed("POST", "/api/local-computer/join")).toBe(false);
@@ -447,9 +446,9 @@ describe("what it may not", () => {
 });
 
 describe("browser control", () => {
-  it("allows the live stream and the action channel, and nothing else under browser/", () => {
-    expect(allowed("GET", "/api/bots/b1/browser/live")).toBe(true);
-    expect(allowed("POST", "/api/bots/b1/browser/action")).toBe(true);
+  it("refuses the browser live stream and action channel", () => {
+    expect(allowed("GET", "/api/bots/b1/browser/live")).toBe(false);
+    expect(allowed("POST", "/api/bots/b1/browser/action")).toBe(false);
     expect(allowed("POST", "/api/bots/b1/browser/live")).toBe(false);
     expect(allowed("GET", "/api/bots/b1/browser/action")).toBe(false);
     expect(allowed("POST", "/api/bots/b1/browser/restart")).toBe(false);

@@ -1,22 +1,13 @@
-// Stage the Data engine's native modules outside ASAR, one tree per platform
-// and CPU (dist-native/duckdb/<platform>-<arch>/node_modules/): DuckDB, resvg,
-// and the 1Password SDK, which reads its WebAssembly core from beside itself so
-// cannot be bundled either. Each tree holds exactly the pinned DuckDB version: a
-// binding and its libduckdb must come from the same release. Each single-arch
-// mac app keeps only its slice of the universal libduckdb.dylib and re-signs it.
 import { execFile } from "node:child_process";
 import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { resolveCuaMacArches } from "./cua-mac-arches.mjs";
-import { LIPO_ARCH, isMachO, machOArchs, writeThinMachO } from "./mac-thin.mjs";
+import { LIPO_ARCH, isMachO, machOArchs } from "./mac-thin.mjs";
 
 const run = promisify(execFile);
 const SCOPE = "@duckdb";
-export const DUCKDB_PACKAGES = ["node-api", "node-bindings"];
-export const LIBRARY_FILE = { darwin: "libduckdb.dylib", linux: "libduckdb.so", win32: "duckdb.dll" };
-
 /** The 1Password SDK and the core it requires, pinned together. */
 export const ONEPASSWORD_SCOPE = "@1password";
 export const ONEPASSWORD_PACKAGES = ["sdk", "sdk-core"];
@@ -28,10 +19,6 @@ export function pinnedOnePasswordVersion(root) {
     throw new Error(`package.json must pin ${ONEPASSWORD_SCOPE}/sdk to an exact x.y.z version; found ${pin ?? "nothing"}`);
   }
   return pin;
-}
-
-export function platformPackage(platform, arch) {
-  return `node-bindings-${platform}-${arch}`;
 }
 
 /** resvg (napi-rs) names its platform packages by target triple, not by
@@ -54,17 +41,6 @@ export function pinnedResvgVersion(root) {
   return pin;
 }
 
-/** The exact `x.y.z-r.n` package.json pins; a range would let the binding
- *  and the pre-baked extensions drift apart. */
-export function pinnedDuckdbVersion(root) {
-  const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-  const pin = manifest.dependencies?.[`${SCOPE}/node-api`];
-  if (!pin || !/^\d+\.\d+\.\d+-r\.\d+$/.test(pin)) {
-    throw new Error(`package.json must pin ${SCOPE}/node-api to an exact x.y.z-r.n version; found ${pin ?? "nothing"}`);
-  }
-  return pin;
-}
-
 function packageVersion(directory) {
   return JSON.parse(readFileSync(join(directory, "package.json"), "utf8")).version;
 }
@@ -72,7 +48,7 @@ function packageVersion(directory) {
 /** pnpm links only the package the app depends on at the top of node_modules;
  *  its dependencies sit beside it in the store, and the platform packages
  *  beside those. */
-export function installedPackage(nodeModules, name, scope = SCOPE, anchors = ["node-api", "node-bindings"]) {
+export function installedPackage(nodeModules, name, scope = RESVG_SCOPE, anchors = [RESVG_PACKAGE]) {
   const candidates = [join(nodeModules, scope, name)];
   try {
     let beside = realpathSync(join(nodeModules, scope, anchors[0]));
@@ -95,7 +71,7 @@ export function installedPackage(nodeModules, name, scope = SCOPE, anchors = ["n
 
 /** Fetch the exact platform package the host never installs (the other mac
  *  arch) into the cache, once per version. */
-export async function packedPackage(name, version, cache, scope = SCOPE) {
+export async function packedPackage(name, version, cache, scope = RESVG_SCOPE) {
   const directory = join(cache, `${name}-${version}`);
   if (existsSync(join(directory, "package.json")) && packageVersion(directory) === version) return directory;
   rmSync(directory, { recursive: true, force: true });
@@ -125,30 +101,15 @@ function requireRegularFile(file) {
   try {
     details = lstatSync(file);
   } catch {
-    throw new Error(`DuckDB resource is missing: ${file}`);
+    throw new Error(`Native resource is missing: ${file}`);
   }
-  if (!details.isFile() || details.isSymbolicLink()) throw new Error(`DuckDB resource must be a regular file: ${file}`);
+  if (!details.isFile() || details.isSymbolicLink()) throw new Error(`Native resource must be a regular file: ${file}`);
 }
 
 /** A staged or packaged tree is complete, pinned, and holds only this
  *  platform's and arch's native code. */
-export async function verifyDuckdbTree(directory, platform, arch, version, resvgVersion = null, onePasswordVersion = null) {
-  const scope = join(directory, "node_modules", SCOPE);
-  const native = platformPackage(platform, arch);
-  for (const name of [...DUCKDB_PACKAGES, native]) {
-    requireRegularFile(join(scope, name, "package.json"));
-    const found = packageVersion(join(scope, name));
-    if (version && found !== version) throw new Error(`${SCOPE}/${name} in ${directory} is ${found}; package.json pins ${version}`);
-  }
-  requireRegularFile(join(scope, "node-api", "lib", "index.js"));
-  requireRegularFile(join(scope, "node-bindings", "duckdb.js"));
-  const library = LIBRARY_FILE[platform];
-  if (!library) throw new Error(`No DuckDB library name for platform ${platform}`);
-  const binary = join(scope, native, "duckdb.node");
-  const shared = join(scope, native, library);
-  requireRegularFile(binary);
-  requireRegularFile(shared);
-  // Without resvg a chart PNG fails only when someone exports or a phone asks.
+export async function verifyDuckdbTree(directory, platform, arch, resvgVersion = null, onePasswordVersion = null) {
+  if (existsSync(join(directory, "node_modules", SCOPE))) throw new Error(`Removed DuckDB resource in package: ${directory}`);
   const resvg = join(directory, "node_modules", RESVG_SCOPE);
   const resvgNative = resvgPlatformPackage(platform, arch);
   for (const name of [RESVG_PACKAGE, resvgNative.name]) {
@@ -160,7 +121,6 @@ export async function verifyDuckdbTree(directory, platform, arch, version, resvg
   requireRegularFile(join(resvg, RESVG_PACKAGE, "index.js"));
   const resvgBinary = join(resvg, resvgNative.name, resvgNative.binary);
   requireRegularFile(resvgBinary);
-  // Without it Connect 1Password fails only when someone tries it.
   const onePassword = join(directory, "node_modules", ONEPASSWORD_SCOPE);
   for (const name of ONEPASSWORD_PACKAGES) {
     requireRegularFile(join(onePassword, name, "package.json"));
@@ -177,8 +137,8 @@ export async function verifyDuckdbTree(directory, platform, arch, version, resvg
   }
   if (platform === "darwin") {
     const wanted = LIPO_ARCH[arch];
-    if (!wanted) throw new Error(`Unsupported macOS architecture for DuckDB: ${arch}`);
-    for (const file of [binary, shared, resvgBinary]) {
+    if (!wanted) throw new Error(`Unsupported macOS architecture for native resources: ${arch}`);
+    for (const file of [resvgBinary]) {
       if (!(await isMachO(file))) throw new Error(`${file} is not a Mach-O file`);
       const archs = await machOArchs(file);
       if (archs.join(" ") !== wanted) throw new Error(`${file} is [${archs.join(" ")}], must be exactly ${wanted}`);
@@ -196,25 +156,12 @@ export async function stageDuckdb({
   sign = process.platform === "darwin",
   log = console.log,
 }) {
-  const version = pinnedDuckdbVersion(root);
   const resvgVersion = pinnedResvgVersion(root);
   const onePasswordVersion = pinnedOnePasswordVersion(root);
   const staged = [];
   for (const { platform, arch } of targets) {
     const destination = join(stage, `${platform}-${arch}`);
     rmSync(destination, { recursive: true, force: true });
-    const scope = join(destination, "node_modules", SCOPE);
-    mkdirSync(scope, { recursive: true });
-    for (const name of [...DUCKDB_PACKAGES, platformPackage(platform, arch)]) {
-      let source = installedPackage(nodeModules, name);
-      if (!source) {
-        if (!name.startsWith("node-bindings-")) throw new Error(`${SCOPE}/${name} is not installed; run pnpm install`);
-        source = await pack(name, version, cache);
-      }
-      const found = packageVersion(source);
-      if (found !== version) throw new Error(`${SCOPE}/${name} at ${source} is ${found}; package.json pins ${version}`);
-      cpSync(source, join(scope, name), { recursive: true, dereference: true });
-    }
     const resvgScope = join(destination, "node_modules", RESVG_SCOPE);
     mkdirSync(resvgScope, { recursive: true });
     const resvgNative = resvgPlatformPackage(platform, arch);
@@ -236,20 +183,12 @@ export async function stageDuckdb({
       cpSync(source, join(onePasswordScope, name), { recursive: true, dereference: true });
     }
     if (platform === "darwin") {
-      const native = join(scope, platformPackage(platform, arch));
-      for (const file of ["duckdb.node", LIBRARY_FILE.darwin]) {
-        const path = join(native, file);
-        await writeThinMachO(path, path, LIPO_ARCH[arch]);
-        // Apple's signature covered the universal file; the slice needs its
-        // own or dlopen refuses it. electron-builder re-signs with the app's identity.
-        if (sign) await run("/usr/bin/codesign", ["--force", "--sign", "-", path]);
-      }
       // resvg ships one single-arch binary per package; only the signature is ours to add.
       if (sign) await run("/usr/bin/codesign", ["--force", "--sign", "-", join(resvgScope, resvgNative.name, resvgNative.binary)]);
     }
-    await verifyDuckdbTree(destination, platform, arch, version, resvgVersion, onePasswordVersion);
+    await verifyDuckdbTree(destination, platform, arch, resvgVersion, onePasswordVersion);
     staged.push(destination);
-    log?.(`Staged DuckDB ${version} for ${platform}-${arch} at ${destination}`);
+    log?.(`Staged resvg ${resvgVersion} and 1Password ${onePasswordVersion} for ${platform}-${arch} at ${destination}`);
   }
   return staged;
 }

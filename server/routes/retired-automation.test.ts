@@ -10,6 +10,12 @@ import { dispatchRoutes, PASS, type RouteContext, type RouteHandler } from "./ta
 import { createUpgrades } from "./upgrades.ts";
 
 const retired = [
+  "/api/phones", "/api/phones/self/jobs", "/api/phones/self/jobs/old/result", "/api/usb-phones/pixel/stream",
+  "/api/internal/phone/claim", "/api/internal/phone/mcp", "/api/internal/device/mcp",
+  "/api/internal/data/mcp", "/api/internal/mcp-http/data", "/api/internal/mcp-http/device",
+  "/api/bots/old/data", "/api/bots/old/data/export", "/api/bots/old/data/cards/c_1/image",
+  "/api/internal/helpers/decide", "/api/internal/helpers/extract", "/api/internal/helpers/unknown",
+  "/api/internal/devs/report", "/devs/report", "/api/decider/models", "/api/decider/test",
   "/api/computers/boxes", "/api/computers/vps/old/remove", "/api/computers/frames", "/api/computers/usage",
   "/api/team-computers/old/provision", "/api/local-computer/run", "/api/local-computer/interrupt",
   "/api/shared-computers/connect", "/api/shared-computers/old/link", "/api/browser-engine/install", "/api/browser-sites/sign-out",
@@ -38,7 +44,7 @@ describe("automation retirement", () => {
     }
   });
 
-  it.each(["/api/config", "/api/bots/old/messages", "/api/threads/old/messages/m/file", "/api/instances", "/api/sign-in", "/api/mcp-servers", "/api/cloud-connections/connected-apps", "/api/sync/folders", "/api/internal/mcp-http/data", "/api/internal/mcp-http/email", "/api/browser-sites-other"])("preserves %s", async path => {
+  it.each(["/api/config", "/api/bots/old/messages", "/api/threads/old/messages/m/file", "/api/instances", "/api/sign-in", "/api/mcp-servers", "/api/cloud-connections/connected-apps", "/api/sync/folders", "/api/internal/mcp-http/email", "/api/browser-sites-other", "/api/pair", "/api/pair/sessions", "/api/pair/sessions/push", "/api/threads/old/apps/a_1", "/api/internal/pages/publish", "/api/internal/show-widget", "/api/internal/show-html", "/p/page", "/api/app-hosting"])("preserves %s", async path => {
     expect(isRetiredAutomationPath(path)).toBe(false);
     expect(await retiredAutomationRoutes(context(path))).toBe(PASS);
   });
@@ -64,7 +70,7 @@ describe("automation retirement", () => {
     upgrades.close();
   });
 
-  it.each([{ browserEngine: { engine: "chrome" } }, { features: { browser: true } }, { localVm: { mode: "shared" } }, { newBotDefaults: { profile: { computer: "local" } } }, { settings: { browser: true } }])("rejects automation settings atomically: %j", async body => {
+  it.each([{ phoneApps: {} }, { usbPhoneTakeover: true }, { decider: { enabled: true } }, { profile: { phone: "android" } }, { features: { usbPhoneTakeover: false } }, { browserEngine: { engine: "chrome" } }, { features: { browser: true } }, { localVm: { mode: "shared" } }, { newBotDefaults: { profile: { computer: "local" } } }, { settings: { browser: true } }])("rejects automation settings atomically: %j", async body => {
     expect(hasRetiredAutomationSettings(body)).toBe(true);
     const cfg = { features: { browser: true } };
     const route = createConfigRoutes({ cfg } as ConfigRouteDeps);
@@ -76,7 +82,7 @@ describe("automation retirement", () => {
 
   it("does not confuse arbitrary webhook filters or app configuration with product settings", () => {
     expect(hasRetiredAutomationOperation({ payloadFilter: { browser: "Chrome", computer: "build-host" } })).toBe(false);
-    expect(hasRetiredAutomationOperation({ config: { browser: true, computer: "remote" }, filter: { surface: "news" } })).toBe(false);
+    expect(hasRetiredAutomationOperation({ config: { browser: true, computer: "remote", decider: {}, phone: "android" }, filter: { surface: "news", phone: "pixel" } })).toBe(false);
     expect(hasRetiredAutomationOperation({ changes: { config: { browser: "Chrome" }, runOn: "maus" } })).toBe(false);
     expect(hasRetiredAutomationOperation({ plan: { operations: [{ fields: { browser: true } }] } })).toBe(true);
     expect(hasRetiredAutomationOperation({ changes: { runOn: "cloud" } })).toBe(true);
@@ -97,7 +103,7 @@ describe("automation retirement", () => {
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("missing fixture port");
     try {
-      for (const path of ["/api/bots/old/browser/stream", "/api/desktop-viewer/local/shared/websockify", "/api/shared-computers/old/link"]) {
+      for (const path of ["/api/bots/old/browser/stream", "/api/desktop-viewer/local/shared/websockify", "/api/shared-computers/old/link", "/api/usb-phones/pixel/stream", "/api/phones/self/jobs"]) {
         const status = await new Promise<number | undefined>((resolve, reject) => {
           const req = request({ host: "127.0.0.1", port: address.port, path, headers: { Connection: "Upgrade", Upgrade: "websocket", "Sec-WebSocket-Key": "dGhlIHNhbXBsZSBub25jZQ==", "Sec-WebSocket-Version": "13" } });
           req.once("response", res => { res.resume(); resolve(res.statusCode); });

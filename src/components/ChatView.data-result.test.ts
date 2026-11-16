@@ -54,20 +54,15 @@ function mount(children: React.ReactElement) {
 }
 
 function expectReceipts(container: HTMLElement) {
-  for (const [id, title] of [["c_1", "notice: revenue by region"], ["c_2", "error: rows with no region"]]) {
-    const chip = container.querySelector(`[data-data-result="${id}"]`);
-    expect(chip, `${title} renders as a result chip`).not.toBeNull();
-    expect(chip!.textContent).toContain(title);
-    expect(chip!.textContent).toContain(t("data.openResult"));
-  }
-  const notices = [...container.querySelectorAll("[role=status]")].map((element) => element.textContent ?? "");
-  expect(notices.some((text) => text.includes("revenue by region") || text.includes("rows with no region"))).toBe(false);
+  expect(container.querySelector("[data-data-result]")).toBeNull();
+  expect(container.textContent).not.toContain(t("data.openResult"));
+  expect(container.textContent).toContain("rows with no region");
   expect(container.textContent).not.toContain(t("chat.retry"));
   expect(container.textContent).toContain("Two charts are in Data.");
 }
 
 describe("a Data receipt in the transcript", () => {
-  it("renders as the result chip in a 1:1 chat whatever the result is called", () => {
+  it("shows historical errors without a Data action in a 1:1 chat", () => {
     vi.stubGlobal("fetch", () => new Promise(() => {}));
     const mounted = mount(createElement(ChatView, { bot }));
     try {
@@ -78,7 +73,7 @@ describe("a Data receipt in the transcript", () => {
     }
   });
 
-  it("renders as the result chip in a room too", () => {
+  it("shows historical errors without a Data action in a room too", () => {
     const from: NonNullable<Message["from"]> = { botId: "pepper", name: "Pepper", color: "green" };
     const group: Group = {
       id: "room", threadId: "room-thread", name: "Data review", memberIds: ["pepper"],

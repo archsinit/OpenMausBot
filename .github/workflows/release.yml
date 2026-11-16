@@ -245,7 +245,11 @@ jobs:
             expected_arch=x86_64
             case "$app" in *mac-arm64*) expected_arch=arm64 ;; esac
             cloudflared="$res/cloudflared/cloudflared"
-            for bin in "$res/android-platform-tools/darwin/adb" "$cloudflared"; do
+            test ! -e "$res/android-platform-tools"
+            test ! -e "$res/duckdb/node_modules/@duckdb"
+            test ! -e "$res/skills/phone-harness"
+            test ! -e "$res/skills/data-dashboards"
+            for bin in "$cloudflared"; do
               test "$(lipo -archs "$bin")" = "$expected_arch" || {
                 echo "::error::$bin is not the expected $expected_arch executable"; exit 1; }
             done

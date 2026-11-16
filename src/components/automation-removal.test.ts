@@ -31,9 +31,10 @@ describe("automation UI removal", () => {
     expect(linkTarget("access", { section: "access", page: "browser", nonce: 1 })).toEqual({ tab: "details", page: "apps" });
   });
 
-  it("ignores legacy open-computer commands without suppressing Data", () => {
+  it("ignores legacy automation and Data commands while keeping Files", () => {
     expect(reducer(initialState, { type: "toggleComputer", open: true }).computerOpen).toBe(false);
-    expect(reducer(initialState, { type: "toggleDataPanel", open: true }).computerOpen).toBe(true);
+    expect(reducer(initialState, { type: "toggleDataPanel", open: true }).computerOpen).toBe(false);
+    expect(reducer(initialState, { type: "toggleFilesPanel", open: true }).computerOpen).toBe(true);
   });
 
   it("renders no controls for historical computer permission cards and never queues them", () => {

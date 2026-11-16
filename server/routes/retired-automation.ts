@@ -1,6 +1,6 @@
 import { PASS, type RouteHandler } from "./table.ts";
 
-export const RETIRED_AUTOMATION_ERROR = { error: "Desktop and browser automation has been retired.", code: "automation_retired" } as const;
+export const RETIRED_AUTOMATION_ERROR = { error: "Built-in automation, Data workspace, and specialized helper tools have been retired.", code: "automation_retired" } as const;
 
 /** Match automation transports only, not model OAuth, connected apps, chat or workspace files. */
 export function isRetiredAutomationPath(path: string): boolean {
@@ -8,6 +8,12 @@ export function isRetiredAutomationPath(path: string): boolean {
     || /^\/api\/bots\/[^/]+\/(?:computer|browser|saved-steps)(?:\/|$)/.test(path)
     || /^\/api\/internal\/(?:computer|computer-control|browser|shared-computers|saved-steps|lent)(?:\/|$)/.test(path)
     || /^\/api\/internal\/mcp-http\/(?:browser|computer)(?:\/|$)/.test(path)
+    || /^\/api\/(?:phones|usb-phones|decider)(?:\/|$)/.test(path)
+    || /^\/api\/bots\/[^/]+\/data(?:\/|$)/.test(path)
+    || /^\/api\/internal\/(?:phone|device|data|helpers)(?:\/|$)/.test(path)
+    || /^\/api\/internal\/mcp-http\/(?:phone|device|android|data)(?:\/|$)/.test(path)
+    || path === "/api/internal/devs/report"
+    || path === "/devs/report"
     || path === "/api/internal/vm-exec"
     || path === "/api/internal/fill-login"
     || path === "/api/desktop/shared-computer-control";
@@ -45,8 +51,8 @@ export function hasRetiredAutomationOperation(value: unknown): boolean {
 export function hasRetiredAutomationSettings(value: unknown): boolean {
   const body = object(value);
   if (!body) return false;
-  if (["computer", "cloudBackend", "autoStartVps", "recordBrowserSteps", "browser", "browserProfile", "vpsAlias", "browserEngine", "browserProfiles", "expectedBrowserProfiles", "localVm", "box", "vps"].some(key => Object.hasOwn(body, key))) return true;
+  if (["phoneApps", "usbPhoneTakeover", "decider", "phone", "computer", "cloudBackend", "autoStartVps", "recordBrowserSteps", "browser", "browserProfile", "vpsAlias", "browserEngine", "browserProfiles", "expectedBrowserProfiles", "localVm", "box", "vps"].some(key => Object.hasOwn(body, key))) return true;
   const features = object(body.features);
-  if (features && ["browser", "sharedComputers", "savedSteps", "cloudComputerAutoReplace"].some(key => Object.hasOwn(features, key))) return true;
+  if (features && ["usbPhoneTakeover", "browser", "sharedComputers", "savedSteps", "cloudComputerAutoReplace"].some(key => Object.hasOwn(features, key))) return true;
   return [body.settings, object(body.newBotDefaults)?.profile, body.profile].some(nested => nested !== undefined && hasRetiredAutomationSettings(nested));
 }

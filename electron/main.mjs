@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildErrorPage } from "./error-pages.mjs";
 import { stopCua, registerCuaIpc, setCuaStateListener, grantLocalComputer } from "./cua.mjs";
-import { createAndroidDeviceController } from "./android-device.mjs";
+import { registerUnsupportedAndroidIpc } from "./retired-automation.mjs";
 import { finishSpeech, speechBusy, startSpeech, stopSpeech } from "./speech.mjs";
 import { installTalk, isTalkPanel } from "./talk-main.mjs";
 import { openBlankTerminal } from "./terminal-launch.mjs";
@@ -1210,7 +1210,6 @@ function syncManagedComposioCredentials() {
 }
 
 let cuaReady = Promise.resolve({ mode: "unavailable", reason: "not-started" });
-const androidDevice = createAndroidDeviceController({ resourcesPath: process.resourcesPath });
 let displayMediaRequestCount = 0;
 
 function rendererOrigin() {
@@ -2642,7 +2641,7 @@ app.whenReady().then(async () => {
   const hostedAccount = desktopRemoteAccess ? null : ensureCompanionAccountService();
   session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => callback({}), { useSystemPicker: false });
   registerCuaIpc();
-  androidDevice.registerIpc(ipcMain);
+  registerUnsupportedAndroidIpc(ipcMain, localOnly);
   registerUpdaterIpc({ pageAllowed: updaterPageAllowed, serverPage: event => activePageOrigin(event), confirmRestart: async (version, server) => Boolean(mainWindow && !mainWindow.isDestroyed()) && (await dialog.showMessageBox(mainWindow, { type: "question", message: nativeT("native.update.forServer", { version, server }), detail: nativeT("native.update.forServerDetail"), buttons: [nativeT("native.update.restartNow"), nativeT("native.update.notNow")], defaultId: 0, cancelId: 1, noLink: true })).response === 0 });
   desktopPrefs = nativeText.prefs;
   updatesConsent = registerDesktopPrefs({ ipcMain, cloudAccount: () => cloudAccount, prefs: desktopPrefs, localConfig: jsonFile(path.join(desktopDataDir(), "config.json")).read, cloudOffered: () => cloudAccountRestored().then(cloudOffersReady),

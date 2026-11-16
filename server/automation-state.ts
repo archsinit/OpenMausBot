@@ -1,5 +1,5 @@
 const RETIRED_STATE_FIELDS = [
-  "computer", "cloudBackend", "autoStartVps", "vpsAlias", "browser", "browserProfile", "recordBrowserSteps", "surface", "surfaceSource",
+  "computer", "cloudBackend", "autoStartVps", "vpsAlias", "browser", "browserProfile", "recordBrowserSteps", "phoneApps", "surface", "surfaceSource",
 ] as const;
 
 /** Resume cursors can retain old system instructions; preserve history but rebuild retired sessions. */

@@ -1624,7 +1624,7 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
             computerMcp: false,
             composioMcp: true,
             browserMcp: false,
-            dataMcp: true, emailMcp: true, deviceMcp: true,
+            dataMcp: false, emailMcp: true, deviceMcp: false,
             images: support.images !== false,
             nativeImageInput: support.images === true,
             effortLevels: support.effortLevels,

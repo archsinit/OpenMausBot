@@ -35,7 +35,7 @@ RUN node /stage/prepare-cloudflared.mjs --current --root /stage \
  && cp /stage/dist-native/cloudflared/linux-*/cloudflared /cloudflared
 
 # The JavaScript build is the same for every CPU, so it runs once on the build
-# host's own; only the Data engine's native tree below follows the image's CPU.
+# host's own; the native tree below follows the image's CPU.
 FROM --platform=$BUILDPLATFORM node:24-bookworm-slim AS build
 WORKDIR /src
 # pinned to package.json#packageManager; corepack is being removed from Node
@@ -56,8 +56,8 @@ COPY . .
 # The Cloud home runs these as root, so nobody else may write them. The web app's
 # build needs more heap than Node gives itself on a 4 GB server, where it ran out
 # of memory: a fixed limit, which such a server meets with swap (docs/deploy-vps.md).
-RUN pnpm build:server && NODE_OPTIONS=--max-old-space-size=6144 pnpm exec vite build && chmod -R go-w dist dist-server skills
-# The Data engine's native modules (server/data/engine.ts), staged like the
+RUN pnpm build:server && rm -rf skills/phone-harness skills/data-dashboards && NODE_OPTIONS=--max-old-space-size=6144 pnpm exec vite build && chmod -R go-w dist dist-server skills
+# resvg and 1Password, staged like the
 # desktop app's extraResources for the image's CPU (amd64 -> x64, arm64), into
 # one tree the runtime stages copy. pnpm installed both CPUs' packages
 # (pnpm-workspace.yaml supportedArchitectures).
@@ -153,7 +153,7 @@ COPY deploy/fly/Caddyfile deploy/fly/Caddyfile.tls deploy/fly/Caddyfile.tunnel d
 # no file there may be one `maus` can change: unlike the server image's, these
 # copies stay root's. Only the /data volume is maus's; the launcher refuses to
 # start otherwise (codeTrustProblem), and this check refuses to build.
-# DuckDB and resvg change on a version bump, not per commit: beneath the app files.
+# Native addons change on a version bump, not per commit: beneath the app files.
 COPY --from=build /src/dist-native/duckdb/target ./duckdb
 COPY --from=build /src/dist-server ./dist-server
 COPY --from=build /src/dist ./dist

@@ -661,10 +661,7 @@ describe("agents-proxy MCP surface", () => {
       "propose_bot_deletion",
       "manage_room",
       "request_credential",
-      "decide",
-      "extract",
       "message_person",
-      "report_bug",
       "memory_update",
       "retry_thread",
       "memory_log",
@@ -2603,7 +2600,7 @@ describe("tool bridge", () => {
       lastAuth = undefined;
       for (const name of ["select_computer", "shared_computer", "vm_exec", "request_sign_in", "fill_login", "join_meeting"]) {
         expect(names).not.toContain(name);
-        expect(refusalOf(await use(proxy, name, {}))).toBe("Desktop and browser automation is not available.");
+        expect(refusalOf(await use(proxy, name, {}))).toBe("This built-in product tool has been retired.");
       }
       expect(lastAuth).toBeUndefined();
     }
