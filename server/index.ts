@@ -8459,7 +8459,7 @@ async function beginTurn(
         transcript,
         system: prompt.text,
         systemStable: prompt.stable,
-        systemVolatile: prompt.volatile,
+        systemVolatile: prompt.volatile, systemRoster: prompt.roster,
         mentionTurn: tagged.length > 0,
         integrations,
         ...(integrations.browser && browserIsThePlace(turnSurfacePlan(bot, undefined, threadId, true)) ? { preloadBrowserTools: true } : {}),
