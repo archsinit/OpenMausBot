@@ -10,7 +10,7 @@ import {
 beforeEach(() => setLocale("en"));
 
 const ids = (ctx: SettingsContext) => visiblePages(ctx).map((page) => page.id);
-const PLACE_PAGES = ["overview", "phone", "ai", "bots", "desktops", "vault", "usage", "transfer", "data"];
+const PLACE_PAGES = ["overview", "phone", "ai", "bots", "vault", "usage", "transfer", "data"];
 const find = (query: string, ctx: SettingsContext = fullContext()) => searchSettings(query, ctx, (entry) => t(entry.labelKey), (page) => t(page.labelKey));
 const first = (query: string, ctx?: SettingsContext) => find(query, ctx)[0]?.entry;
 
@@ -30,7 +30,7 @@ describe("the pages", () => {
 
   it.each(Object.entries(PEOPLE))("keeps the same place pages, in the same order, for %s", (who, ctx) => {
     // A team's member is offered none of the installation's admin pages (AI, Desktops, Spending, Import & export, Data).
-    const expected = who === "a team member" ? PLACE_PAGES.filter((id) => !["ai", "desktops", "usage", "transfer", "data"].includes(id)) : PLACE_PAGES;
+    const expected = who === "a team member" ? PLACE_PAGES.filter((id) => !["ai", "usage", "transfer", "data"].includes(id)) : PLACE_PAGES;
     expect(ids(ctx).filter((id) => PLACE_PAGES.includes(id))).toEqual(expected);
   });
 
@@ -105,7 +105,7 @@ describe("the pages", () => {
   });
 
   it("offers a team's member none of the installation's admin pages, and a team's admin all of them", () => {
-    for (const page of ["ai", "desktops", "usage", "transfer", "data"] as const) {
+    for (const page of ["ai", "usage", "transfer", "data"] as const) {
       expect(ids(PEOPLE["a team member"])).not.toContain(page);
       expect(ids(PEOPLE["a team admin"])).toContain(page);
     }
@@ -134,7 +134,7 @@ describe("old links", () => {
     expect(where("engines")).toEqual({ page: "ai", anchor: "providers" });
     expect(where("connections")).toEqual({ page: "ai", anchor: "ai-keys" });
     expect(where("imageGeneration")).toEqual({ page: "ai", anchor: "images" });
-    expect(where("computer")).toEqual({ page: "desktops" });
+    expect(where("computer")).toEqual({ page: "overview" });
     expect(where("logins")).toEqual({ page: "vault" });
     expect(where("cloudAccount")).toEqual({ page: "plan", anchor: "plan" });
     expect(resolveSettingsTarget("cloudAccount", fullContext({ plan: false }))).toEqual({ page: "account" });

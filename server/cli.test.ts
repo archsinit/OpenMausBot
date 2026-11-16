@@ -58,7 +58,7 @@ describe("openmausbot command line", () => {
     expect(parseArgs(["logout"], {})).toMatchObject({ command: "logout" });
     expect(parseArgs(["browser", "install", "--with-deps"], {})).toMatchObject({ command: "browser", browserAction: "install", withDeps: true });
     expect(parseArgs(["browser", "status"], {})).toMatchObject({ command: "browser", browserAction: "status" });
-    expect(parseArgs(["browser"], {})).toEqual({ error: "browser needs an action: install or status" });
+    expect(parseArgs(["browser"], {})).toMatchObject({ command: "browser" });
     expect(parseArgs(["serve", "--tailscale", "--tunnel"], {})).toEqual({ error: "choose one of --tailscale (your tailnet) and --tunnel (a public address)" });
     expect(parseArgs(["access", "add", "her@example.test", "--chat-only"], {})).toMatchObject({ command: "access", accessAction: "add", email: "her@example.test", chatOnly: true });
     expect(parseArgs(["access", "list"], {})).toMatchObject({ command: "access", accessAction: "list" });

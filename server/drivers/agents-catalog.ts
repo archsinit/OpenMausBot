@@ -1,4 +1,5 @@
 // The agents tool catalog and which tools a turn sees: definitions only, no environment, no calls.
+import { isRemovedAutomationTool } from "../product-capabilities.ts";
 import { CREDENTIAL_TARGETS } from "../../shared/credential-request.ts";
 import { EMAIL_CREDENTIAL } from "../../shared/email.ts";
 import { OPTIONS_CARD_LIMITS, WATCHER_OPTIONS_CARD_BOT_ID } from "../../shared/options-card.ts";
@@ -12,10 +13,8 @@ import { APP_SETTINGS_TOOL_DEFINITION } from "./agents-app-settings-tool.ts";
 import { THREAD_POST_TOOL_DEFINITION } from "./agents-thread-post-tool.ts";
 import { RENAME_THREAD_TOOL_DEFINITION } from "./agents-thread-title-tool.ts";
 import { WAIT_TOOL_DEFINITIONS, WAIT_TOOL_NAMES } from "./agents-wait-tools.ts";
-import { COMPUTER_ASK_TOOL_DEFINITIONS, COMPUTER_ASK_TOOL_NAMES } from "./agents-computer-ask-tool.ts";
 import { IMAGE_TOOL_DEFINITIONS, IMAGE_TOOL_NAMES } from "./agents-image-tools.ts";
 import { HOSTING_TOOL_DEFINITIONS, HOSTING_TOOL_NAMES } from "./agents-hosting-tools.ts";
-import { MEETING_TOOL_DEFINITIONS, MEETING_TOOL_NAMES } from "./agents-meeting-tools.ts";
 import { MAUSBOT_TOOL_DEFINITIONS } from "./agents-mausbot-tools.ts";
 import { PERSON_TOOL_DEFINITIONS } from "./agents-person-tools.ts";
 import { RESEARCH_TOOL_DEFINITIONS, RESEARCH_TOOL_NAMES, X_TOOL_NAMES } from "./agents-research-tools.ts";
@@ -94,9 +93,8 @@ const TRIGGER_FIELDS_SCHEMA = {
   event_config: { type: "object", description: "app_event: config_fields from trigger_info action=events." },
   run_on: {
     type: "string",
-    // "box" is Boat's historical run_on destination id (agents wire contract).
-    enum: ["maus", "box"],
-    description: "Omit normally: maus (default) = the bot's configured computer, INCLUDING a self-hosted VPS; box = its cloud computer.",
+    enum: ["maus"],
+    description: "Omit normally; maus uses the bot's current model."
   },
   timeout_minutes: { type: "integer", minimum: 5, maximum: 240, description: "Schedules: optional limit on a run, 5 to 240." },
   clear_timeout: { type: "boolean", description: "Update: true removes the limit." },
@@ -145,21 +143,6 @@ const TOOL_DEFINITIONS = [
     },
   },
   {
-    name: "list_shared_computers",
-    description: "List online desktop computers explicitly shared with this workspace, and their allowed folders/capabilities. These are the user's computers, not this server. An offline or unshared computer cannot be accessed. Folder paths use opaque folder IDs and relative paths.",
-    inputSchema: { type: "object", properties: {}, additionalProperties: false },
-  },
-  {
-    name: "shared_computer",
-    description: "Use a desktop the user explicitly shared. Get computer_id and folder_id from list_shared_computers. File actions stay in chosen folders; paths are relative. read_file returns sha256, needed as expected_sha256 to overwrite or delete_file. edit_file swaps old_text (once) for new_text; append_file adds content. Binary files: base64 encoding. run_command requires a SEPARATE unrestricted terminal grant and stops after timeout_seconds (default 120, at most 900), returning what it printed so far: run longer jobs in the background with output to a file, then read it. computer_tools lists the native computer-control tools; computer_call invokes one with arguments and needs a SEPARATE computer-control grant. To browse there, open pages with launch_app urls (the person's own browser) and use get_window_state, click and type_text: the browser_* tools need a DevTools endpoint most browsers lack. Never substitute the server's filesystem when this desktop is offline. Actions are not retried: inspect an uncertain outcome before retrying.",
-    inputSchema: { type: "object", additionalProperties: false, properties: {
-      computer_id: { type: "string" }, action: { type: "string", enum: ["list_files", "read_file", "write_file", "edit_file", "append_file", "delete_file", "run_command", "computer_tools", "computer_call"] },
-      folder_id: { type: "string" }, path: { type: "string" }, content: { type: "string" }, encoding: { type: "string", enum: ["utf8", "base64"] }, expected_sha256: { type: "string" },
-      old_text: { type: "string" }, new_text: { type: "string" },
-      command: { type: "string" }, timeout_seconds: { type: "integer", minimum: 1, maximum: 900 }, tool_name: { type: "string" }, arguments: { type: "object", additionalProperties: true },
-    }, required: ["computer_id", "action"] },
-  },
-  {
     name: "list_room_targets",
     description: "Discover actual OpenMausBot teammates you can reach, in every department, and rooms. Works in a normal bot conversation too; no room is required. Returns bot and room IDs, roles and working folders, never other conversations' history. Use these bots, not native coding helpers with similar names, when the user asks their team to work together.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
@@ -202,29 +185,6 @@ const TOOL_DEFINITIONS = [
     description:
       "List the shared rooms (team channels) you belong to, with the other members of each. Call this before post_to_room. One-to-one bot channels are never listed; discover individual teammates with list_bots. A room you are in but cannot post into is named without an id, together with the reason, so you can tell the user why.",
     inputSchema: { type: "object", additionalProperties: false, properties: {} },
-  },
-  {
-    name: "select_computer",
-    description:
-      "Choose where this conversation does computer work. Call with no arguments to inspect actual available choices and the current place. For a task needing computer interaction, select the requested place, or auto to choose a suitable configured computer without asking the user to use menus. OpenMausBot reuses an existing computer first; with a configured provider it can start or provision one when needed. Do not provision for ordinary chat or just to inspect availability. A pending result means end this turn immediately: OpenMausBot updates the conversation selector and resumes the original request with that computer's real tools. Do not use the old tools after requesting a switch, repeat the task, or claim the action is done. This cannot change permissions, override Off, or switch a teammate/routine/channel.",
-    inputSchema: { type: "object", additionalProperties: false, properties: {
-      surface: { type: "string", enum: ["auto", "cloud", "vm", "local", "browser"],
-        description: "auto = suitable configured computer, cloud = the bot's cloud computer or self-hosted VPS, vm = isolated Local VM, local = user's own desktop, browser = built-in browser. Omit to list." },
-    } },
-  },
-  {
-    name: "reset_cloud_computer",
-    description:
-      "Reset your cloud computer when it is stuck: it is deleted with everything on it once your turn ends, and your next turn makes a fresh one. Only for a stuck computer. End your turn after calling it." + CHIEF_PROFILE_TARGET,
-    inputSchema: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        why: { type: "string", description: "One sentence shown in the chat: what is wrong with the computer." },
-        for_bot_id: { type: "string", description: "Chief of Staff only: the bot whose cloud computer to reset, from list_bots." },
-      },
-      required: ["why"],
-    },
   },
   {
     name: "list_threads",
@@ -291,28 +251,14 @@ const TOOL_DEFINITIONS = [
     },
   },
   {
-    name: "vm_exec",
-    description:
-      "Run a shell command inside your own Local VM (as the desktop user, starting in /home/cua/workspace) and get its exit code, stdout and stderr back as text. Use this for all command-line work in the VM: pip install --user, running a script, generating or converting a file, checking that a file exists. Do not type commands into a terminal window and read screenshots: that is slow and unreliable. GUI programs you start appear on the VM desktop. For a long job raise timeout_seconds (default 60, at most 300). Only available while you have a Local VM desktop.",
-    inputSchema: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        command: { type: "string", description: "The shell command to run, for example: python3 make_report.py && ls -l report.pdf" },
-        timeout_seconds: { type: "integer", description: "How long it may run before it is stopped. Default 60." },
-      },
-      required: ["command"],
-    },
-  },
-  {
     name: "attach_file",
     description:
-      `Attach a finished file to the chat so the user can preview and download it: an image, video, audio clip, PDF, spreadsheet, slide deck or other document you made. Pass its path: a path inside your computer's /home/cua/workspace (for example /home/cua/workspace/report.pdf), or a file in your working folder. Do this instead of pasting a VM path as a link; a path inside a VM cannot be opened from chat. Supported: images (png, jpg, gif, webp), video (mp4, webm, mov), audio (mp3, m4a, aac, wav, ogg, opus, flac), pdf, Word/Excel/PowerPoint and OpenDocument files, csv, tsv, txt, md, json, rtf, and archives (zip, rar, 7z, tar, gz, tgz, bz2, xz). Up to ${limitMegabytes(FILE_MAX_BYTES)} MB (images 10 MB). Finish writing the file first, then call this directly: it reports an error if the file is missing, so you do not need to list or open the folder to check.`,
+      `Attach a finished file to the chat so the user can preview and download it: an image, video, audio clip, PDF, spreadsheet, slide deck or other document you made. Pass the path of a file in your working folder, for example /workspace/report.pdf. Supported: images (png, jpg, gif, webp), video (mp4, webm, mov), audio (mp3, m4a, aac, wav, ogg, opus, flac), pdf, Word/Excel/PowerPoint and OpenDocument files, csv, tsv, txt, md, json, rtf, and archives (zip, rar, 7z, tar, gz, tgz, bz2, xz). Up to ${limitMegabytes(FILE_MAX_BYTES)} MB (images 10 MB). Finish writing the file first, then call this directly: it reports an error if the file is missing, so you do not need to list or open the folder to check.`,
     inputSchema: {
       type: "object",
       additionalProperties: false,
       properties: {
-        path: { type: "string", description: "The file's path, for example /home/cua/workspace/report.pdf." },
+        path: { type: "string", description: "The file's path, for example /workspace/report.pdf." },
         name: { type: "string", description: "Optional file name to show the user. Defaults to the file's own name." },
       },
       required: ["path"],
@@ -402,7 +348,7 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: "propose_bot_deletion",
-    description: "Chief of Staff only: when the user explicitly asks to delete a named teammate, submit a separate deletion request for that exact bot. Deletion removes its conversations, memory, instructions, skills, and any computer owned only by it; generated project files and shared team computers remain. Running work or an unavailable computer provider can block deletion safely. Never delete yourself, substitute an archive, or put deletion into a setup batch. If review is pending, the decision and result resume you once." + APPLIES_OUTCOME,
+    description: "Chief of Staff only: when the user explicitly asks to delete a named teammate, submit a separate deletion request for that exact bot. Deletion removes its conversations, memory, instructions and skills; generated project files remain. Running work can block deletion safely. Never delete yourself, substitute an archive, or put deletion into a setup batch. If review is pending, the decision and result resume you once." + APPLIES_OUTCOME,
     inputSchema: { type: "object", additionalProperties: false, properties: {
       bot_id: { type: "string", minLength: 1 }, reason: { type: "string", minLength: 1, maxLength: 500 },
     }, required: ["bot_id", "reason"] },
@@ -441,13 +387,13 @@ const TOOL_DEFINITIONS = [
   {
     name: "request_credential",
     description:
-      "Ask the person for a secret on a secure card in the app or a QR-paired phone, never in chat. credential_id: a key OpenMausBot keeps (onePasswordToken: a 1Password service account token; email: a mailbox on any mail host, one card for its address and password, or for its outgoing server when it is connected but can't send). Other secrets: label, reason, delivery (a saved one returns at once). You never see the value; end the turn, and you resume when they save or decline.",
+      "Ask the person for a secret on a secure card in the app or a QR-paired phone, never in chat. credential_id: a key OpenMausBot keeps (email: a mailbox on any mail host, one card for its address and password, or for its outgoing server when it is connected but can't send). Other secrets: label, reason, delivery (a saved one returns at once). You never see the value; end the turn, and you resume when they save or decline.",
     inputSchema: {
       type: "object",
       properties: {
         credential_id: {
           type: "string",
-          enum: [...Object.keys(CREDENTIAL_TARGETS), EMAIL_CREDENTIAL],
+          enum: [...Object.keys(CREDENTIAL_TARGETS).filter((id) => id !== "boxToken" && id !== "onePasswordToken"), EMAIL_CREDENTIAL],
         },
         address: { type: "string", description: "credential_id email only: the mailbox's address, when you know it." },
         label: { type: "string", description: "Other secret's card title, e.g. Stripe secret key." },
@@ -459,34 +405,6 @@ const TOOL_DEFINITIONS = [
           description: "ref: a one-use secretRef for mcp_server. file: a private file your commands read.",
         },
         replace: { type: "boolean", description: "true if the saved one is wrong: asks again." },
-      },
-    },
-  },
-  {
-    name: "request_sign_in",
-    description:
-      "Ask the person to sign in to a website themselves, in the browser or on the computer you are using now. Use it when a page needs a login you do not have, or a CAPTCHA, passkey or other step only they can do, or a one-time code you cannot read. A code the site sends to the person's own email or messages for a sign-in they asked for is not one: read it there and type it in yourself. They get a card and a notification, sign in where you work, and press Done. Never ask for a password or code in chat. After calling it, end your turn; OpenMausBot resumes you when they finish or decline, and then check you are signed in.",
-    inputSchema: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        site: { type: "string", minLength: 1, maxLength: 2048, description: "The page to sign in on: its address, or the domain, such as example.com." },
-        reason: { type: "string", description: "One short sentence, in your words, on what the sign-in is for." },
-      },
-      required: ["site"],
-    },
-  },
-  {
-    name: "fill_login",
-    description:
-      "Sign in with a login the person saved in OpenMausBot or in their connected 1Password. Call it on the login page open in your browser: OpenMausBot types the username, password and any one-time code itself (also one emailed to a connected mailbox), submits each step, and says where the page went; you never see them. A login fills on its own site, such as any page of example.com. With no saved login for the site, sign in another way the person allowed, or call request_sign_in.",
-    inputSchema: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        username: { type: "string", description: "Which saved login to use when the site has more than one." },
-        email: { type: "string" },
-        submit: { type: "boolean", description: "false: fill only, you submit." },
       },
     },
   },
@@ -508,7 +426,7 @@ const TOOL_DEFINITIONS = [
       required: ["text"],
     },
   },
-  ...RESEARCH_TOOL_DEFINITIONS, ...HELPER_TOOL_DEFINITIONS, ...IMAGE_TOOL_DEFINITIONS, ...MEETING_TOOL_DEFINITIONS, ...PERSON_TOOL_DEFINITIONS, ...DEVS_TOOL_DEFINITIONS, ...HOSTING_TOOL_DEFINITIONS,
+  ...RESEARCH_TOOL_DEFINITIONS, ...HELPER_TOOL_DEFINITIONS, ...IMAGE_TOOL_DEFINITIONS, ...PERSON_TOOL_DEFINITIONS, ...DEVS_TOOL_DEFINITIONS, ...HOSTING_TOOL_DEFINITIONS,
   {
     name: "memory_update",
     description:
@@ -584,7 +502,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "trigger_info",
     description:
-      "Read this bot's triggers (was list_triggers / list_trigger_events). list: its routines (schedules), app events and webhooks: ids, when they fire, on or paused, next run or last fire, problems, and the computer's authoritative current time and timezone; trigger_id gives one trigger with its last 10 fires, and with include_address a webhook's private address, to paste into the setup of the app that sends to it. Before reporting completion, inspect related monitors and verify enabled=false and nextRunAt=null after stopping them with trigger. events: before a when=app_event trigger, the connected apps you may use, with their accounts and events, and popular apps not connected yet.",
+      "Read this bot's triggers (was list_triggers / list_trigger_events). list: its routines (schedules), app events and webhooks: ids, when they fire, on or paused, next run or last fire, problems, and the server's authoritative current time and timezone; trigger_id gives one trigger with its last 10 fires, and with include_address a webhook's private address, to paste into the setup of the app that sends to it. Before reporting completion, inspect related monitors and verify enabled=false and nextRunAt=null after stopping them with trigger. events: before a when=app_event trigger, the connected apps you may use, with their accounts and events, and popular apps not connected yet.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -636,7 +554,7 @@ const TOOL_DEFINITIONS = [
     },
   },
   ...WAIT_TOOL_DEFINITIONS,
-  ...COMPUTER_ASK_TOOL_DEFINITIONS,
+
   {
     name: "propose_profile",
     description:
@@ -652,7 +570,7 @@ const TOOL_DEFINITIONS = [
         cwd: { type: "string", maxLength: 1024, description: "An existing absolute folder for your tools; \"\" = your private workspace." },
         notifications: { type: "boolean", description: "Completion and attention alerts on the host and paired clients." },
         speakReplies: { type: "boolean", description: "Speak replies aloud as they settle." },
-        browserProfile: { type: "string", maxLength: 100, description: "With for_bot_id, only when the person asked: an idle teammate's browser profile, an existing one's name or id; \"\" = its own browser." },
+
         reason: { type: "string", minLength: 1, maxLength: 500, description: "One sentence the person sees: why." },
         for_bot_id: { type: "string", description: "Chief of Staff only: another bot in your section; omit for yourself." },
       },
@@ -798,26 +716,16 @@ const VOICE_TOOL_NAMES = new Set(["send_voice_note"]);
 const CHIEF_ONLY_TOOL_NAMES = new Set([
   "create_bot", "list_team_setup", "list_team_library", "propose_team_setup", "propose_bot_deletion", "manage_room", "retry_thread",
 ]);
-const CHIEF_TARGET_TOOL_NAMES = new Set(["propose_profile", "propose_model", "reset_cloud_computer"]);
-const CHIEF_TARGET_FIELDS = new Set(["for_bot_id", "browserProfile"]);
+const CHIEF_TARGET_TOOL_NAMES = new Set(["propose_profile", "propose_model"]);
+const CHIEF_TARGET_FIELDS = new Set(["for_bot_id"]);
 const WATCHER_TOOL_NAMES = new Set(["create_options_card"]);
 
-const LOCAL_VM_TOOL_NAMES = new Set(["vm_exec"]);
-/** Refused in a room's thread (routes/waits.ts), and list_waits, since a room holds no wait. */
+/** Refused in a room's thread, since a room holds no wait. */
 const ROOM_REFUSED_TOOL_NAMES = new Set([...WAIT_TOOL_NAMES, "burst", "rename_thread"]);
-const CLOUD_HOME_SURFACE = {
-  type: "string", enum: ["auto", "cloud", "browser"],
-  description: "auto = suitable configured computer, cloud = the bot's cloud computer, browser = built-in browser. Omit to list. This server runs in the cloud: the user's own computer and a Local VM are not places here.",
-};
 
 export function availableTools(profile: CatalogProfile) {
-  const tools = withoutToolsOff(catalogTools(profile), profile.toolsOff ?? []);
-  const placed = profile.cloudHome
-    ? tools.filter(tool => !LOCAL_VM_TOOL_NAMES.has(tool.name)).map(tool => tool.name === "select_computer"
-      ? { ...tool, inputSchema: { ...tool.inputSchema, properties: { surface: CLOUD_HOME_SURFACE } } }
-      : tool)
-    : tools;
-  return placed.map((tool) => ({ ...tool, inputSchema: advertisedSchema(tool.inputSchema, tool.description) }));
+  return withoutToolsOff(catalogTools(profile), profile.toolsOff ?? [])
+    .map((tool) => ({ ...tool, inputSchema: advertisedSchema(tool.inputSchema, tool.description) }));
 }
 
 const FULL_INPUT_SCHEMAS = new Map<string, unknown>([...TOOL_DEFINITIONS, ...MAUSBOT_TOOL_DEFINITIONS].map((tool) => [tool.name, tool.inputSchema]));
@@ -829,22 +737,17 @@ export function fullInputSchema(name: string): unknown {
 
 function catalogTools(profile: CatalogProfile) {
   const BOT_SCOPED_TOOLS = TOOL_DEFINITIONS.filter((tool) =>
+    !isRemovedAutomationTool(tool.name) &&
     (profile.botId === WATCHER_OPTIONS_CARD_BOT_ID || !WATCHER_TOOL_NAMES.has(tool.name)) &&
     (profile.memoryEnabled !== false || (tool.name !== "memory_update" && tool.name !== "memory_log")) &&
-    (profile.computerSelection === true || tool.name !== "select_computer") &&
     (profile.room !== true || !ROOM_REFUSED_TOOL_NAMES.has(tool.name)) &&
-    (profile.imageGeneration === true || !IMAGE_TOOL_NAMES.has(tool.name)) && (profile.appHosting === true || !HOSTING_TOOL_NAMES.has(tool.name)) &&
-    (profile.meetings === true || (!MEETING_TOOL_NAMES.has(tool.name) && tool.name !== "reset_cloud_computer")));
+    (profile.imageGeneration === true || !IMAGE_TOOL_NAMES.has(tool.name)) && (profile.appHosting === true || !HOSTING_TOOL_NAMES.has(tool.name)));
   const AUTHORING_TOOLS = profile.skillAuthoring
     ? BOT_SCOPED_TOOLS
     : BOT_SCOPED_TOOLS.filter((tool) => !SKILL_TOOL_NAMES.has(tool.name));
-  const SHAREABLE_TOOLS = (profile.sharedComputers
-    ? AUTHORING_TOOLS
-    : AUTHORING_TOOLS.filter((tool) => !SHARED_COMPUTER_TOOL_NAMES.has(tool.name)))
-    .filter((tool) => (profile.sharedComputers && profile.cloudHome && profile.team !== true) || !COMPUTER_ASK_TOOL_NAMES.has(tool.name));
   const VOICE_READY_TOOLS = profile.voiceNotes
-    ? SHAREABLE_TOOLS
-    : SHAREABLE_TOOLS.filter((tool) => !VOICE_TOOL_NAMES.has(tool.name));
+    ? AUTHORING_TOOLS
+    : AUTHORING_TOOLS.filter((tool) => !VOICE_TOOL_NAMES.has(tool.name));
   const RESEARCH_READY_TOOLS = VOICE_READY_TOOLS.filter((tool) => !RESEARCH_TOOL_NAMES.has(tool.name) ||
     (profile.xResearch === true && (profile.research === true || X_TOOL_NAMES.has(tool.name))));
   const ROLE_TOOLS = profile.chief

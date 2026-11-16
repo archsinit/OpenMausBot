@@ -446,17 +446,11 @@ export async function companionDeviceRoutes(deviceId, routes) {
   return companionState();
 }
 
-export async function companionCloudDesktopAccess(deviceId, allowed) {
-  if (!proc) return companionState();
-  if (!/^[\w-]{1,64}$/.test(String(deviceId ?? ""))) return companionState();
-  await control(allowed ? "POST" : "DELETE", `/devices/${deviceId}/cloud-desktop`).catch(() => {});
-  return companionState();
+export async function companionCloudDesktopAccess() {
+  throw new Error("Desktop automation is unsupported");
 }
 
 /** Browser access is its own per-device grant, never inherited from VM access. */
-export async function companionBrowserControlAccess(deviceId, allowed) {
-  if (!proc) return companionState();
-  if (!/^[\w-]{1,64}$/.test(String(deviceId ?? ""))) return companionState();
-  await control(allowed ? "POST" : "DELETE", `/devices/${deviceId}/browser-control`);
-  return companionState();
+export async function companionBrowserControlAccess() {
+  throw new Error("Browser automation is unsupported");
 }

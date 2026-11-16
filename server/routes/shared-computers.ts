@@ -1,6 +1,7 @@
 // /api/shared-computers: a desktop lending its computer to this server (on a Cloud home, to My Cloud). A main-process-only
 // secret binds poll, results and the device link to that desktop; with the feature off the family 404s like a build
 // without it.
+import { withoutRetiredAutomation } from "./retired-automation.ts";
 import { answerAsleep, type CloudPower } from "../cloud-power.ts";
 import type { DeviceLinks } from "../device-links.ts";
 import { requestSource, type RequestAuth } from "../request-auth.ts";
@@ -32,7 +33,7 @@ export function createSharedComputerRoutes(deps: {
   answerer?: (auth: RequestAuth) => Answerer;
 }): RouteHandler {
   deps.upgrades.route((path) => LINK.test(path));
-  return async ({ req, res, path, method, auth, json, readBody }: RouteContext): Promise<typeof PASS | void> => {
+  return withoutRetiredAutomation(async ({ req, res, path, method, auth, json, readBody }: RouteContext): Promise<typeof PASS | void> => {
     if (path !== "/api/shared-computers" && !path.startsWith("/api/shared-computers/")) return PASS;
     if (method === "GET" && path === "/api/shared-computers" && deps.enabled(auth)) {
       return json(res, 200, { computers: deps.computers.status(deps.principal(auth)), known: deps.computers.known(deps.principal(auth)) });
@@ -94,5 +95,5 @@ export function createSharedComputerRoutes(deps: {
     if (action === "result") deps.computers.complete(id, auth.session.id, secret, String(body?.jobId), body?.result);
     if (action === "disconnect") deps.computers.disconnect(id, auth.session.id, secret, body?.paused === true);
     return json(res, 200, { ok: true });
-  };
+  });
 }

@@ -1,3 +1,4 @@
+import { isRemovedAutomationTool } from "../product-capabilities.ts";
 import type { ToolCallContext, ToolCallResult } from "./agents-call.ts";
 import type { Json } from "./agents-client.ts";
 
@@ -12,6 +13,7 @@ const ROUTES: Record<string, string> = {
 };
 
 export async function callMeetingTool(name: string, args: Json, context: ToolCallContext): Promise<ToolCallResult> {
+  if (isRemovedAutomationTool(name)) return { text: "Online meeting attendance is not available.", isError: true };
   const { ok, body } = await context.client.apiResponse(ROUTES[name]!, {
     method: "POST",
     body: JSON.stringify({ fromBotId: context.botId, fromThreadId: context.threadId, ...args }),

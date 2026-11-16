@@ -65,12 +65,6 @@ export function GuidedTour() {
   const run = useCallback(
     (effect: TourEffect | undefined) => {
       switch (effect) {
-        case "openComputer":
-          if (!state.computerOpen) dispatch({ type: "toggleComputer", open: true });
-          return;
-        case "closeComputer":
-          dispatch({ type: "toggleComputer", open: false });
-          return;
         case "openTools": {
           const trigger = visible("tools");
           if (trigger && trigger.getAttribute("aria-expanded") !== "true") trigger.click();
@@ -92,7 +86,7 @@ export function GuidedTour() {
           return;
       }
     },
-    [dispatch, state.computerOpen],
+    [dispatch],
   );
 
   const save = useCallback(

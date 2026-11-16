@@ -1,6 +1,11 @@
 // What a paired device may ask for. Default deny: a route the harness adds
 // later stays closed to phones until it is listed here.
 
+export function isRetiredAutomationPath(path: string): boolean {
+  return /^\/api\/(?:bots\/[^/]+\/(?:browser|computer|local-computer)|browser(?:-profiles|-sessions|-viewers)?|computers|shared-computers|local-computer|desktop)(?:\/|$)/.test(path)
+    || /^\/(?:viewer|vps-viewer|desktop-viewer|browser-viewer)(?:\/|$)/.test(path);
+}
+
 export interface Denial {
   status: number;
   error: string;
@@ -152,17 +157,6 @@ const ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
   // The harness validates the live catalog and refuses changes mid-turn.
   { method: "PATCH", path: /^\/api\/bots\/[\w-]+\/model$/ },
   { method: "POST", path: /^\/api\/bots\/[\w-]+\/avatar\/generate$/ },
-  // The proxy applies a second, per-device capability check.
-  CLOUD_DESKTOP_JOIN_ROUTE,
-
-  CLOUD_DESKTOP_CONTROL_ROUTE,
-  // Behind a second per-device capability check in the proxy.
-  BROWSER_LIVE_ROUTE,
-  BROWSER_ACTION_ROUTE,
-  // Behind the computer-access capability, like the cloud desktop.
-  LOCAL_VM_SCREENSHOT_ROUTE,
-  // Behind the same capability, while a person holds the computer.
-  LOCAL_VM_JOIN_ROUTE,
   { method: "POST", path: /^\/api\/groups$/ },
   { method: "POST", path: /^\/api\/groups\/[\w-]+\/messages$/ },
   { method: "POST", path: /^\/api\/groups\/[\w-]+\/interrupt$/ },
@@ -302,6 +296,8 @@ export function denyReason({ path, method, authenticated }: RouteRequest): Denia
   if (!authenticated) {
     return { status: 401, error: "pair this device from Remote access settings on the host computer" };
   }
+
+  if (isRetiredAutomationPath(path)) return { status: 410, error: "Desktop and browser automation is unsupported" };
 
   if (ALLOWED.some((route) => route.method === method && route.path.test(path))) return null;
 

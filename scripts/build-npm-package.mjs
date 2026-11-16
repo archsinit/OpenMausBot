@@ -7,6 +7,7 @@
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { removeAutomationArtifacts } from "./retired-automation-artifacts.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const out = join(root, "release", "npm");
@@ -22,6 +23,7 @@ for (const required of ["dist-server/index.js", "dist-server/openmausbot.js", "d
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 cpSync(join(root, "dist-server"), join(out, "dist-server"), { recursive: true });
+removeAutomationArtifacts(join(out, "dist-server"));
 cpSync(join(root, "dist"), join(out, "dist"), { recursive: true });
 if (existsSync(join(root, "skills"))) cpSync(join(root, "skills"), join(out, "skills"), { recursive: true });
 // The enterprise layer, under the path the server loads it from.
@@ -60,8 +62,8 @@ writeFileSync(
       },
       files: ["cli.js", "dist-server", "dist", "skills", "enterprise", "LICENSE", "README.md"],
       engines: { node: ">=24" },
-      repository: { type: "git", url: "https://github.com/milind-soni/OpenMausBot.git" },
-      homepage: "https://github.com/milind-soni/OpenMausBot#readme",
+      repository: app.repository,
+      homepage: `${app.homepage}#readme`,
       keywords: ["openmausbot", "agents", "self-hosted", "server"],
     },
     null,
@@ -74,13 +76,15 @@ writeFileSync(
   `# openmausbot
 
 Your own team of AI bots, with guided terminal setup. Requires Node 24+.
+This is the archsinit fork without desktop or browser automation. Install the
+local fork tarball explicitly; the public npm package is the upstream product.
 
 \`\`\`sh
-npm install -g openmausbot
+npm install -g ./openmausbot-${app.version}.tgz
 openmausbot
 \`\`\`
 
-Or run \`npx openmausbot\` without a global install. Use the same command next
+After installing the fork, use the same \`openmausbot\` command next
 time; \`openmausbot start\` is an alias for the bare command.
 
 First launch: use arrow keys and Enter (numbered choices in plain terminals) to choose

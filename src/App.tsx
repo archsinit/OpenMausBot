@@ -14,8 +14,6 @@ import { GuidedTour } from "@/components/onboarding/GuidedTour";
 import { LiveCallHost } from "@/components/LiveCallHost";
 import { ThreadRefsProvider } from "@/components/ThreadRefs";
 import { initAnalytics } from "@/lib/analytics";
-import { parseComputerHelp } from "@/lib/computer-control";
-import { viewerClosedRelease } from "@/components/computer-takeover";
 import { Sidebar } from "@/components/Sidebar";
 import { ChatView } from "@/components/ChatView";
 import { GroupView } from "@/components/GroupView";
@@ -23,8 +21,8 @@ import { ForkPanel } from "@/components/ForkPanel";
 import { SIDEBAR_AND_PANEL_FIT, SIDEBAR_INLINE, TWO_SIDE_PANELS_FIT, useMediaQuery } from "@/lib/use-media-query";
 import { preloadConnectedApps } from "@/lib/connected-apps";
 import {
-  ActivityPanel, BotSettingsDialog, CloudAddDialog, ComputerPanel, FilesView, InspectorPanel, KeyboardShortcutsModal, LocalVmWorkspace,
-  PluginsPanel, preloadScreens, PublishedAppsPage, RemoteAgentSettingsPanel, RemoteDesktopPanel, RoomPanel, SettingsModal, TeamMapPage, TriggersPage,
+  ActivityPanel, BotSettingsDialog, CloudAddDialog, FilesView, InspectorPanel, KeyboardShortcutsModal,
+  PluginsPanel, preloadScreens, PublishedAppsPage, RemoteAgentSettingsPanel, RoomPanel, SettingsModal, TeamMapPage, TriggersPage,
 } from "@/components/lazy-screens";
 import { useAdvancedMode } from "@/lib/interface-mode";
 import { useRoomPanelShown } from "@/lib/room-panel";
@@ -83,6 +81,7 @@ import { useChiefStepOpen } from "@/lib/default-bot";
 import { useSessionEnded } from "@/lib/session-ended";
 import { PairPage } from "./pair/PairPage";
 import { WebPanelPage } from "@/components/WebPanelPage";
+import { DataWorkspacePanel } from "@/components/DataWorkspacePanel";
 import { AppPreviewPanel } from "@/components/published-apps/AppPreviewPanel";
 
 function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
@@ -147,7 +146,6 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
   // Stays mounted once opened: a Cloud bought in it can arrive after the sheet is closed.
   const cloudAddOpened = useRef(false);
   cloudAddOpened.current ||= Boolean(state.cloudAdd);
-  const [localVmWorkspaceBotId, setLocalVmWorkspaceBotId] = useState<string | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const previousViewRef = useRef(state.activeView);
   const calendarOriginRef = useRef<"chat" | "team-map" | "web-panel">("chat");
@@ -179,7 +177,7 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
   const cloudJobWaiting = Boolean(viewer?.cloudHome && viewer.canSave && cloudIntent.pending);
   const welcome = useCloudWelcome();
   const welcomeOnScreen = cloudWelcomeVisible({ viewer, connected: state.connected, enginesKnown: state.instances.length > 0, onboarding: state.config?.onboarding }, welcome)
-    && state.activeView === "chat" && !(!remoteClient && localVmWorkspaceBotId);
+    && state.activeView === "chat";
   const firstRun = cloudFirstRun({ welcome: welcomeOnScreen, intent: cloudAsk, signIn: cloudSignIn || cloudJobWaiting });
   const team = state.config?.team ?? null;
   const invited = invitedToTeam(viewer);
@@ -246,26 +244,6 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
     previousViewRef.current = state.activeView;
   }, [state.activeView]);
 
-  useEffect(() => {
-    if (
-      localVmWorkspaceBotId &&
-      (state.activeView !== "chat" || state.selectedId !== localVmWorkspaceBotId)
-    ) {
-      setLocalVmWorkspaceBotId(null);
-    }
-  }, [localVmWorkspaceBotId, state.activeView, state.selectedId]);
-
-  const openLocalVmWorkspace = (botId: string) => {
-    dispatch({ type: "toggleComputer", open: false });
-    setLocalVmWorkspaceBotId(botId);
-  };
-
-  const openComputerFromWorkspace = (botId: string) => {
-    setLocalVmWorkspaceBotId(null);
-    dispatch({ type: "select", id: botId });
-    dispatch({ type: "toggleComputer", open: true });
-  };
-
   const closeCalendar = useCallback(() => {
     if (calendarOriginRef.current === "team-map") {
       dispatch({ type: "showTeamMap" });
@@ -281,16 +259,6 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
     dispatch({ type: "select", id });
   }, [dispatch]);
 
-  const nativeViewOverlayOpen =
-    drawerOpen ||
-    paletteOpen ||
-    state.settingsOpen ||
-    state.computerOpen ||
-    state.inspectorOpen ||
-    state.activityOpen ||
-    state.appSettingsOpen ||
-    state.pluginsOpen;
-
   useEffect(() => {
     return window.ogb?.onOpenAppSettings?.(section => dispatch(section === "phone" ? phonePairingSettingsAction() : (section === "cloud-add" || section === "cloud-add-howto") && window.ogb?.cloudAccount && !remoteClient
       ? { type: "openCloudAdd", source: section === "cloud-add" ? "app_menu" : "app_howto" }
@@ -301,28 +269,6 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
           : { type: "toggleAppSettings", open: true, ...((section === "organization" && window.ogb?.organization && !remoteClient) || isSettingsPage(section) ? { section } : {}) }));
   }, [dispatch]);
 
-  useEffect(() => {
-    return window.ogb?.desktopViewer?.onState((viewer) => {
-      if (viewer.open || !viewer.contextId) return;
-      const botId = viewer.contextId, release = viewerClosedRelease(botId);
-      if (release) void fetch(`/api/bots/${botId}/computer/control`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(release),
-      })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((snap) => {
-          if (snap) dispatch({ type: "computerControl", botId, held: snap.held === true, helpReason: snap.helpReason ?? null, help: parseComputerHelp(snap.help) });
-        })
-        .catch(() => {});
-      void fetch(`/api/bots/${botId}/computer/viewer-close`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: "{}",
-      }).catch(() => {});
-    });
-  }, [dispatch]);
-
   const framed = windowFramed(capabilities);
   const strips = <>
     <UpdateBanner sidebarIndicator={framed || (!calendarFocus && (sidebarInline || drawerOpen))} />
@@ -330,7 +276,7 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
     <LiveConnectionStrip connected={state.connected} hydrated={state.hydrated === true} />
     <CloudSendStrip cloudHome={state.config?.cloudHome === true} />
     <HomeLine />
-    <AppNotices quiet={paletteOpen || drawerOpen || Boolean(localVmWorkspaceBotId)} viewer={viewer} />
+    <AppNotices quiet={paletteOpen || drawerOpen} viewer={viewer} />
   </>;
   return (
     <div data-look="app" className={cn("flex h-full flex-col", framed && "bg-frame")} onClickCapture={drawerOpen ? noteDrawerAction : undefined} onKeyDownCapture={drawerOpen ? noteDrawerAction : undefined}>
@@ -381,13 +327,6 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
         <PublishedAppsPage />
       ) : state.activeView === "routines" ? (
         <TriggersPage onBack={closeCalendar} onOpenRoom={openCalendarRoom} />
-      ) : !remoteClient && localVmWorkspaceBotId ? (
-        <LocalVmWorkspace
-          primaryBotId={localVmWorkspaceBotId}
-          overlayOpen={nativeViewOverlayOpen}
-          onClose={() => setLocalVmWorkspaceBotId(null)}
-          onOpenComputer={openComputerFromWorkspace}
-        />
       ) : teamWelcomeOn && team ? (
         <TeamWelcome team={team} invitedBy={teamWelcomeRecord?.invitedBy ?? null} />
       ) : firstRun === "welcome" ? (
@@ -423,17 +362,7 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
           ? <RemoteAgentSettingsPanel bot={bot} overlay={state.computerOpen && !twoSidePanelsFit} />
           : <BotSettingsDialog key={`settings:${bot.id}`} bot={bot} overlay={(state.inspectorOpen || state.computerOpen || (notificationFeed && state.notificationsOpen)) && !twoSidePanelsFit} />
       )}
-      {state.computerOpen && bot && (
-        remoteClient ? (
-          <RemoteDesktopPanel key={`computer:${bot.id}`} bot={bot} />
-        ) : (
-          <ComputerPanel
-            key={`computer:${bot.id}`}
-            bot={bot}
-            onOpenVmWorkspace={openLocalVmWorkspace}
-          />
-        )
-      )}
+      {state.computerOpen && bot && <DataWorkspacePanel key={bot.id} bot={bot} />}
       <AppPreviewPanel />
       {state.forkPanel && sidebarInline && <ForkPanel />}
       {!state.forkPanel && roomPanelOpen && group && (

@@ -216,7 +216,6 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
   if (options.command === "service" && !options.serviceAction) return { error: "service needs one of: install [the same options as serve], uninstall" };
   if (options.domain && (options.tailscale || options.tunnel || options.publicUrl)) return { error: "--domain already gives the server its address; drop --tailscale, --tunnel and --public-url" };
   if (options.local && (options.tailscale || options.tunnel || options.publicUrl || options.lan || options.relay)) return { error: "--local cannot be combined with a remote-access option" };
-  if (options.command === "browser" && !options.browserAction) return { error: "browser needs an action: install or status" };
   if (options.command === "fleet") {
     if (!options.fleetAction) return { error: "fleet needs one of: init --domain HOST [--operator USER], create NAME --admin EMAIL, list, users NAME add|remove EMAIL, suspend NAME, resume NAME, delete NAME --yes, upgrade, agent" };
     if (["create", "users", "suspend", "resume", "delete"].includes(options.fleetAction) && !options.slug) return { error: `fleet ${options.fleetAction} needs a workspace name` };
@@ -566,40 +565,9 @@ export async function runLogout(options: CliOptions, io: CliIo = defaultIo()): P
   return 0;
 }
 
-export async function runBrowser(options: CliOptions, io: CliIo = defaultIo()): Promise<number> {
-  const { browserEngineStatus, describeBrowserEngine, ensureChrome, installAgentBrowserBinary, resolveAgentBrowserBinary } = await import("./browser-engine.ts");
-  const status = browserEngineStatus({ dataDir: options.dataDir });
-  if (options.browserAction === "status") {
-    io.log(describeBrowserEngine(status, status.kind === "ready" ? new (await import("./browser/chrome/launcher.ts")).ChromeLauncher({ dataDir: options.dataDir }).describe() : undefined));
-    if (status.kind !== "ready" && status.installable) io.log("install it with:  openmausbot browser install");
-    return status.kind === "ready" ? 0 : 1;
-  }
-  let binary = resolveAgentBrowserBinary({ dataDir: options.dataDir });
-  if (binary) {
-    io.log(`agent-browser is already here: ${binary}`);
-  } else {
-    if (status.kind !== "ready" && !status.installable) {
-      io.error(status.reason);
-      return 1;
-    }
-    try {
-      binary = await installAgentBrowserBinary({ dataDir: options.dataDir, log: io.log });
-    } catch (error) {
-      io.error(`could not install agent-browser: ${message(error)}`);
-      return 1;
-    }
-    io.log(`installed ${binary}`);
-  }
-  try {
-    await ensureChrome(binary, { withDeps: options.withDeps === true, log: io.log });
-  } catch (error) {
-    io.error(`Chrome is not ready: ${message(error)}`);
-    if (process.platform === "linux" && !options.withDeps) io.error(`on Linux, install Chrome's system libraries with: sudo ${cliCommand("browser install --with-deps")}, then retry ${cliCommand("browser install")} as the user running serve`);
-    return 1;
-  }
-  io.log("browser installed for this user and data directory; run serve as the same user, then enable it under Settings → Computers and per bot");
-  if (process.platform === "linux" && options.withDeps) io.log(`if serve runs as another user, run ${cliCommand("browser install")} from that user's login shell too`);
-  return 0;
+export async function runBrowser(_options: CliOptions, io: CliIo = defaultIo()): Promise<number> {
+  io.error("410 Gone: browser automation is unsupported; browser install and status are not available.");
+  return 1;
 }
 
 export function serverEntry(here = HERE): { command: string; args: string[]; staticDir: string | null; skillsDir: string | null } {
@@ -668,7 +636,6 @@ async function planTunnel(options: CliOptions, log: (line: string) => void, reco
 }
 
 export async function runServe(options: CliOptions, log: (line: string) => void = console.log): Promise<number> {
-  const { browserEngineStatus, describeBrowserEngine } = await import("./browser-engine.ts");
   if (await serverUp(options.port)) {
     console.error(`something already answers on http://127.0.0.1:${options.port}; use ${cliCommand("pair")} against it, or --port for a second server`);
     return 1;
@@ -860,7 +827,6 @@ export async function runServe(options: CliOptions, log: (line: string) => void 
       if (options.open !== false && !await openDashboard(options.port)) log(`Open http://127.0.0.1:${options.port} in a browser on this computer.`);
     } else {
       log(`data: ${options.dataDir}`);
-      log(describeBrowserEngine(browserEngineStatus({ dataDir: options.dataDir })));
     }
     const reach = route && origin && route !== "lan" ? await waitForReach(options.port, origin, route === "public-url" ? 3_000 : 15_000) : undefined;
     if (route && origin) for (const line of reachLines(route, origin, options.port, prefix, reach)) log(line);

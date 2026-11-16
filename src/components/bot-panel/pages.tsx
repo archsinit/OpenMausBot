@@ -29,8 +29,6 @@ import { useBotApps, type BotApp } from "../bot-settings/useBotApps";
 import { useChoosesVisibility, VisibilitySection } from "../bot-settings/VisibilitySection";
 import type { useBotSettingsDerived } from "../bot-settings/useBotSettingsDerived";
 import { RoutineList } from "../routines/RoutineList";
-import { BrowserLogins } from "./browser-logins";
-import { useOpenComputer, WherePage } from "./ComputerTab";
 import { SettingsPage } from "./SettingsPage";
 import { panelMemoryNotes, withMemoryNote, withoutMemoryNote, type PanelMemoryNote } from "./memory-notes";
 import type { SimplePageId } from "./page-registry";
@@ -598,11 +596,6 @@ export function FolderPage({ bot }: PageContext) {
   );
 }
 
-export function BrowserPage({ bot, derived }: PageContext) {
-  const openComputer = useOpenComputer(bot);
-  return <BrowserLogins bot={bot} browserEnabled={derived.browserEnabled} onOpenBrowser={() => openComputer("browser")} />;
-}
-
 function VisibilityPage({ bot }: PageContext) {
   return useChoosesVisibility() ? <VisibilitySection bot={bot} /> : null;
 }
@@ -616,8 +609,6 @@ export function PageBody({ page, onOpen, editingInstructions, onEditInstructions
   switch (page) {
     case "settings":
       return <SettingsPage {...context} onOpen={onOpen} editingInstructions={editingInstructions} onEditInstructions={onEditInstructions} />;
-    case "where":
-      return <WherePage {...context} />;
     case "apps":
       return <AppsPage {...context} />;
     case "routines":
@@ -630,7 +621,5 @@ export function PageBody({ page, onOpen, editingInstructions, onEditInstructions
       return <SkillsPage {...context} />;
     case "folder":
       return <FolderPage {...context} />;
-    case "browser":
-      return <BrowserPage {...context} />;
   }
 }

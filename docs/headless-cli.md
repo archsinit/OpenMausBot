@@ -282,7 +282,7 @@ machine). Changing keys needs a session with full access.
 ## The team file
 
 A team file says what the workspace should have: teams and their briefs, bots
-with their standing instructions, models, approval levels and computers,
+with their standing instructions, models, approval levels, folders and tool selections,
 skills, rooms, and the engines they run on. Write it in YAML or JSON.
 
 ```sh
@@ -296,7 +296,7 @@ Apply prints its plan, then makes the changes:
 
 ```text
 team "Launch Room": create · brief set (5 lines)
-bot "Room Lead": create (Chief of Launch Room · claude/claude-sonnet-5-5 · Full access · computer local)
+bot "Room Lead": create (Chief of Launch Room · claude/claude-sonnet-5-5 · Full access)
 bot "Priya": update title "Buyer" → "Skeptical procurement manager"; soul 3 lines changed
 bot "Old visitor": not in file (kept; --prune deletes it)
 Plan: 6 to create, 1 to change, 0 unchanged, 0 to delete.
@@ -317,8 +317,7 @@ waiting up to `--wait-idle` (2 minutes) and then reporting it.
 
 Every change goes through the same requests the app makes, with the same
 checks. Apply adds no confirmations of its own: where the server needs one
-(Auto on this computer, a Chief's access to other teams), the file saying so
-is the confirmation.
+(a Chief's access to other teams), the file saying so is the confirmation.
 
 ### Fields
 
@@ -346,9 +345,7 @@ bots:                                       # at least one
     model: claude/claude-sonnet-5-5         # INSTANCE/MODEL; openmausbot models lists them
     effort: none | low | medium | high | xhigh | max
     approval: ask | edits | auto | full     # a new bot starts at full; Custom is set in the desktop app
-    computer: auto | off | browser | local | vm | cloud
     cwd: /work/room                         # a full path that exists on the server
-    browser: true | false | { enabled: true, profile: guest }
     tools: { allow: [SELECTOR], deny: [SELECTOR] }   # docs/tool-selection.md; {} means every tool
     skills:
       - { file: skills/launch-report/SKILL.md, enabled: true }
@@ -368,9 +365,11 @@ is refused too: it would not mean the same there), a missing file or
 environment variable, a key written into the file, and anything longer than
 the app takes (a name or title on more than one line or over 100 or 200
 characters, a soul or team brief over 24,000 bytes, a room brief over 12,000
-characters, a skill over 256 KiB). It warns about a bot with no `computer`: on
-`auto` it may ask which computer to use, and nobody is there to answer a
-headless run. An engine's key, and a base URL kept as a secret, are read only
+characters, a skill over 256 KiB). Browser and computer automation are retired:
+`computer: auto/browser/local/vm/cloud`, `browser: true`, and browser objects
+are refused before any API calls, including in defaults. Legacy `computer: off`
+and `browser: false` are accepted and discarded; exports omit automation fields.
+An engine's key, and a base URL kept as a secret, are read only
 when they have to be written: when the engine has no key yet, or with
 `--rotate-secrets` (on an engine that has a key, the plan says its base URL
 could not be compared). Souls, briefs and skills are read with LF line ends,
@@ -413,30 +412,26 @@ defaults:
   team: Launch Room
   model: claude/claude-haiku-5-5
   approval: full                             # nobody is there to answer a permission card
-  computer: browser                          # works only in its own built-in browser
-  browser: { enabled: true, profile: guest } # a fresh temporary profile per bot
-  cwd: /work/visitors                        # where screenshots go (create it first)
+  cwd: /work/visitors                        # where reports go (create it first)
 
 teams:
   - name: Launch Room
     prune: true
     brief: |
-      We rehearse a product launch before it happens. Visitors use the site the way a
-      first-time visitor would. Never sign up with real details, pay, post or email anyone.
+      We review product-launch materials before release. Review the local documents
+      from a first-time buyer's perspective. Never pay, post or email anyone.
       Never ask the person anything: if something blocks you, say exactly what and stop.
-      Save a screenshot at every step as <your-name>-<step>.png in your folder, and end
-      your report with a Markdown list linking each one.
+      Save your review as <your-name>-review.md in your folder, and end
+      your report with a Markdown list linking the reviewed documents.
 
 bots:
   - name: Room Lead
     chief: true
     title: Launch rehearsal lead
-    description: Hands the site to every visitor, then writes the launch report.
+    description: Assigns launch documents to every reviewer, then writes the report.
     model: claude/claude-sonnet-5-5
     effort: medium
-    computer: local
     cwd: /work/room
-    browser: false
     soul: { file: souls/room-lead.md }
     skills:
       - file: skills/launch-report/SKILL.md
@@ -447,24 +442,24 @@ bots:
       You are Priya, 41, who buys software for a 200-person company. You distrust vague
       claims and look for pricing, security and who else uses it before anything else.
   - name: Marcus
-    title: Rushed founder on a phone-sized screen
+    title: Rushed founder reviewing launch copy
     soul: |
-      You are Marcus, 29, running a two-person startup. You give a site 30 seconds,
-      skim headlines, and try the main button first. Use a 390x844 viewport.
+      You are Marcus, 29, running a two-person startup. You give launch copy 30 seconds,
+      skim headlines, and look for a clear next step in the launch copy.
 ```
 
 Then rehearse, wait for every visitor, and keep the report, transcripts and
-screenshots:
+review files:
 
 ```sh
-openmausbot run "Room Lead" "Rehearse the launch of https://example.com with every visitor, then write report.md." \
+openmausbot run "Room Lead" "Review the launch documents in /work/visitors with every reviewer, then write report.md." \
   --timeout 45m --export ./rehearsal
 ```
 
 A Room Lead can brief up to 64 teammates in one turn before any of them
 reports back.
 
-The visitors read sites nobody vetted. A Claude bot keeps its built-in tools
+The reviewers read documents nobody vetted. A Claude bot keeps its built-in tools
 (a shell, file edits) whatever its `tools` say, so run them where those tools
 can do no harm, such as a throwaway sandbox like Launch Room's, or give them
 an engine that can limit built-in tools.

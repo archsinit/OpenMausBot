@@ -20,10 +20,6 @@ const APPROVAL: Record<Exclude<ApprovalMode, "custom">, { label: string; effect:
 };
 const approvalName = (mode: ApprovalMode) => (mode === "custom" ? "Custom" : APPROVAL[mode].label);
 
-const COMPUTER = {
-  auto: "pick its own computer", cloud: "use a cloud desktop", vm: "use a private desktop on this computer",
-  local: "use this computer's own desktop, as you", browser: "use only the built-in browser", off: "use no computer",
-} as const;
 const onOff = (on: boolean | null) => (on === null ? "follow the app's setting" : on ? "on" : "off");
 const on = (field: boolean | undefined) => field !== false;
 const set = (field: boolean | undefined) => field === true;
@@ -42,14 +38,14 @@ const OTHER = {
   memoryEnabled: { label: "memory", value: z.boolean(), shown: onOff, was: (one: BotRecord) => on(one.memoryEnabled) },
   memoryUpkeep: { label: "memory upkeep", value: z.boolean(), shown: onOff, was: (one: BotRecord) => on(one.memoryUpkeep) },
   helperModel: { label: "helper model", value: z.boolean(), shown: onOff, was: (one: BotRecord) => on(one.helperModel) },
-  browser: { label: "built-in browser", value: z.boolean(), shown: onOff, was: (one: BotRecord) => on(one.browser) },
-  recordBrowserSteps: { label: "saving browser steps", value: z.boolean(), shown: onOff, was: (one: BotRecord) => set(one.recordBrowserSteps) },
+
+
   composio: { label: "Composio apps", value: z.boolean(), shown: onOff, was: (one: BotRecord) => on(one.composio) },
   xResearch: { label: "X research", value: z.boolean(), shown: onOff, was: (one: BotRecord) => set(one.xResearch) },
   parkDirectMessages: { label: "holding direct messages behind delegated work", value: z.boolean(), shown: onOff, was: (one: BotRecord) => set(one.parkDirectMessages) },
   cacheKeepWarm: { label: "keeping its cache warm", value: z.boolean().nullable(), shown: onOff, was: (one: BotRecord) => one.cacheKeepWarm ?? null },
-  autoStartVps: { label: "starting its own server", value: z.boolean(), shown: onOff, was: (one: BotRecord) => set(one.autoStartVps) },
-  computer: { label: "computer", value: z.enum(["auto", "cloud", "vm", "local", "browser", "off"]), shown: (kind: unknown) => COMPUTER[kind as keyof typeof COMPUTER], was: (one: BotRecord) => one.computer ?? "auto" },
+
+
 } as const;
 type OtherField = keyof typeof OTHER;
 const toolGroups = z.array(z.enum(TOOL_GROUPS)).max(TOOL_GROUPS.length).optional();
@@ -127,7 +123,7 @@ export function botEntries(deps: Pick<RegistryDeps, "bots" | "engines" | "patchB
     }),
     perBot({
       id: "bots.tools", label: "Bot tool groups", where: "a bot's Settings",
-      help: `Turn groups of one bot's built-in tools off to make every request smaller, or back on: ${TOOL_GROUPS.map((group) => `${group} (${TOOL_GROUP_LABELS[group]})`).join(", ")}. Memory, X research, the browser and connected apps have their own settings.`,
+      help: `Turn groups of one bot's built-in tools off to make every request smaller, or back on: ${TOOL_GROUPS.map((group) => `${group} (${TOOL_GROUP_LABELS[group]})`).join(", ")}. Memory, X research and connected apps have their own settings.`,
       synonyms: ["tools", "tool groups", "turn off tools", "meetings", "data", "pages", "publish", "images", "email", "tokens", "smaller requests"],
       value: forBot({ turnOff: toolGroups, turnOn: toolGroups })
         .refine((value) => Boolean(value.turnOff?.length || value.turnOn?.length), "name a group in turnOff or turnOn")
@@ -140,7 +136,7 @@ export function botEntries(deps: Pick<RegistryDeps, "bots" | "engines" | "patchB
     }),
     perBot({
       id: "bots.settings", label: "Other bot settings", help: `More of one bot's own settings: ${Object.values(OTHER).map((field) => field.label).join(", ")}.`, where: "a bot's Settings",
-      synonyms: ["voice", "voice notes", "memory", "notifications", "browser", "instructions", "soul", "title", "description", "reply style", "computer", "desktop", "composio", "x research", "keep warm"],
+      synonyms: ["voice", "voice notes", "memory", "notifications", "instructions", "soul", "title", "description", "reply style", "composio", "x research", "keep warm"],
       value: forBot(Object.fromEntries(Object.entries(OTHER).map(([field, spec]) => [field, spec.value.optional()])) as { [F in OtherField]: z.ZodOptional<(typeof OTHER)[F]["value"]> })
         .refine((value) => Object.keys(value).length > 1, "name at least one setting besides botId"),
       allowed: `{"botId", ...one or more of ${(Object.keys(OTHER) as OtherField[]).join(", ")}}`,
@@ -148,7 +144,7 @@ export function botEntries(deps: Pick<RegistryDeps, "bots" | "engines" | "patchB
       effect: (one, value) => ({ change: `${one.name}: ${(Object.keys(value) as Array<OtherField | "botId">).filter((field) => field !== "botId")
         .map((field) => `${OTHER[field as OtherField].label} ${OTHER[field as OtherField].shown(value[field as OtherField] as never)}`).join("; ")}` }),
       was: (one, value) => ({ botId: one.id, ...Object.fromEntries(Object.keys(value).filter((field) => field !== "botId").map((field) => [field, OTHER[field as OtherField].was(one)])) }),
-      patch: (_one, { botId: _id, computer, ...rest }) => ({ ...rest, ...(computer ? { computer: computer === "auto" ? null : computer } : {}) }),
+      patch: (_one, { botId: _id, ...rest }) => rest,
     }),
   ];
 }

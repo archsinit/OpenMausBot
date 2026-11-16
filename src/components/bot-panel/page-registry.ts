@@ -1,13 +1,12 @@
 import type { LocaleKey } from "@/locales";
 import type { BotSettingsSection } from "@/state/store";
 
-export const PANEL_TABS = ["details", "library", "computer"] as const;
+export const PANEL_TABS = ["details", "library"] as const;
 export type PanelTab = (typeof PANEL_TABS)[number];
 
 export const TAB_LABEL: Record<PanelTab, LocaleKey> = {
   details: "botPanel.tab.details",
   library: "botPanel.tab.library",
-  computer: "botPanel.tab.computer",
 };
 
 export type PageId =
@@ -19,7 +18,7 @@ export type PageId =
   | "overview" | "prompt" | "history";
 
 /** The pages Simple mode draws; a link to any other page lands where its section does. */
-export const SIMPLE_PAGES = ["settings", "apps", "routines", "visibility", "memory", "skills", "folder", "browser", "where"] as const satisfies readonly PageId[];
+export const SIMPLE_PAGES = ["settings", "apps", "routines", "visibility", "memory", "skills", "folder"] as const satisfies readonly PageId[];
 export type SimplePageId = (typeof SIMPLE_PAGES)[number];
 
 export function isSimplePage(page: PageId): page is SimplePageId {
@@ -34,7 +33,7 @@ export interface PageMeta {
 
 export const PAGES: Record<PageId, PageMeta> = {
   settings: { title: "botPanel.page.settings", home: "details" },
-  where: { title: "computer.simple.whereWorks", home: "computer" },
+  where: { title: "computer.simple.whereWorks", home: "details" },
   setup: { title: "botSetup.ideas", home: "details" },
   model: { title: "model.simple.model", home: "details" },
   instructions: { title: "botSettings.simple.instructions", home: "details" },
@@ -43,9 +42,9 @@ export const PAGES: Record<PageId, PageMeta> = {
   apps: { title: "botPanel.appsRow", home: "details", intro: "botPanel.apps.intro" },
   memory: { title: "botPanel.memoryRow", home: "library", intro: "botPanel.memory.intro" },
   skills: { title: "botSettings.simple.skills", home: "library", intro: "botSettings.simple.skillsHint" },
-  browser: { title: "settings.sites.title", home: "computer" },
+  browser: { title: "settings.sites.title", home: "details" },
   folder: { title: "computer.files.folder", home: "library", intro: "botPanel.folder.intro" },
-  android: { title: "botPanel.page.android", home: "computer" },
+  android: { title: "botPanel.page.android", home: "details" },
   voice: { title: "botPanel.page.voice", home: "details" },
   blurb: { title: "botPanel.page.blurb", home: "details" },
   team: { title: "botPanel.page.team", home: "details" },
@@ -80,7 +79,7 @@ const SECTION_TARGET: Record<BotSettingsSection, PanelTarget> = {
   memory: { tab: "library", page: "memory" },
   library: { tab: "library" },
   routines: { tab: "details", page: "routines" },
-  access: { tab: "computer" },
+  access: { tab: "details", page: "apps" },
   model: { tab: "details", anchor: "model" },
   permissions: { tab: "details", page: "settings", anchor: "approval" },
   voice: { tab: "details" },

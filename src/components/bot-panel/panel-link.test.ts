@@ -25,14 +25,14 @@ describe("named links into a bot's settings", () => {
     expect(linkTarget("access", link({ section: "access", page: "folder" }))).toEqual({ tab: "library", page: "folder" });
     // MCP servers are listed on the apps page; Simple mode has no tool-selection page, so that link opens the Computer tab.
     expect(linkTarget("access", link({ section: "access", page: "mcp" }))).toEqual({ tab: "details", page: "apps" });
-    expect(linkTarget("access", link({ section: "access", page: "tools" }))).toEqual({ tab: "computer" });
+    expect(linkTarget("access", link({ section: "access", page: "tools" }))).toEqual({ tab: "details", page: "apps" });
     // A plain Access link (the team map's computer button) still opens the Computer tab, where Works on lives.
-    expect(linkTarget("access", link({ section: "access" }))).toEqual({ tab: "computer" });
+    expect(linkTarget("access", link({ section: "access" }))).toEqual({ tab: "details", page: "apps" });
   });
 
   it("lands a link that names a card on that card, on its section's tab, and on no other section", () => {
     expect(linkTarget("overview", link({ section: "overview", anchor: "conversations" }))).toEqual({ tab: "details", anchor: "conversations" });
-    expect(linkTarget("access", link({ section: "access", anchor: "conversations" }))).toEqual({ tab: "computer", anchor: "conversations" });
+    expect(linkTarget("access", link({ section: "access", anchor: "conversations" }))).toEqual({ tab: "details", page: "apps", anchor: "conversations" });
     expect(linkTarget("usage", link({ section: "overview", anchor: "conversations" }))).toEqual(sectionTarget("usage"));
   });
 

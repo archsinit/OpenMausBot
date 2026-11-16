@@ -13,7 +13,7 @@ import { LocalComputerAutoWarning } from "../LocalComputerAutoWarning";
 import { usePlaceViews } from "../PlaceChip";
 import { screenFramePreview } from "../ScreenFrame";
 import type { BotPatch, useBotSettingsDerived } from "../bot-settings/useBotSettingsDerived";
-import type { SimplePageId } from "./page-registry";
+import type { PageId } from "./page-registry";
 import { Card, NavRow, RadioRow } from "./rows";
 
 type Derived = ReturnType<typeof useBotSettingsDerived>;
@@ -126,7 +126,7 @@ export function WherePage({ bot, derived }: { bot: Bot; derived: Derived }) {
   );
 }
 
-export function ComputerTab({ bot, derived, onOpen }: { bot: Bot; derived: Derived; onOpen: (page: SimplePageId) => void }) {
+export function ComputerTab({ bot, derived, onOpen }: { bot: Bot; derived: Derived; onOpen: (page: PageId) => void }) {
   const openComputer = useOpenComputer(bot);
   const ownerOrAdmin = useOwnerOrAdmin();
   const { browserEnabled } = derived;

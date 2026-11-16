@@ -6,6 +6,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSyn
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { serverLocalePlugin } from "./server-locale-plugin.mjs";
+import { removeAutomationArtifacts } from "./retired-automation-artifacts.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const server = join(root, "server");
@@ -43,27 +44,20 @@ const ENTRY_POINTS = [
   // Imported directly by the packaged smoke probes. An explicit root sibling,
   // because tsc may emit its own copy under dist-server/server/.
   "proxy-paths.ts",
-  "local-computer.ts",
-  "local-computer-proxy.ts",
   // the hook helper Claude Code runs at PostToolUse/PreCompact/SessionStart/Stop
   "hooks/omb-hook.ts",
-  "container-mcp.ts",
-  "vps-container-mcp.ts",
   "permission-proxy.ts",
   "connector-proxy.ts",
   "mcp-gate.ts",
   "mcp-remote-proxy.ts",
   "harness-mcp-proxy.ts",
   "drivers/agents-proxy.ts",
-  "drivers/dweb-proxy.ts",
   "drivers/phone-proxy.ts",
   "drivers/chatgpt-plan-token-command.ts",
   // the bot box (server/bot-box): the in-box bridge, the probe the self-check runs inside a box, and the check by hand
   "bot-box/box-bridge.ts",
   "bot-box/box-probe.ts",
   "bot-box/box-check.ts",
-  // the meeting bot, copied to a cloud computer and run there with its own Node
-  "meetings/meetbot.ts",
 ];
 
 await build({
@@ -173,3 +167,4 @@ writeFileSync(join(root, "dist-server", "package.json"), `${JSON.stringify({ typ
 // tsc copies the language packs server/server-lines.ts imports (13 MB) beside its own output. The bundles above carry
 // the server's keys, so nothing reads the copies.
 rmSync(join(root, "dist-server", "src", "locales"), { recursive: true, force: true });
+removeAutomationArtifacts(join(root, "dist-server"));

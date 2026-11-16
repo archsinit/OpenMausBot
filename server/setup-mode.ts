@@ -72,10 +72,6 @@ function connectedAppsClause(apps: SetupConnectedApps): string {
   }
 }
 
-// Google refuses the bot's browser at its sign-in page, so a Google account never goes through request_sign_in.
-const SIGN_IN_CLAUSE =
-  " For a website no connected app covers, call request_sign_in at its sign-in page so the user signs in themselves; never ask for a password or code in chat. Gmail and other Google accounts only connect through connected apps: Google blocks sign-in in your browser.";
-
 // The Chief role is a flag propose_profile cannot touch, but a soul saying "your only job is X" would still narrow it.
 const CHIEF_CLAUSE =
   " You are also the Chief of Staff, and setting yourself up does not change that: keep your Chief duties, add this job to your standing instructions instead of replacing them, and never write that this job is all you do.";
@@ -89,7 +85,6 @@ function buildSetupPrompt(profileAside: string, apps: SetupConnectedApps, cwd?: 
     " First send one message describing the changes you are about to request, then make the tool calls. Follow each result: if applied, continue without another confirmation; if pending, end the turn and wait for its in-app decision. Do not repeat the list or claim success from the permission mode alone." +
     ` Use propose_profile for your identity, standing rules ${profileAside}, and the working folder (cwd), trigger for a schedule or webhook the user describes, and request_credential for any missing token.` +
     connectedAppsClause(apps) +
-    SIGN_IN_CLAUSE +
     " Full Access does not supply answers, credentials, or broader permissions for another bot. A credential request still needs the user's secure entry. Report failed or cancelled changes honestly." +
     " Finish by saying exactly what remains for the user to do by hand, such as creating a third-party application or bot token, or deciding a pending review."
   );

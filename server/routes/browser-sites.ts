@@ -1,5 +1,6 @@
 // GET ?profile=<id> or ?bot=<id>; POST /api/browser-sites/sign-out {profile | bot, site?} signs out of one site, or every site without `site`.
 // On a Team Cloud `threadId` names the conversation whose browser is meant (a member's, a group chat's); none is the team's.
+import { withoutRetiredAutomation } from "./retired-automation.ts";
 import type { BrowserSitesTarget, SignedInSites } from "../browser-sites.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
@@ -26,7 +27,7 @@ function failure(error: unknown): string {
 }
 
 export function createBrowserSiteRoutes(deps: BrowserSitesRouteDeps): RouteHandler {
-  return async ({ req, res, url, path, method, json, readBody }) => {
+  return withoutRetiredAutomation(async ({ req, res, url, path, method, json, readBody }) => {
     if (path === "/api/browser-sites" && method === "GET") {
       const which = ref({ profile: url.searchParams.get("profile") ?? undefined, bot: url.searchParams.get("bot") ?? undefined });
       if (!which) return json(res, 400, { error: "Name one browser profile or one bot." });
@@ -48,5 +49,5 @@ export function createBrowserSiteRoutes(deps: BrowserSitesRouteDeps): RouteHandl
     if ("error" in target) return json(res, target.status, { error: target.error });
     try { return json(res, 200, await deps.signOut(target, body.site ?? null)); }
     catch (error) { return json(res, 503, { error: failure(error) }); }
-  };
+  });
 }

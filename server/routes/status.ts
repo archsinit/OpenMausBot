@@ -1,3 +1,4 @@
+import { withoutRetiredAutomation } from "./retired-automation.ts";
 import { readBotActivity } from "../activity.ts";
 import { activityCsv, activityEntries, parseActivityWhat, readAdminActivityRange } from "../admin-activity.ts";
 import { loadBrand } from "../brand.ts";
@@ -46,7 +47,7 @@ export function createStatusRoutes(deps: StatusRouteDeps): RouteHandler {
     configStatus, broadcast, browserEngineInstall, browserEngineInstallError,
   } = deps;
   const version = reportableServerVersion();
-  return async ({ req, res, url, path, method, auth, json, readBody }) => {
+  return withoutRetiredAutomation(async ({ req, res, url, path, method, auth, json, readBody }) => {
     let m: RegExpMatchArray | null = null;
     const shown = deps.threadShown?.(auth) ?? (() => true);
     const decision = deps.records?.decisionRow(auth) ?? ((row: DecisionRow) => row);
@@ -242,5 +243,5 @@ export function createStatusRoutes(deps: StatusRouteDeps): RouteHandler {
       });
     }
     return PASS;
-  };
+  });
 }

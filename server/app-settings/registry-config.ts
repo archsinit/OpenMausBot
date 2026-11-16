@@ -1,6 +1,5 @@
 // The server's own settings from the Settings pages, each applied with Undo. Writes go through PUT /api/config (or the one
 // route the page itself calls), so that route's checks, side effects and broadcasts still run.
-import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
@@ -8,7 +7,6 @@ import { IMAGE_PROVIDERS } from "../../shared/image-generation.ts";
 import { EFFORT_LEVELS } from "../../shared/wire.ts";
 import { DEFAULT_WINDOW_MINUTES } from "../cache-keepwarm.ts";
 import { botsTowardLimit } from "../../shared/bot-limit.ts";
-import { parseSocks5Proxy } from "../browser/egress/policy.ts";
 import { CONFIG_PATCH_FIELDS as F, MAX_THREAD_EVENT_LOG_BYTES, MIN_THREAD_EVENT_LOG_BYTES } from "../config.ts";
 import { display, withoutKeys, type RegistryDeps, type SettingEntry, type Where, type WritableSpec } from "./registry.ts";
 
@@ -19,7 +17,6 @@ const visible = (value: unknown): unknown => (value && typeof value === "object"
 const fields = (value: object) => Object.entries(value).map(([field, inner]) => `${field} ${display(inner) || "cleared"}`).join(", ");
 const quoted = (text: string) => `"${text.length > 160 ? `${text.slice(0, 160)}…` : text}"`;
 const nonEmpty = <T extends z.ZodType<object>>(schema: T) => schema.refine((value) => Object.keys(value).length > 0, "name at least one field");
-type BrowserProfileChange = { id?: string; name: string; browser?: "chrome" };
 const imageSlot = z.object({ provider: z.enum(IMAGE_PROVIDERS), model: z.string().trim().max(200).optional() }).strict();
 
 export function configEntries(deps: Pick<RegistryDeps, "cfg" | "saveConfig" | "bots" | "call" | "read" | "paused">, writable: (spec: WritableSpec) => SettingEntry): SettingEntry[] {
@@ -122,65 +119,6 @@ export function configEntries(deps: Pick<RegistryDeps, "cfg" | "saveConfig" | "b
     }),
     feature("appearance.toolCalls", "Show tool calls", "Show each tool a bot runs in the conversation.", "Settings → Appearance", ["tool calls", "tools", "show tools"], "showToolCalls", false,
       "Show each tool a bot runs in its conversation", "Hide tool runs from conversations"),
-    feature("desktops.browser", "Built-in browser", "Bots may use the built-in browser; each bot also has its own switch.", "Settings → Desktops & browser", ["browser", "built-in browser"], "browser", true,
-      "Let bots use the built-in browser", "Turn off the built-in browser for every bot"),
-    section({
-      id: "desktops.browserLocalNetwork", label: "Browser on your local network", help: "Whether bots' browsers may open sites on this computer's local network.", where: "Settings → Desktops & browser",
-      synonyms: ["local network", "lan", "browser sites", "intranet"], value: z.boolean(), allowed: "true or false",
-      current: () => cfg().browserEngine?.egress?.localNetwork === true, patch: (localNetwork) => ({ browserEngine: { egress: { localNetwork } } }),
-      says: (on) => (on ? "Let bots' browsers open sites on your local network" : "Keep bots' browsers off your local network"),
-    }),
-    section({
-      id: "desktops.browserProxy", label: "Browser proxy", help: "An unauthenticated SOCKS5 proxy bots' browsers reach public sites through; empty sends them direct. Its address is never shown, only whether one is set.",
-      where: "Settings → Desktops & browser", synonyms: ["proxy", "socks", "socks5", "browser proxy"],
-      value: z.string().trim().max(512).refine((text) => text === "" || parseSocks5Proxy(text) !== null, "an unauthenticated socks5://host:port address, or empty"),
-      allowed: 'an unauthenticated "socks5://host:port", or "" for no proxy', current: () => cfg().browserEngine?.egress?.proxy ?? "",
-      read: () => (cfg().browserEngine?.egress?.proxy ? "set" : ""), patch: (proxy) => ({ browserEngine: { egress: { proxy } } }),
-      says: (proxy) => (proxy ? "Send bots' browsers to public sites through the SOCKS5 proxy you named" : "Send bots' browsers to public sites directly, with no proxy"),
-    }),
-    section({
-      id: "desktops.browserEngine", label: "Browser engine", help: "What runs bots' browsers: agent-browser (the default) or MausBot's own Chrome driver (early).", where: "Settings → Desktops & browser",
-      synonyms: ["browser engine", "chrome", "new browser", "agent-browser"], value: z.enum(["agent-browser", "chrome"]), allowed: "agent-browser or chrome",
-      current: () => cfg().browserEngine?.engine ?? "agent-browser", patch: (engine) => ({ browserEngine: { engine } }),
-    }),
-    feature("desktops.savedSteps", "Saved steps", "Bots may repeat saved browser steps without AI.", "Settings → Desktops & browser", ["saved steps", "repeat", "without ai"], "savedSteps", true,
-      "Let bots repeat saved steps without AI", "Turn off saved steps"),
-    section({
-      id: "desktops.privateDesktop", label: "Private desktops", help: "How bots share private desktops on this computer: one shared, one per bot, or a pool; how many; and minutes before an idle one stops.", where: "Settings → Desktops & browser",
-      synonyms: ["private desktop", "vm", "docker", "podman", "container", "sandbox"],
-      value: nonEmpty(F.localVm.unwrap().pick({ mode: true, maxInstances: true, idleTimeoutMinutes: true }).strict()), allowed: '{"mode"?:"shared"|"per-bot"|"pool","maxInstances"?,"idleTimeoutMinutes"?}',
-      current: () => cfg().localVm ?? {}, patch: (localVm) => ({ localVm }), says: (localVm) => `Private desktops: ${fields(localVm)}`,
-    }),
-    feature("computer.sharing", "Computer sharing", "Whether every paired device may lend its computer to bots here. Each lent folder or app is still picked and confirmed on that device.", "Settings → Desktops & browser",
-      ["share computer", "shared computers", "lend", "lending"], "sharedComputers", false,
-      "Let every paired device lend its computer to bots here, not only your own. A lent folder can be used to reach a shell", "Stop every device, your own included, lending its computer to bots here"),
-    writable({
-      id: "desktops.browserProfiles", label: "Browser profiles", help: "Named browser profiles bots use, each keeping its own logins. Send the full list; leave out id for a new one. Removing one deletes its logins, so only the user does that.",
-      where: "Settings → Desktops & browser", synonyms: ["browser profiles", "profiles", "my chrome", "logins"],
-      value: z.array(z.object({ id: z.string().regex(/^[a-z0-9-]{1,80}$/).optional(), name: z.string().trim().min(1).max(40), browser: z.literal("chrome").optional() }).strict()).max(20),
-      allowed: '[{"id"?,"name","browser"?:"chrome"}]; "chrome" uses your own running Chrome',
-      current: () => (cfg().browserProfiles ?? []).map(({ id, name, browser }) => ({ id, name, ...(browser ? { browser } : {}) })),
-      read: () => (cfg().browserProfiles ?? []).map((profile) => `${profile.id}: ${profile.name}${profile.browser ? " (your Chrome)" : ""}`).join("; "),
-      describe: (next: BrowserProfileChange[]) => {
-        const current = cfg().browserProfiles ?? [];
-        const gone = current.find((profile) => !next.some((wanted) => wanted.id === profile.id));
-        if (gone) return { refusal: `Removing the browser profile "${gone.name}" deletes its saved logins, so only the user does that, in Settings → Desktops & browser. Send every current profile.` };
-        const unknown = next.find((wanted) => wanted.id && !current.some((profile) => profile.id === wanted.id));
-        if (unknown) return { refusal: `No browser profile has the id ${unknown.id}. Leave out id for a new profile.` };
-        const where = (profile: BrowserProfileChange) => (profile.browser ? "your own running Chrome, with its logins" : "the built-in browser");
-        const lines = next.flatMap((wanted) => {
-          const before = current.find((profile) => profile.id === wanted.id);
-          if (!before) return [`add the profile "${wanted.name}" on ${where(wanted)}`];
-          return [...(before.name !== wanted.name ? [`rename "${before.name}" to "${wanted.name}"`] : []), ...(Boolean(before.browser) !== Boolean(wanted.browser) ? [`move "${wanted.name}" to ${where(wanted)}`] : [])];
-        });
-        return lines.length ? { change: `Browser profiles: ${lines.join("; ")}` } : { refusal: "That list is the same as the current one." };
-      },
-      write: (next: BrowserProfileChange[]) => {
-        const current = (cfg().browserProfiles ?? []).map(({ id, name, browser }) => ({ id, name, ...(browser ? { browser } : {}) }));
-        const browserProfiles = next.map((profile) => ({ ...profile, id: profile.id ?? `profile-${randomUUID().replaceAll("-", "")}` }));
-        return deps.saveConfig({ browserProfiles, expectedBrowserProfiles: current });
-      },
-    }),
     writable({
       id: "bots.awake", label: "Bots kept awake", help: "On a Starter Cloud, which bots stay awake past the plan's limit; the rest pause. Send exactly as many as the plan keeps.", where: "Settings → You and your bots",
       synonyms: ["awake", "paused bots", "starter", "limit"], value: z.array(z.string().regex(/^[\w-]{1,120}$/)).min(1).max(100), allowed: "a list of bot ids",

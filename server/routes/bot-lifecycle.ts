@@ -1,3 +1,4 @@
+import { withoutRetiredAutomation } from "./retired-automation.ts";
 import type { ProviderRegistry } from "../harness/registry.ts";
 import type { RequestAuth } from "../request-auth.ts";
 import type { RoutineManager } from "../routines.ts";
@@ -25,7 +26,7 @@ export function createBotLifecycleRoutes(deps: BotLifecycleRouteDeps): RouteHand
     store, interruptAllDirectThreads, cancelDirectTurnDispatch, revokeInternalCapabilitiesForThread, activeGroupTurnForBot,
     cancelGroupTurnOperations, runningTurnInstance, closeOpenApprovals, deleteBotWithLifecycle,
   } = deps;
-  return async ({ req, res, path, method, auth, json }) => {
+  return withoutRetiredAutomation(async ({ req, res, path, method, auth, json }) => {
     let m: RegExpMatchArray | null = null;
     const routines = deps.routines();
     if (method === "POST" && path === "/api/local-computer/interrupt") {
@@ -64,5 +65,5 @@ export function createBotLifecycleRoutes(deps: BotLifecycleRouteDeps): RouteHand
       return json(res, result.status, result.body);
     }
     return PASS;
-  };
+  });
 }

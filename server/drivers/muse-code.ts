@@ -647,9 +647,9 @@ export const MuseCodeDriver: ProviderDriver<MuseConfig> = {
         sessionModelSwitch: "in-session",
         agentsMcp: true,
         customMcp: true,
-        computerMcp: true,
+        computerMcp: false,
         composioMcp: true,
-        browserMcp: true,
+        browserMcp: false,
         dataMcp: true,
         emailMcp: true, deviceMcp: true,
         images: true,
@@ -657,7 +657,7 @@ export const MuseCodeDriver: ProviderDriver<MuseConfig> = {
         effortLevels: EFFORT_LEVELS,
         queueing: true,
         strictResume: true,
-        localComputerMcp: true,
+        localComputerMcp: false,
       },
       async sendTurn(turn) {
         const state = threadOf(turn.threadId);

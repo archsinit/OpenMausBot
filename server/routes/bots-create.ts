@@ -1,3 +1,4 @@
+import { hasRetiredAutomationSettings, RETIRED_AUTOMATION_ERROR } from "./retired-automation.ts";
 import type { BotCreateResponse, WireBot } from "../../shared/wire.ts";
 import { freshLook } from "../bot-look.ts";
 import { validateBotCwd } from "../bot-cwd.ts";
@@ -90,6 +91,7 @@ export function createBotCreateRoutes(deps: BotCreateRouteDeps): RouteHandler {
       if (!body || typeof body !== "object" || Array.isArray(body)) {
         return json(res, 400, { error: "bot must be a JSON object" });
       }
+      if (hasRetiredAutomationSettings(body)) return json(res, 410, RETIRED_AUTOMATION_ERROR);
       if (req.headers["x-openmausbot-companion"] === "1") {
         const field = adminOnlyBotSetting(askedSettings(body));
         if (field) {
@@ -108,7 +110,7 @@ export function createBotCreateRoutes(deps: BotCreateRouteDeps): RouteHandler {
       const { id: _id, threadId: _threadId, ...rest } = body;
       body = rest;
       const template = resolveBotCreationDefaults(cfg.newBotDefaults, body);
-      const settings = template.profile;
+      const settings = { ...template.profile, computer: "off" as const, browser: false, browserProfile: undefined, vpsAlias: undefined };
       if (body.preset !== undefined && (typeof body.preset !== "string" || !/^[\w-]{1,64}$/.test(body.preset))) {
         return json(res, 400, { error: "preset must be a preset id from New bot" });
       }
@@ -121,14 +123,8 @@ export function createBotCreateRoutes(deps: BotCreateRouteDeps): RouteHandler {
         return json(res, 403, { error: "Custom approval requires the desktop permission flow. Use the bot creation dialog or choose another level for API creation." });
       }
       if (settings.approvalMode === "full" && HOSTED_WORKSPACE) return json(res, 403, { error: HOSTED_FULL_ACCESS_REFUSAL });
-      if (settings.computer === "local" && settings.approvalMode === "auto" && body.acknowledgeLocalAuto !== true) {
-        return json(res, 400, { error: "Auto mode on this computer requires confirming the warning first (acknowledgeLocalAuto)" });
-      }
       if (settings.avatarUrl && !storedAvatarExists(settings.avatarUrl)) {
         return json(res, 400, { error: "avatarUrl must reference an existing stored image" });
-      }
-      if (settings.browserProfile && settings.browserProfile !== "guest" && !(cfg.browserProfiles ?? []).some(profile => profile.id === settings.browserProfile)) {
-        return json(res, 400, { error: "browserProfile must name an existing browser profile" });
       }
       if (settings.mcpServers?.some(name => mcpServerNameError(name) !== null) || (settings.mcpServers?.length ?? 0) > MAX_MCP_SERVERS) {
         return json(res, 400, { error: "Invalid MCP server selection" });

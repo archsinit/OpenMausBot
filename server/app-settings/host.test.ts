@@ -473,24 +473,26 @@ describe("every other setting applies at once with Undo, Full access or not", ()
     expect(fx.windowValues.size).toBe(0);
   });
 
-  it("a browser profile is added naming whose browser it uses, never removed by a bot, and Undo takes the new one away", async () => {
+  it("does not expose or execute automation settings", async () => {
     const fx = fixture();
-    (fx.cfg as { browserProfiles?: unknown }).browserProfiles = [{ id: "work", name: "Work" }];
-    expect((await fx.set("desktops.browserProfiles", JSON.stringify([]))).body.error).toMatch(/^Removing the browser profile "Work" deletes its saved logins/);
-    expect(fx.cards()).toEqual([]);
-    await fx.set("desktops.browserProfiles", JSON.stringify([{ id: "work", name: "Work" }, { name: "Mine", browser: "chrome" }]));
-    expect(fx.cards()[0]!.card.subtitle).toBe("Browser profiles: add the profile \"Mine\" on your own running Chrome, with its logins");
-    expect(fx.saved).toEqual([{ browserProfiles: [{ id: "work", name: "Work" }, { id: expect.stringMatching(/^profile-[0-9a-f]{32}$/), name: "Mine", browser: "chrome" }], expectedBrowserProfiles: [{ id: "work", name: "Work" }] }]);
-    expect(await fx.undo()).toEqual({ claimed: true, state: "undone" });
-    expect(fx.saved.at(-1)).toMatchObject({ browserProfiles: [{ id: "work", name: "Work" }] });
+    for (const id of ["desktops.browser", "desktops.browserProfiles", "desktops.browserProxy",
+      "desktops.savedSteps", "desktops.privateDesktop", "computer.sharing", "computer.lending", "keys.boxToken", "keys.onePasswordToken"]) {
+      expect((await fx.set(id, "true")).status, id).toBe(404);
+      expect((await fx.host.handle({ action: "get", id }, fx.turn)).status, id).toBe(404);
+    }
+    for (const field of ["computer", "browser", "browserProfile", "recordBrowserSteps", "autoStartVps"]) {
+      expect((await fx.set("bots.settings", JSON.stringify({ botId: "kiwi", [field]: true }))).status, field).toBe(400);
+    }
+    expect(fx.saved).toEqual([]);
+    expect(fx.botPatches).toEqual([]);
   });
 
   it("other bot settings name each change, and Undo restores each field as the bot ran on it", async () => {
     const fx = fixture();
-    await fx.set("bots.settings", JSON.stringify({ botId: "kiwi", memoryEnabled: false, computer: "local" }));
-    expect(fx.cards()[0]!.card.subtitle).toBe("Kiwi: memory off; computer use this computer's own desktop, as you");
+    await fx.set("bots.settings", JSON.stringify({ botId: "kiwi", memoryEnabled: false, notifications: false }));
+    expect(fx.cards()[0]!.card.subtitle).toBe("Kiwi: notifications off; memory off");
     expect(await fx.undo()).toEqual({ claimed: true, state: "undone" });
-    expect(fx.botPatches).toEqual([{ botId: "kiwi", body: { memoryEnabled: false, computer: "local" } }, { botId: "kiwi", body: { memoryEnabled: true, computer: null } }]);
+    expect(fx.botPatches).toEqual([{ botId: "kiwi", body: { memoryEnabled: false, notifications: false } }, { botId: "kiwi", body: { memoryEnabled: true, notifications: true } }]);
   });
 
   it("turns one bot's tool groups off and on by name, keeps the rest as they were, and Undo puts the list back", async () => {
@@ -510,15 +512,7 @@ describe("every other setting applies at once with Undo, Full access or not", ()
     expect((await fx.set("bots.tools", JSON.stringify({ botId: "kiwi" }))).status).toBe(400);
   });
 
-  it("the browser proxy takes only a socks5 address, reads as set or not set, and Undo clears it", async () => {
-    const fx = fixture();
-    expect((await fx.set("desktops.browserProxy", "http://proxy.example:8080")).status).toBe(400);
-    const result = await fx.set("desktops.browserProxy", "socks5://proxy.example:1080");
-    expect(result.body.text).toMatch(/^Done: Send bots' browsers to public sites through the SOCKS5 proxy you named\. Browser proxy now: set\./);
-    expect(JSON.stringify(fx.messages)).not.toContain("proxy.example");
-    expect(await fx.undo()).toEqual({ claimed: true, state: "undone" });
-    expect(fx.saved).toEqual([{ browserEngine: { egress: { proxy: "socks5://proxy.example:1080" } } }, { browserEngine: { egress: { proxy: "" } } }]);
-  });
+
 
   it("a bot's library skills are set from the full list, and Undo gives back the earlier list", async () => {
     const fx = fixture();

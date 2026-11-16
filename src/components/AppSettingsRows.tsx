@@ -1,14 +1,12 @@
 import { useState } from "react";
 import { api, useStore, type ConfigStatus } from "@/state/store";
-import { builtInBrowserEnabled, showToolCallsEnabled, skillAuthoringEnabled } from "@/lib/feature-flags";
+import { showToolCallsEnabled, skillAuthoringEnabled } from "@/lib/feature-flags";
 import { localeChoices } from "@/locales";
 import { activeLocale, activePackComplete, t } from "@/lib/i18n";
 import { withTourReset } from "@/lib/guided-tour";
 import { completionPatch } from "@/lib/onboarding";
 import { updaterMessage, useUpdaterState } from "@/lib/updater";
 import { productName } from "../lib/brand";
-import { BrowserProfilesManager } from "./BrowserProfilesManager";
-import { UsbPhoneTakeoverSettings } from "./UsbPhoneTakeoverSettings";
 import { MoreText, SettingRow, SettingsGroup, SettingsRows, Switch } from "./SettingsPrimitives";
 import { LearnedSkillsSettings } from "./ShareLearnedSkillsSettings";
 import { effortLabel } from "./ModelPicker";
@@ -422,16 +420,7 @@ export function ExperimentalFeaturesRow() {
           />
         </SettingRow>
         <LearnedSkillsSettings />
-        <UsbPhoneTakeoverSettings />
       </SettingsRows>
     </SettingsGroup>
   );
-}
-
-export function BrowserProfilesRow() {
-  const { state } = useStore();
-  const profiles = state.config?.browserProfiles ?? [];
-  if (!builtInBrowserEnabled(state.config) && profiles.length === 0) return null;
-  // The manager draws its own section, with Add as the section's action.
-  return <BrowserProfilesManager />;
 }

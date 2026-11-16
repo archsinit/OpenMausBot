@@ -1,4 +1,5 @@
 // Only the RFB WebSocket crosses the container boundary: container-controlled JavaScript on the app's origin would reach the person's workspace.
+import { withoutRetiredAutomation } from "./retired-automation.ts";
 import { createHash } from "node:crypto";
 import { request, type IncomingMessage } from "node:http";
 import type { Socket } from "node:net";
@@ -50,7 +51,7 @@ export function createDesktopViewer(deps: {
   const viewers = new Map<IncomingMessage, Viewer>();
   let stopped = false;
 
-  const route: RouteHandler = async ({ req, res, url, path, method, auth, json }) => {
+  const route: RouteHandler = withoutRetiredAutomation(async ({ req, res, url, path, method, auth, json }) => {
     const match = ROUTE.exec(path);
     if (!match) return PASS;
     res.setHeader("cache-control", "private, no-store");
@@ -169,8 +170,7 @@ export function createDesktopViewer(deps: {
       recheck.unref();
     });
     upstream.end();
-  };
-
+  });
   return {
     route,
     attach: upgrades.attach,

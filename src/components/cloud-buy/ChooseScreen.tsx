@@ -1,7 +1,7 @@
 // Screen 1: MausBot Cloud in a line, then the plans the Admin sells now as cards that show only what sets each apart,
 // each with its own button; what every plan includes and the money are said once, under them.
 import { useState } from "react";
-import { AudioLines, ChevronDown, CloudUpload, HardDrive, Lock, Monitor, Moon, Power, Smartphone, Timer, type LucideIcon } from "lucide-react";
+import { AudioLines, ChevronDown, CloudUpload, HardDrive, Lock, Moon, Power, Smartphone, Timer, type LucideIcon } from "lucide-react";
 import type { CloudOffer, CloudOfferPlan } from "../../../electron/cloud-home.mjs";
 import { cn } from "@/lib/cn";
 import { cardRows, moneyBackShort, planCards, sharedTrialDays, trialTimeline, type CloudPlanCard, type CloudPlanCardRow } from "@/lib/cloud-plan";
@@ -14,7 +14,6 @@ const FEATURES: ReadonlyArray<readonly [LucideIcon, LocaleKey, LocaleKey]> = [
   [Moon, "cloudBuy.benefit.awayTitle", "cloudBuy.benefit.away"],
   [Lock, "cloudBuy.benefit.privateTitle", "cloudBuy.benefit.private"],
   [Smartphone, "cloudBuy.benefit.anywhereTitle", "cloudBuy.benefit.anywhere"],
-  [Monitor, "cloudBuy.benefit.browserTitle", "cloudBuy.benefit.browser"],
   [CloudUpload, "cloudBuy.benefit.moveTitle", "cloudBuy.benefit.move"],
 ];
 const ROW_ICON: Partial<Record<CloudPlanCardRow["key"], LucideIcon>> = { power: Power, hours: Timer, storage: HardDrive, voice: AudioLines };

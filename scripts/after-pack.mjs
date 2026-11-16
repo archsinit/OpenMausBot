@@ -1,12 +1,10 @@
 import { chmod, lstat, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
-import { LICENSE_FILES } from "./cua-linux-release.mjs";
 import {
   executableTarget,
   verifyCloudflaredExecutable,
 } from "./prepare-cloudflared.mjs";
 import { fileURLToPath } from "node:url";
-import { verifyBrowserBundle } from "./prepare-browser.mjs";
 import { pinnedDuckdbVersion, pinnedOnePasswordVersion, pinnedResvgVersion, verifyDuckdbTree } from "./prepare-duckdb.mjs";
 import { LIPO_ARCH, isMachO, writeThinMachO } from "./mac-thin.mjs";
 
@@ -117,33 +115,15 @@ export default async function afterPack(context) {
       : path.join(context.appOutDir, "resources")
   );
   await validateCloudflared(resources, context.electronPlatformName, Boolean(context.packager));
-  const browserRoot = path.join(resources, "browser-engine");
-  const hasBrowser = await lstat(browserRoot).then(() => true, (error) => {
-    if (error?.code === "ENOENT") return false;
-    throw error;
-  });
-  const arch = { 1: "x64", 3: "arm64" }[context.arch];
-  // electron-builder warns and skips missing extraResources. A real package
-  // must fail here, before signing, rather than silently ship without Chrome.
-  if (hasBrowser || context.packager) {
-    if (!arch) throw new Error(`Unsupported desktop browser package architecture: ${context.arch}`);
-    await verifyBrowserBundle(browserRoot, `${context.electronPlatformName}-${arch}`);
+  for (const name of ["browser-engine", "cua-linux-x64", "cua-driver", "cua-driver.exe", "cua-driver-background.exe", "cua-sdk"]) {
+    const present = await lstat(path.join(resources, name)).then(() => true, (error) => {
+      if (error?.code === "ENOENT") return false;
+      throw error;
+    });
+    if (present) throw new Error(`Removed automation resource in package: ${name}`);
   }
+  const arch = { 1: "x64", 3: "arm64" }[context.arch];
   await validateDuckdb(resources, context.electronPlatformName, arch, Boolean(context.packager));
   if (context.electronPlatformName === "darwin") await thinMacPlatformTools(resources, arch);
 
-  if (context.electronPlatformName !== "linux") return;
-
-  const cuaRoot = path.join(resources, "cua-linux-x64");
-  const licenses = path.join(cuaRoot, "licenses");
-  for (const directory of [context.appOutDir, resources, cuaRoot, licenses]) {
-    await requireRealDirectory(directory);
-  }
-  for (const executable of ["cua-driver", "cua-cursor-theme"]) {
-    await requireRegularFile(path.join(cuaRoot, executable), 0o755);
-  }
-  await requireRegularFile(path.join(cuaRoot, "release.json"), 0o644);
-  for (const license of LICENSE_FILES) {
-    await requireRegularFile(path.join(licenses, license), 0o644);
-  }
 }

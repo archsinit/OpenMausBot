@@ -144,36 +144,15 @@
       }
     },
     {
-      "name": "select_computer",
-      "description": "Choose where this conversation does computer work. Call with no arguments to inspect actual available choices and the current place. For a task needing computer interaction, select the requested place, or auto to choose a suitable configured computer without asking the user to use menus. OpenMausBot reuses an existing computer first; with a configured provider it can start or provision one when needed. Do not provision for ordinary chat or just to inspect availability. A pending result means end this turn immediately: OpenMausBot updates the conversation selector and resumes the original request with that computer's real tools. Do not use the old tools after requesting a switch, repeat the task, or claim the action is done. This cannot change permissions, override Off, or switch a teammate/routine/channel.",
-      "inputSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "surface": {
-            "type": "string",
-            "enum": [
-              "auto",
-              "cloud",
-              "vm",
-              "local",
-              "browser"
-            ],
-            "description": "auto = suitable configured computer, cloud = the bot's cloud computer or self-hosted VPS, vm = isolated Local VM, local = user's own desktop, browser = built-in browser. Omit to list."
-          }
-        }
-      }
-    },
-    {
       "name": "attach_file",
-      "description": "Attach a finished file to the chat so the user can preview and download it: an image, video, audio clip, PDF, spreadsheet, slide deck or other document you made. Pass its path: a path inside your computer's /home/cua/workspace (for example /home/cua/workspace/report.pdf), or a file in your working folder. Do this instead of pasting a VM path as a link; a path inside a VM cannot be opened from chat. Supported: images (png, jpg, gif, webp), video (mp4, webm, mov), audio (mp3, m4a, aac, wav, ogg, opus, flac), pdf, Word/Excel/PowerPoint and OpenDocument files, csv, tsv, txt, md, json, rtf, and archives (zip, rar, 7z, tar, gz, tgz, bz2, xz). Up to 100 MB (images 10 MB). Finish writing the file first, then call this directly: it reports an error if the file is missing, so you do not need to list or open the folder to check.",
+      "description": "Attach a finished file to the chat so the user can preview and download it: an image, video, audio clip, PDF, spreadsheet, slide deck or other document you made. Pass the path of a file in your working folder, for example /workspace/report.pdf. Supported: images (png, jpg, gif, webp), video (mp4, webm, mov), audio (mp3, m4a, aac, wav, ogg, opus, flac), pdf, Word/Excel/PowerPoint and OpenDocument files, csv, tsv, txt, md, json, rtf, and archives (zip, rar, 7z, tar, gz, tgz, bz2, xz). Up to 100 MB (images 10 MB). Finish writing the file first, then call this directly: it reports an error if the file is missing, so you do not need to list or open the folder to check.",
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "path": {
             "type": "string",
-            "description": "The file's path, for example /home/cua/workspace/report.pdf."
+            "description": "The file's path, for example /workspace/report.pdf."
           },
           "name": {
             "type": "string",
@@ -282,7 +261,7 @@
     },
     {
       "name": "request_credential",
-      "description": "Ask the person for a secret on a secure card in the app or a QR-paired phone, never in chat. credential_id: a key OpenMausBot keeps (onePasswordToken: a 1Password service account token; email: a mailbox on any mail host, one card for its address and password, or for its outgoing server when it is connected but can't send). Other secrets: label, reason, delivery (a saved one returns at once). You never see the value; end the turn, and you resume when they save or decline.",
+      "description": "Ask the person for a secret on a secure card in the app or a QR-paired phone, never in chat. credential_id: a key OpenMausBot keeps (email: a mailbox on any mail host, one card for its address and password, or for its outgoing server when it is connected but can't send). Other secrets: label, reason, delivery (a saved one returns at once). You never see the value; end the turn, and you resume when they save or decline.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -290,13 +269,11 @@
             "type": "string",
             "enum": [
               "xaiApiKey",
-              "boxToken",
               "opencodeGoApiKey",
               "ttsKey",
               "geminiTtsKey",
               "fishAudioKey",
               "openaiImageApiKey",
-              "onePasswordToken",
               "composioApiKey",
               "openaiApiKey",
               "anthropicApiKey",
@@ -337,48 +314,6 @@
           "replace": {
             "type": "boolean",
             "description": "true if the saved one is wrong: asks again."
-          }
-        }
-      }
-    },
-    {
-      "name": "request_sign_in",
-      "description": "Ask the person to sign in to a website themselves, in the browser or on the computer you are using now. Use it when a page needs a login you do not have, or a CAPTCHA, passkey or other step only they can do, or a one-time code you cannot read. A code the site sends to the person's own email or messages for a sign-in they asked for is not one: read it there and type it in yourself. They get a card and a notification, sign in where you work, and press Done. Never ask for a password or code in chat. After calling it, end your turn; OpenMausBot resumes you when they finish or decline, and then check you are signed in.",
-      "inputSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "site": {
-            "type": "string",
-            "description": "The page to sign in on: its address, or the domain, such as example.com."
-          },
-          "reason": {
-            "type": "string",
-            "description": "One short sentence, in your words, on what the sign-in is for."
-          }
-        },
-        "required": [
-          "site"
-        ]
-      }
-    },
-    {
-      "name": "fill_login",
-      "description": "Sign in with a login the person saved in OpenMausBot or in their connected 1Password. Call it on the login page open in your browser: OpenMausBot types the username, password and any one-time code itself (also one emailed to a connected mailbox), submits each step, and says where the page went; you never see them. A login fills on its own site, such as any page of example.com. With no saved login for the site, sign in another way the person allowed, or call request_sign_in.",
-      "inputSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "username": {
-            "type": "string",
-            "description": "Which saved login to use when the site has more than one."
-          },
-          "email": {
-            "type": "string"
-          },
-          "submit": {
-            "type": "boolean",
-            "description": "false: fill only, you submit."
           }
         }
       }
@@ -494,7 +429,7 @@
     },
     {
       "name": "find_tool",
-      "description": "Find an OpenMausBot tool that is not in your tool list. Say what you want to do in a few words, or give the tool's name. Each match comes back with its description and exact input schema; run one with use_tool. Tools reached this way: list_shared_computers, shared_computer, assignment_status, usage_limits, list_threads, close_thread, rename_thread, start_thread, burst, list_models, vm_exec, show_widget, show_html, unpublish_page, create_bot, list_team_setup, list_team_library, propose_team_setup, propose_bot_deletion, manage_room, x_search, research_search, research_endpoint, research_call, decide, extract, generate_image, report_bug, check_app_hosting, retry_thread, memory_log, session_search, trigger_info, trigger, delete_trigger, wait_until, list_waits, cancel_wait, propose_profile, propose_model, propose_team_memory, skills_list, skill_manage, mcp_server, app_settings.",
+      "description": "Find an OpenMausBot tool that is not in your tool list. Say what you want to do in a few words, or give the tool's name. Each match comes back with its description and exact input schema; run one with use_tool. Tools reached this way: assignment_status, usage_limits, list_threads, close_thread, rename_thread, start_thread, burst, list_models, show_widget, show_html, unpublish_page, create_bot, list_team_setup, list_team_library, propose_team_setup, propose_bot_deletion, manage_room, x_search, research_search, research_endpoint, research_call, decide, extract, generate_image, report_bug, check_app_hosting, retry_thread, memory_log, session_search, trigger_info, trigger, delete_trigger, wait_until, list_waits, cancel_wait, propose_profile, propose_model, propose_team_memory, skills_list, skill_manage, mcp_server, app_settings.",
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,

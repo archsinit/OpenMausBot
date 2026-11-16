@@ -90,24 +90,6 @@ into the project, or commit it.
 - If the person runs you on a small cloud machine (about 2 GB of memory), a framework app with a large dependency
   install can run it out of memory or time. Say so before starting one, and offer the lighter way first.
 
-### A heavy build, on your cloud computer
-
-Light sites build where you run; that is the default. When the build is heavy (a framework app with a large install,
-or one that would strain a 2 GB machine or the 10-minute limit) and `select_computer` shows a cloud computer you can
-use:
-
-1. Tell the person first: a cloud computer uses their plan's monthly hours while it is on.
-2. Switch with `select_computer` (`surface: "cloud"`); if it answers pending, end your turn and carry on when you
-   are resumed. Send the source as one archive with `copy_to_computer`, and build there with `exec`
-   (`background: true`, then `exec_status`).
-3. Pack only the built output into one file under `/tmp` (`tar czf /tmp/site.tgz -C dist .`), bring it back with
-   `copy_from_computer`, and unpack it in your working folder.
-4. Deploy from your working folder, as below. Start nothing else on the cloud computer; it goes to sleep by itself
-   once idle.
-
-The Netlify token never goes to the cloud computer: never copy its file there, type it there, or run a deploy there.
-The deploy always runs where the token file was delivered.
-
 ## Deploy
 
 `deploy.mjs` sits next to this guide, in the folder named by this skill's `root`. It needs Node 18 or later and

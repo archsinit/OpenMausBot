@@ -30,10 +30,10 @@ afterEach(() => {
 });
 
 describe("savedStepsEnabled", () => {
-  it("is on unless turned off", () => {
-    expect(savedStepsEnabled({})).toBe(true);
-    expect(savedStepsEnabled({ features: {} })).toBe(true);
-    expect(savedStepsEnabled({ features: { savedSteps: true } })).toBe(true);
+  it("cannot restore removed automation from legacy settings", () => {
+    expect(savedStepsEnabled({})).toBe(false);
+    expect(savedStepsEnabled({ features: {} })).toBe(false);
+    expect(savedStepsEnabled({ features: { savedSteps: true } })).toBe(false);
     expect(savedStepsEnabled({ features: { savedSteps: false } })).toBe(false);
   });
 });

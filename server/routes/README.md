@@ -15,3 +15,21 @@ change there: the numbers are lowered at each release.
 - `RouteContext` carries `req`, `res`, `url`, `path`, `method`, `auth`, `json`, `readBody`; the rest is `deps`.
 - Type-only imports must be `import type` (or an inline `type`): the server runs on type stripping, so
   a bare type import passes `tsc` and crashes at boot.
+
+## Retired automation
+
+`retired-automation.ts` exports `isRetiredAutomationPath(path)`,
+`retiredAutomationRoutes(context)`, and `hasRetiredAutomationSettings(body)`.
+Automation paths answer 410 with `RETIRED_AUTOMATION_ERROR`; unknown paths still
+fall through. Route dispatch and WebSocket upgrades enforce this without consulting
+saved settings. Model OAuth, connected apps, chat, file sync and message downloads
+are not retired paths.
+
+The request entry point must apply the path predicate before inline/internal
+handlers (including browser/computer MCP, computer selection/control/journal,
+VM exec, login fill and desktop lending). Startup, IPC, and capability/tool exposure
+are outside this folder and require their own unconditional retirement. Settings
+writes reject explicit automation fields atomically; bot creation ignores saved
+automation defaults. Historical automation-specific tests that expect successful
+control/provisioning need replacement with retirement assertions before running the
+entire legacy automation suite.

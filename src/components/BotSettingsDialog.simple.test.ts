@@ -130,8 +130,7 @@ const { LibraryTab } = await import("./bot-panel/LibraryTab");
 const { ApprovalChip } = await import("./ComposerPlusMenu");
 const { callMode, setCallMode } = await import("@/lib/call-mode");
 const { ComputerTab, WherePage } = await import("./bot-panel/ComputerTab");
-const { PageBody, AppsPage, RoutinesPage, MemoryPage, SkillsPage, FolderPage, BrowserPage } = await import("./bot-panel/pages");
-const { BrowserLogins } = await import("./bot-panel/browser-logins");
+const { PageBody, AppsPage, RoutinesPage, MemoryPage, SkillsPage, FolderPage } = await import("./bot-panel/pages");
 const { PAGES, sectionTarget } = await import("./bot-panel/page-registry");
 const { openBotSettings } = await import("./bot-panel/panel-link");
 const { PageHeader } = await import("./bot-panel/rows");
@@ -143,7 +142,6 @@ const { ThreadModelsLine } = await import("./ThreadModelsLine");
 const { ModelSection } = await import("./bot-settings/ModelSection");
 const { RoutineList } = await import("./routines/RoutineList");
 const { RoutineEditor } = await import("./RoutinesPage");
-const { SignedInSites } = await import("./SignedInSites");
 const { AvatarImageGenerator } = await import("./AvatarImageGenerator");
 const { AvatarFraming } = await import("./avatar-editing");
 const { MascotFaceColorPicker } = await import("./MascotFaceColorPicker");
@@ -293,7 +291,7 @@ describe("the bot panel in Simple mode", () => {
     expect(hero.props.bot).toBe(bot);
     expect(hero.props.patch).toBe(patch);
     const tabs = [...rendered.html.matchAll(/data-panel-tab="(\w+)"[^>]*>([^<]+)<\/button>/g)].map((match) => [match[1], match[2]]);
-    expect(tabs).toEqual([["details", "Details"], ["library", "Library"], ["computer", "Computer"]]);
+    expect(tabs).toEqual([["details", "Details"], ["library", "Library"]]);
     expect(shown(rendered)).toEqual({ tab: "details", page: undefined });
     expect(ofType(rendered, DetailsTab)!.props.bot).toBe(bot);
     expect(rendered.html).toContain('id="bot-settings-title"');
@@ -301,7 +299,7 @@ describe("the bot panel in Simple mode", () => {
 
   it("switches tabs", () => {
     const bot = makeBot();
-    for (const [tab, type] of [["computer", ComputerTab], ["library", LibraryTab], ["details", DetailsTab]] as const) {
+    for (const [tab, type] of [["library", LibraryTab], ["details", DetailsTab]] as const) {
       click(find(panel(bot), "data-panel-tab", tab));
       const rendered = panel(bot);
       expect(shown(rendered).tab).toBe(tab);
@@ -341,9 +339,7 @@ describe("the bot panel in Simple mode", () => {
     expect(ofType(panel(bot), PageHeader)!.props).toMatchObject({ back: "Library", title: "What it remembers" });
     (ofType(panel(bot), PageHeader)!.props.onBack as () => void)();
 
-    click(find(panel(bot), "data-panel-tab", "computer"));
-    (ofType(panel(bot), ComputerTab)!.props.onOpen as (page: string) => void)("browser");
-    expect(ofType(panel(bot), PageHeader)!.props).toMatchObject({ back: "Computer", title: "Signed-in sites", intro: undefined });
+    expect(panel(bot).html).not.toContain('data-panel-tab="computer"');
   });
 
   it("goes back on Escape from a page, and leaves Escape to the dialog on a tab", () => {
@@ -382,7 +378,7 @@ describe("the bot panel in Simple mode", () => {
   it.each([
     ["overview", "details", undefined], ["identity", "details", undefined], ["slack", "details", undefined],
     ["soul", "details", "settings"], ["skills", "library", "skills"], ["memory", "library", "memory"],
-    ["routines", "details", "routines"], ["access", "computer", undefined], ["model", "details", undefined],
+    ["routines", "details", "routines"], ["access", "details", "apps"], ["model", "details", undefined],
     ["permissions", "details", "settings"], ["voice", "details", undefined], ["visibility", "details", undefined],
     ["history", "details", undefined], ["usage", "details", undefined],
   ] as const)("lands a deep link to %s on %s › %s", (section, tab, page) => {
@@ -402,25 +398,25 @@ describe("the bot panel in Simple mode", () => {
 
   // App tool grants (PluginsPanel) and the working folder (the files pane) name a Simple page; MCP servers live on the
   // apps page, and tool selection names none, so it lands where Access does.
-  it.each([["apps", "apps"], ["folder", "folder"], ["mcp", "apps"], ["tools", undefined]] as const)("lands an Access link naming %s on %s", (page, landing) => {
+  it.each([["apps", "apps"], ["folder", "folder"], ["mcp", "apps"], ["tools", "apps"]] as const)("lands an Access link naming %s on %s", (page, landing) => {
     try {
       openBotSettings(fixture.dispatch, "access", { page });
       const rendered = panel(makeBot(), "access");
       if (landing) expect(shown(rendered)).toEqual({ tab: undefined, page: landing });
-      else expect(shown(rendered)).toEqual({ tab: "computer", page: undefined });
+      else expect(shown(rendered)).toEqual({ tab: undefined, page: "apps" });
     } finally {
       // A link without a page lands where the section does: later tests see no trace of this one.
       openBotSettings(vi.fn(), "access");
     }
     fresh();
-    expect(shown(panel(makeBot(), "access"))).toEqual({ tab: "computer", page: undefined });
+    expect(shown(panel(makeBot(), "access"))).toEqual({ tab: undefined, page: "apps" });
   });
 
   it("shows no switch on any tab, and on Bot settings only Notifications and Bot API's: memory, upkeep, browser, record steps and Work until done live elsewhere", () => {
     const bot = makeBot();
     expect(switches(panel(bot).html)).toBe(0);
     expect(panel(bot).html).not.toContain('aria-label="Work until done"');
-    for (const tab of ["library", "computer"]) {
+    for (const tab of ["library"]) {
       click(find(panel(bot), "data-panel-tab", tab));
       const rendered = panel(bot);
       expect(switches(rendered.html), tab).toBe(0);
@@ -1066,7 +1062,7 @@ describe("the Where it works page", () => {
 
 describe("the drill-in pages", () => {
   const PAGE = {
-    settings: SettingsPage, apps: AppsPage, routines: RoutinesPage, memory: MemoryPage, skills: SkillsPage, folder: FolderPage, browser: BrowserPage, where: WherePage,
+    settings: SettingsPage, apps: AppsPage, routines: RoutinesPage, memory: MemoryPage, skills: SkillsPage, folder: FolderPage,
   } as const;
   // The walker reads only what a component returns, so each page is called as the function PageBody picks.
   const body = (page: keyof typeof PAGE, bot = makeBot()) => capture(() => PAGE[page]({ bot, derived: derived() }) as ReactNode);
@@ -1305,22 +1301,7 @@ describe("the drill-in pages", () => {
     expect(fixture.api).toHaveBeenLastCalledWith("/api/bots/scout", { method: "PATCH", body: JSON.stringify({ cwd: "/tmp/work" }) });
   });
 
-  it("shows only the signed-in sites on the browser page, with no browser or record-steps switch", () => {
-    fixture.ownerOrAdmin = true;
-    const page = body("browser");
-    expect(ofType(page, BrowserLogins)!.props).toMatchObject({ bot: expect.objectContaining({ id: "scout" }), browserEnabled: true });
-    const rendered = capture(() => BrowserLogins({ bot: makeBot(), browserEnabled: true, onOpenBrowser: vi.fn() }));
-    expect(ofType(rendered, SignedInSites)!.props).toMatchObject({ bare: true, target: { bot: "scout" }, sharedBy: ["Scout"], disabled: false });
-    expect(switches(rendered.html)).toBe(0);
-    expect(rendered.html).not.toContain("Record");
-    expect(rendered.html).not.toContain(">Logins<");
-    const onOpenBrowser = vi.fn();
-    click(find(capture(() => BrowserLogins({ bot: makeBot(), browserEnabled: true, onOpenBrowser })), "data-panel-action", "add-login"));
-    expect(onOpenBrowser).toHaveBeenCalled();
-    fixture.derived.browserEnabled = false;
-    expect(ofType(body("browser"), BrowserLogins)!.props.browserEnabled).toBe(false);
-    expect(capture(() => BrowserLogins({ bot: makeBot(), browserEnabled: false, onOpenBrowser: vi.fn() })).html).toContain("Scout&#x27;s browser is off.");
-  });
+
 });
 
 describe("the bot settings dialog", () => {

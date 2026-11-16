@@ -23,7 +23,7 @@ import { callUsageLimitsTool, USAGE_LIMITS_TOOL } from "./agents-usage-tool.ts";
 import { callThreadPostTool, THREAD_POST_TOOL } from "./agents-thread-post-tool.ts"; import { callRenameThreadTool, RENAME_THREAD_TOOL } from "./agents-thread-title-tool.ts";
 import { callWaitTool, WAIT_TOOL_NAMES } from "./agents-wait-tools.ts";
 import { callBurstTool } from "./agents-burst-tool.ts";
-import { callComputerAskTool, COMPUTER_ASK_TOOL_NAMES } from "./agents-computer-ask-tool.ts";
+import { isRemovedAutomationTool } from "../product-capabilities.ts";
 import { callImageTool, IMAGE_TOOL_NAMES } from "./agents-image-tools.ts";
 import { callHostingTool, HOSTING_TOOL_NAMES } from "./agents-hosting-tools.ts";
 import { callMeetingTool, MEETING_TOOL_NAMES } from "./agents-meeting-tools.ts";
@@ -58,13 +58,6 @@ export function toolCallContextFromEnv(env: NodeJS.ProcessEnv): ToolCallContext 
     client: harnessClientFromEnv(env),
   };
 }
-
-const SIGN_IN_PLACES: Record<string, string> = {
-  browser: "your built-in browser",
-  local: "this computer",
-  vm: "the Local VM",
-  cloud: "the cloud computer",
-};
 
 const STATUS_WORDS: Record<string, string> = {
   queued: "queued, not started yet",
@@ -212,28 +205,15 @@ function recallWhen(at: unknown, dateOnly: boolean): string {
 }
 
 export async function callTool(called: string, input: Json, context: ToolCallContext): Promise<ToolCallResult> {
+  if (isRemovedAutomationTool(called)) return { text: "Desktop and browser automation is not available.", isError: true };
   const { name, arguments: given } = resolveAgentsCall(called, input);
   const args = dropBlankArguments(name, given);
+  if (name === "request_credential" && (args.credential_id === "boxToken" || args.credential_id === "onePasswordToken")) return { text: "That credential is not available.", isError: true };
   const refused = outOfBounds(name, fullInputSchema(name), args);
   if (refused) return { text: refused, isError: true };
   const member = agentsCallMember(name, args);
   const { botId: BOT_ID, threadId: THREAD_ID } = context;
   const { api, apiResponse } = context.client;
-  if (name === "vm_exec") {
-    const { ok, body } = await apiResponse("/api/internal/vm-exec", {
-      method: "POST",
-      body: JSON.stringify({ command: args.command, ...(typeof args.timeout_seconds === "number" ? { timeout_seconds: args.timeout_seconds } : {}) }),
-    });
-    if (!ok) return { text: String(body.error ?? "Could not run that command."), isError: true };
-    const exitCode = Number(body.exitCode ?? 0);
-    const stdout = String(body.stdout ?? "");
-    const stderr = String(body.stderr ?? "");
-    const lines = [body.timedOut ? "The command was stopped: it ran past its time limit." : `exit code ${exitCode}`];
-    if (stdout) lines.push("--- stdout ---", stdout.replace(/\s+$/, ""));
-    if (stderr) lines.push("--- stderr ---", stderr.replace(/\s+$/, ""));
-    if (!stdout && !stderr && !body.timedOut) lines.push("(no output)");
-    return { text: lines.join("\n"), ...(exitCode !== 0 || body.timedOut ? { isError: true } : {}) };
-  }
   if (name === "attach_file") {
     const { ok, body } = await apiResponse("/api/internal/attach-file", {
       method: "POST",
@@ -255,19 +235,9 @@ export async function callTool(called: string, input: Json, context: ToolCallCon
   if (TRIGGER_TOOL_NAMES.has(name)) return callTriggerTool(name, args, context);
   if (WAIT_TOOL_NAMES.has(name)) return callWaitTool(name, args, context);
   if (name === USAGE_LIMITS_TOOL) return callUsageLimitsTool(context);
-  if (COMPUTER_ASK_TOOL_NAMES.has(name)) return callComputerAskTool(args, context);
   // Second lock: with sharing off the catalog already omits these tools.
   if (SHARED_COMPUTER_TOOL_NAMES.has(name) && !context.sharedComputers) {
     return { text: "Computer sharing is turned off in this workspace. There are no shared computers to use.", isError: true };
-  }
-  if (name === "list_shared_computers") {
-    return { text: JSON.stringify(await api("/api/internal/shared-computers")) };
-  }
-  if (name === "shared_computer") {
-    const response = await api("/api/internal/shared-computers", { method: "POST", body: JSON.stringify(args) });
-    const result = response.result as Json;
-    if (Array.isArray(result?.content)) return { text: "", passthrough: result };
-    return { text: JSON.stringify(result) };
   }
   if (name === "tool_result_read") {
     if (typeof args.id !== "string" || !/^r-[0-9a-f-]{36}$/.test(args.id) ||
@@ -405,23 +375,6 @@ export async function callTool(called: string, input: Json, context: ToolCallCon
   }
   if (name === THREAD_POST_TOOL) return callThreadPostTool(args, context);
   if (name === RENAME_THREAD_TOOL) return callRenameThreadTool(args, context);
-  if (name === "select_computer") {
-    if (args.surface !== undefined && (typeof args.surface !== "string" || !["auto", "cloud", "vm", "local", "browser"].includes(args.surface))) {
-      return { text: "Choose auto, cloud, vm, local or browser; omit surface to inspect connected choices.", isError: true };
-    }
-    const result = await api("/api/internal/computer/select", args.surface === undefined ? undefined : {
-      method: "POST", body: JSON.stringify({ surface: args.surface }),
-    });
-    return { text: JSON.stringify(result) };
-  }
-  if (name === "reset_cloud_computer") {
-    const forBotId = String(args.for_bot_id ?? "").trim();
-    const r = await apiResponse("/api/internal/cloud-computer/reset", {
-      method: "POST", body: JSON.stringify({ why: args.why, ...(forBotId ? { targetBotId: forBotId } : {}) }),
-    });
-    if (!r.ok) return { text: String(r.body.error ?? `reset_cloud_computer failed (HTTP ${r.status}).`), isError: true };
-    return { text: String(r.body.text ?? "") };
-  }
   if (name === "list_threads") {
     const query = new URLSearchParams({ fromBotId: BOT_ID, fromThreadId: THREAD_ID });
     const r = await api(`/api/internal/threads?${query.toString()}`);
@@ -634,27 +587,6 @@ export async function callTool(called: string, input: Json, context: ToolCallCon
       text: `A secure ${r.label ?? CREDENTIAL_TARGETS[credentialId].label} request is now in this conversation, and the person was notified. The desktop app and a freshly QR-paired mobile app show its secure entry card; older mobile pairings explain how to pair again or finish on the computer. End this turn; OpenMausBot will resume the task after the user saves or declines. Never ask them to paste the key into chat.`,
     };
   }
-  if (name === "request_sign_in") {
-    const site = typeof args.site === "string" ? args.site.trim() : "";
-    if (!site) return { text: "request_sign_in needs site: the page's address or its domain, such as example.com.", isError: true };
-    const reason = typeof args.reason === "string" ? args.reason.trim().slice(0, 240) : "";
-    const r = await api("/api/internal/request-sign-in", {
-      method: "POST",
-      body: JSON.stringify({ fromBotId: BOT_ID, fromThreadId: THREAD_ID, site, ...(reason ? { reason } : {}) }),
-    });
-    return {
-      text: `The person was asked to sign in to ${r.site ?? site} on ${SIGN_IN_PLACES[String(r.place)] ?? "the place you work"}. Your turn ends now: say in one short line that you are waiting for them, then stop. OpenMausBot resumes you when they finish or decline. Never ask for the password or a code in chat.`,
-    };
-  }
-  if (name === "fill_login") {
-    const username = typeof args.username === "string" ? args.username.trim().slice(0, 512) : "";
-    const email = typeof args.email === "string" ? args.email.trim().slice(0, 320) : "";
-    const r = await api("/api/internal/fill-login", {
-      method: "POST",
-      body: JSON.stringify({ fromBotId: BOT_ID, fromThreadId: THREAD_ID, ...(username ? { username } : {}), ...(email ? { email } : {}), ...(args.submit === false ? { submit: false } : {}) }),
-    });
-    return { text: typeof r.text === "string" && r.text ? r.text : "fill_login did not answer. Call request_sign_in instead.", ...(r.ok === true ? {} : { isError: true }) };
-  }
   if (name === "send_voice_note") {
     if (typeof args.text !== "string" || !args.text.trim()) {
       return { text: "send_voice_note needs text: the short speakable note, at most 1000 characters.", isError: true };
@@ -689,9 +621,9 @@ export async function callTool(called: string, input: Json, context: ToolCallCon
     if (typeof args.cwd === "string") changes.cwd = args.cwd.trim();
     if (typeof args.notifications === "boolean") changes.notifications = args.notifications;
     if (typeof args.speakReplies === "boolean") changes.speakReplies = args.speakReplies;
-    if (typeof args.browserProfile === "string") changes.browserProfile = args.browserProfile.trim();
+    if (args.browserProfile !== undefined) return { text: "Browser profiles are not available.", isError: true };
     if (!Object.keys(changes).length) {
-      return { text: "propose_profile needs at least one of name, title, description, soul, cwd, notifications, speakReplies, or browserProfile.", isError: true };
+      return { text: "propose_profile needs at least one of name, title, description, soul, cwd, notifications, speakReplies.", isError: true };
     }
     const forBotId = String(args.for_bot_id ?? "").trim();
     const r = await api("/api/internal/profile-requests", {

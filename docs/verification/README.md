@@ -1,5 +1,11 @@
 # Verifying OpenMausBot
 
+This fork has retired desktop and browser automation. Historical recipes for
+those features below are upstream reference material, not supported workflows.
+Use the automation-retirement tests to verify their absence. Browser tooling
+used to test the ordinary chat renderer is development infrastructure only;
+it is not shipped as an agent capability.
+
 OpenMausBot has one development control surface: `pnpm control:omb`. It runs
 the published `openmausbot` verbs (docs/headless-cli.md), which call the MCP
 tools in `scripts/mcp-server.ts`, so verification uses the same URL

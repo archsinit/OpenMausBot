@@ -1,5 +1,5 @@
 import {
-  Archive, ArrowLeftRight, Bot, Coins, CreditCard, LockKeyhole, Monitor, Palette, Server, SlidersHorizontal, Smartphone, Sparkles, Users,
+  Archive, ArrowLeftRight, Bot, Coins, CreditCard, LockKeyhole, Palette, Server, SlidersHorizontal, Smartphone, Sparkles, Users,
   type LucideIcon,
 } from "lucide-react";
 import type { LocaleKey } from "@/locales";
@@ -51,7 +51,7 @@ const adminPage = (ctx: SettingsContext) => !ctx.client && !(ctx.team && !ctx.ad
 const advancedOnly = (when: (ctx: SettingsContext) => boolean) => (ctx: SettingsContext) => ctx.advanced && when(ctx);
 /** Simple mode's nine entries: the place (Overview, Phone & devices, AI, Vault, Import & export), Your account
  * (Plan & billing) and This app (Appearance). Advanced adds You and your bots, Desktops & browser, Spending, Data and General. */
-export const ADVANCED_PAGES: readonly SettingsPageId[] = ["bots", "desktops", "usage", "data", "general"];
+export const ADVANCED_PAGES: readonly SettingsPageId[] = ["bots", "usage", "data", "general"];
 
 export const SETTINGS_PAGES: readonly SettingsPage[] = [
   { id: "overview", owner: "place", labelKey: "settings.page.overview", synonyms: ["overview", "place", "status", "version", "domain", "address", "sidebar"], when: () => true },
@@ -61,8 +61,6 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
     synonyms: ["ai", "models", "model providers", "providers", "engines", "api keys", "keys", "key", "claude", "codex", "openai", "anthropic", "ollama", "lm studio", "local model"] },
   { id: "bots", owner: "place", labelKey: "settings.page.bots", icon: Bot, when: advancedOnly(notClient),
     synonyms: ["all bots", "bots", "about you", "about me", "profile", "new bots", "defaults", "effort", "limits", "rules"] },
-  { id: "desktops", owner: "place", labelKey: "settings.page.desktops", icon: Monitor, when: advancedOnly(adminPage),
-    synonyms: ["bot desktops", "computer", "desktop", "desktops", "browser", "built-in browser", "proxy", "socks5", "private desktop", "sandbox", "docker", "podman", "container", "vps", "own server", "cloud desktops"] },
   { id: "vault", owner: "place", labelKey: "settings.section.vault", icon: LockKeyhole, when: notClient,
     synonyms: ["vault", "password", "passwords", "login", "logins", "secrets", "1password", "2fa"] },
   { id: "usage", owner: "place", labelKey: "settings.page.spending", icon: Coins, when: advancedOnly(adminPage),
@@ -113,7 +111,7 @@ export const LEGACY_SETTINGS: Record<Exclude<AppSettingsSection, SettingsPageId>
   engines: () => ({ page: "ai", anchor: "providers" }),
   companion: () => ({ page: "phone" }),
   remote: (ctx) => (ctx.client ? { page: "app", anchor: "your-computers" } : { page: "phone" }),
-  computer: () => ({ page: "desktops" }),
+  computer: () => ({ page: "overview" }),
   logins: () => ({ page: "vault" }),
   botAccess: () => ({ page: "people", anchor: "bot-access" }),
   activity: () => ({ page: "data", anchor: "activity" }),
@@ -136,6 +134,7 @@ export function needsAdvanced(target: SettingsTarget, ctx: SettingsContext): boo
 /** Where a request for Settings lands here: its page (or Overview when that page can't exist on this place) and the
  * section to scroll to. A page or row only Advanced mode shows comes back with `advanced`: opening it turns Advanced on. */
 export function resolveSettingsTarget(requested: AppSettingsSection, ctx: SettingsContext): SettingsTarget & { missing?: SettingsPageId; advanced?: true } {
+  if (requested === "desktops") return { page: "overview" };
   const target = isSettingsPage(requested) ? { page: requested } : LEGACY_SETTINGS[requested](ctx);
   if (needsAdvanced(target, ctx)) return { ...target, advanced: true };
   if (pageById(target.page).when(ctx)) return target;
@@ -200,9 +199,6 @@ export const SETTINGS_INDEX: readonly SettingsIndexEntry[] = [
   { id: "skills", page: "bots", anchor: "skills", labelKey: "settings.section.skills", when: (ctx) => ctx.skills, synonyms: ["skills", "library"] },
   { id: "early", page: "bots", anchor: "early", labelKey: "settings.bots.early", advanced: true, synonyms: ["experimental", "early", "preview", "write their own skills"] },
   { id: "all-bots", page: "bots", labelKey: "settings.page.bots", topFor: ["all bots"] },
-  { id: "browser", page: "desktops", anchor: "browser", labelKey: "settings.experimental.browser", synonyms: ["browser", "profiles", "browser profiles", "open sites", "new browser"] },
-  { id: "desktop-kinds", page: "desktops", anchor: "desktops", labelKey: "settings.desktops.title", topFor: ["private desktop", "sandbox", "docker", "podman", "container", "vps", "own server"], synonyms: ["cloud desktops", "desktop", "vm"] },
-  { id: "saved-steps", page: "desktops", anchor: "automation", labelKey: "settings.savedSteps.title", advanced: true, synonyms: ["repeat", "saved steps", "without ai"] },
   { id: "vault", page: "vault", labelKey: "settings.section.vault", topFor: ["password", "passwords", "login", "logins"], synonyms: ["secrets", "1password", "2fa", "totp"] },
   { id: "spending", page: "usage", labelKey: "settings.page.spending", topFor: ["spending", "cost", "costs", "tokens", "money"], synonyms: ["usage"] },
   { id: "grok-move", page: "transfer", anchor: "grok-move", labelKey: "settings.import.grokTitle", sectionKey: "settings.data.bringIn", topFor: ["grok", "grok bot", "move from"], synonyms: ["import", "bring", "another app"] },

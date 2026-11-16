@@ -3,31 +3,14 @@
 // walking up to ./node_modules.
 import { execFile, spawn } from "node:child_process";
 import assert from "node:assert/strict";
-import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseArgs, promisify } from "node:util";
-import { browserBundlePaths, browserBundleSpec } from "../server/browser-bundle-release.ts";
+import { promisify } from "node:util";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const { values } = parseArgs({ options: { "browser-bundle": { type: "string" } } });
-const browserBundle = values["browser-bundle"];
-let browserSpec;
-if (browserBundle !== undefined) {
-  assert(isAbsolute(browserBundle), "--browser-bundle must be an absolute staged browser target directory");
-  const manifest = JSON.parse(readFileSync(join(browserBundle, "manifest.json"), "utf8"));
-  browserSpec = browserBundleSpec(manifest.target);
-  assert.equal(manifest.target, `${process.platform}-${process.arch}`, "--browser-bundle must match this Node host's platform and architecture");
-  assert.equal(manifest.schemaVersion, browserSpec.schemaVersion, "Unsupported browser bundle manifest");
-  const paths = browserBundlePaths(browserBundle, manifest.target);
-  for (const component of ["engine", "chrome"]) {
-    assert.equal(manifest[component]?.version, browserSpec[component].version);
-    assert.equal(manifest[component]?.executable, browserSpec[component].executable);
-    assert(statSync(paths[component]).isFile(), `Missing bundled ${component}`);
-  }
-}
 /** Asked of the OS (listen on 0), not picked at random: Windows reserves port
  * ranges (Hyper-V and WinNAT exclusions). Every listener stays open until all
  * are bound, so the ports differ. */
@@ -58,7 +41,6 @@ try {
   // A desktop install can live beneath a user's CommonJS package scope.
   writeFileSync(join(staging, "package.json"), '{"type":"commonjs"}\n');
   cpSync(process.env.OMB_SMOKE_DIST ?? join(root, "dist-server"), join(staging, "server"), { recursive: true });
-  if (browserBundle) cpSync(resolve(browserBundle), join(staging, "browser-engine"), { recursive: true });
 } catch (error) {
   for (const directory of [staging, home]) rmSync(directory, { recursive: true, force: true });
   throw error;
@@ -79,11 +61,6 @@ const fixtureEnv = {
   OMB_WEBHOOK_PORT: String(webhookPort),
   // Not a genuine key: enough to make the server look for its enterprise layer.
   OMB_LICENSE_KEY: "omb1.not.real",
-  ...(browserBundle ? {
-    OMB_RESOURCES_PATH: staging,
-    // A global engine on the developer's PATH must not make this test pass.
-    PATH: process.platform === "win32" ? join(process.env.SystemRoot ?? "C:\\Windows", "System32") : "/usr/bin:/bin",
-  } : {}),
 };
 
 const child = spawn(process.execPath, [join(staging, "server", "index.js")], {
@@ -139,14 +116,17 @@ if (listening) {
   } catch (error) { searchReport = { error: String(error) }; }
 }
 
-let browserReport = null;
-if (browserBundle && listening) {
+let retirementReport = null;
+if (listening) {
   try {
-    const response = await fetch(`http://127.0.0.1:${port}/api/config`, { signal: AbortSignal.timeout(5_000) });
-    assert.equal(response.status, 200, "Packaged browser config did not respond successfully");
-    const config = await response.json();
-    browserReport = { browserEngine: config.browserEngine, browserEnabled: config.features?.browser };
-  } catch (error) { browserReport = { error: String(error) }; }
+    const config = await (await fetch(`http://127.0.0.1:${port}/api/config`)).json();
+    for (const field of ["box", "vps", "localVm", "browserProfiles", "browserEngine"]) assert(!(field in config));
+    assert(!("browser" in config.features));
+    for (const path of ["/api/browser-engine/install", "/api/local-computer/run"]) {
+      assert.equal((await fetch(`http://127.0.0.1:${port}${path}`, { method: "POST" })).status, 410);
+    }
+    retirementReport = { absent: true };
+  } catch (error) { retirementReport = { error: String(error) }; }
 }
 
 // Bundling relocates import.meta.url, so a proxy's sibling paths can resolve one
@@ -158,8 +138,10 @@ writeFileSync(
   [
     'import { existsSync } from "node:fs";',
     'import { SPAWNED_PROXIES } from "./proxy-paths.js";',
-    "const missing = Object.entries(SPAWNED_PROXIES).filter(([, p]) => !existsSync(p));",
-    "console.log(JSON.stringify({ resolved: SPAWNED_PROXIES, missing }));",
+    'const retired = new Set(["localComputer", "containerMcp", "vpsContainerMcp", "dweb"]);',
+    "const missing = Object.entries(SPAWNED_PROXIES).filter(([name, p]) => !retired.has(name) && !existsSync(p));",
+    "const retiredPresent = Object.entries(SPAWNED_PROXIES).filter(([name, p]) => retired.has(name) && existsSync(p));",
+    "console.log(JSON.stringify({ resolved: SPAWNED_PROXIES, missing, retiredPresent }));",
   ].join("\n"),
 );
 
@@ -476,14 +458,13 @@ if (!proxyReport || proxyReport.error || proxyReport.missing.length > 0) {
   console.error("spawned proxy paths do not resolve inside the packaged server dir:");
   console.error(JSON.stringify(proxyReport, null, 2));
   console.error("\nthe server would still answer /api/health — and every one of these");
-  console.error("features would be dead: permission prompts, computer use, dweb, peer comms.");
+  console.error("retained features would be dead: permission prompts and peer comms.");
   process.exit(1);
 }
 
-if (browserBundle && (browserReport?.error || browserReport?.browserEngine?.kind !== "engine" ||
-  browserReport.browserEngine.version !== browserSpec.engine.version || browserReport.browserEnabled !== true)) {
-  console.error("The fresh-home packaged server did not discover its browser bundle with browser access on by default:");
-  console.error(JSON.stringify(browserReport, null, 2));
+if (retirementReport?.error || !retirementReport?.absent || proxyReport?.retiredPresent?.length) {
+  console.error("The packaged server exposed retired desktop/browser automation:");
+  console.error(JSON.stringify({ retirementReport, retiredPresent: proxyReport?.retiredPresent }, null, 2));
   process.exit(1);
 }
 
@@ -508,7 +489,6 @@ if (!headlessReport || headlessReport.error || headlessReport.doctor.body?.serve
   process.exit(1);
 }
 
-const count = Object.keys(proxyReport.resolved).length;
 if (!backupReport?.ok) {
   console.error("the packaged backup worker failed its encrypted export smoke:", backupReport);
   process.exit(1);
@@ -519,7 +499,7 @@ if (!serviceTrustReport || serviceTrustReport.error || serviceTrustReport.servin
   process.exit(1);
 }
 console.log(`packaged server started with no node_modules in reach (port ${port}) ✓`);
-console.log(`all ${count} spawned proxy paths resolve inside the packaged server dir ✓`);
+console.log("retained proxy paths resolve inside the package; retired automation proxies are absent ✓");
 console.log("packaged MCP stdio server reached the API and flushed its final frames ✓");
 console.log("packaged openmausbot doctor and bots answered from the bundle ✓");
 console.log("packaged backup worker exported an encrypted archive ✓");
@@ -527,4 +507,4 @@ console.log("packaged loopback trust gate: health serves, a public mutation is r
 if (launcherReport) console.log("packaged container launcher ran the server as its child and stopped it cleanly ✓");
 if (desktopEntryReport) console.log(`packaged desktop entry started the server twice on its compile cache (${desktopEntryReport.starts[0].cached.length} entries) ✓`);
 if (layerShipped) console.log("packaged server found its enterprise layer inside the server dir ✓");
-if (browserBundle) console.log(`packaged browser discovered without installation; access on by default ✓ ${JSON.stringify(browserReport)}`);
+console.log("packaged browser/desktop automation is absent; legacy endpoints return 410 ✓");

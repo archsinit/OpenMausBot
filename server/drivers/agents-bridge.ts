@@ -9,6 +9,8 @@ import { AGENTS_TOOL_ALIASES } from "../../shared/agents-tool-names.ts";
 import type { Json } from "./agents-client.ts";
 
 /** The proxy's switch: "1" lists through the bridge, anything else lists the whole catalog. */
+import { isRemovedAutomationTool } from "../product-capabilities.ts";
+
 export const TOOL_BRIDGE_ENV = "OMB_AGENTS_TOOL_BRIDGE";
 export const FIND_TOOL = "find_tool";
 export const USE_TOOL = "use_tool";
@@ -39,13 +41,10 @@ export const BRIDGE_HOT_TOOL_NAMES: ReadonlySet<string> = new Set([
   "coordinate_bots",
   "list_bots",
   "list_rooms",
-  "select_computer",
   "attach_file",
   "post_to_room",
   "post_to_thread",
   "request_credential",
-  "request_sign_in",
-  "fill_login",
   "message_person",
   "send_voice_note",
   "memory_update",
@@ -145,7 +144,8 @@ export interface ToolBridge {
 }
 
 /** The bridge over one turn's profile: `tools` is the whole of what the turn may call. */
-export function createToolBridge(tools: readonly BridgeTool[]): ToolBridge {
+export function createToolBridge(inputTools: readonly BridgeTool[]): ToolBridge {
+  const tools = inputTools.filter((tool) => !isRemovedAutomationTool(tool.name));
   const profile = new Set(tools.map((tool) => tool.name));
   const hot = tools.filter((tool) => BRIDGE_HOT_TOOL_NAMES.has(tool.name) || calledByItsOwnName(tool.name));
   const hotNames = new Set(hot.map((tool) => tool.name));
@@ -209,6 +209,7 @@ export function createToolBridge(tools: readonly BridgeTool[]): ToolBridge {
   function use(args: unknown): BridgeRoute {
     const name = record(args) && typeof args.name === "string" ? args.name : "";
     const input = record(args) ? args.arguments : undefined;
+    if (isRemovedAutomationTool(name)) return { answer: { text: "Desktop and browser automation is not available.", isError: true } };
     if (!name.trim() || (input != null && !record(input))) return { answer: { text: USE_USAGE, isError: true } };
     // Security: a name outside the profile is passed on, so the proxy's one unknown-tool check refuses it
     // exactly as it would a direct call.

@@ -70,24 +70,10 @@ jobs:
           grep -q 'enterprise layer disabled: OMB_LICENSE_KEY signature does not match' <<<"$edition"
           docker exec omb-ent test -f /app/dist-server/enterprise/LICENSE
           docker rm -f omb-ent >/dev/null
-      - name: Prove the non-root user can browse with the baked-in Chrome
+      - name: Prove automation is absent
         run: |
-          set -euo pipefail
           test "$(docker exec omb id -un)" = maus
-          timeout 45 docker exec omb agent-browser --session ci-browser open 'data:text/html,<title>OMB browser smoke</title><h1>Browser ready</h1>'
-          timeout 15 docker exec omb agent-browser --session ci-browser get title | grep -Fx 'OMB browser smoke'
-          # Chrome for Testing's page is 1280x577 until sized; the harness sizes
-          # it to 1280x720 so pictures, boxes and clicks agree.
-          timeout 15 docker exec omb agent-browser --session ci-browser set viewport 1280 720
-          test "$(timeout 15 docker exec omb agent-browser --session ci-browser eval "innerWidth+'x'+innerHeight")" = '"1280x720"'
-          # The harness reads and pictures a bot's browser over the engine's
-          # loopback relay (server/browser-relay.ts); the daemon writes the file.
-          port=$(timeout 15 docker exec omb agent-browser --session ci-browser stream status --json | jq -r .data.port)
-          answer=$(docker exec omb curl -sf -X POST -H 'content-type: application/json' -H "origin: http://127.0.0.1:$port" \
-            --data '{"action":"screenshot","path":"/tmp/relay.jpg","format":"jpeg","quality":70}' "http://127.0.0.1:$port/api/command")
-          grep -q '"success":true' <<<"$answer"
-          docker exec omb test -s /tmp/relay.jpg
-          timeout 15 docker exec omb agent-browser --session ci-browser close
+          docker exec omb sh -ec 'test -z "$(command -v agent-browser)"; test -z "$(command -v chromium)"; test -z "$(command -v google-chrome)"; test ! -e /opt/openmausbot-browser; test -z "${AGENT_BROWSER_EXECUTABLE_PATH:-}"'
       - name: Prove the server never binds a public interface
         # The loopback-trust model is the auth model, so the image must keep
         # the server unreachable from the container's own network. Probe from a
@@ -476,7 +462,7 @@ jobs:
               assert not left, f"{path}: build caches in a layer: {left[:5]}"
               assert len(files["app/dist-server/index.js"]) == 1, f"{path}: the app is written more than once"
               native = [name for name in files if re.match(r"usr/local/lib/node_modules/agent-browser/bin/agent-browser-", name)]
-              assert len(native) == 1, f"{path}: agent-browser ships {native}"
+              assert not native, f"{path}: retired agent-browser ships {native}"
               if path.endswith("home.tar"):
                   caddy = files["usr/local/bin/caddy"]
                   assert len(caddy) == 1, f"Caddy is written {len(caddy)} times"
@@ -495,14 +481,14 @@ jobs:
     name: arm64 image + boot smoke
     # Raspberry Pi 4/5 and ARM servers pull the arm64 image; GitHub's ARM
     # runner builds it natively and proves the server, the UI, the Data
-    # engine's native tree and the bots' Chromium all work on it.
+    # engine's native tree all work on it.
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build image
         run: docker build -t openmausbot:arm64 .
-      - name: Boot the container; prove the server, UI, DuckDB and browser work on arm64
+      - name: Boot the container; prove the server, UI and DuckDB work on arm64
         run: |
           set -euo pipefail
           test "$(docker image inspect -f '{{.Architecture}}' openmausbot:arm64)" = arm64
@@ -515,9 +501,7 @@ jobs:
           docker exec omb curl -sf http://127.0.0.1:8799/ | grep -qi "<html" || { docker logs omb; echo "UI not served"; exit 1; }
           docker exec -w /app/duckdb omb node --input-type=module -e "const { DuckDBInstance } = await import('@duckdb/node-api'); const c = await (await DuckDBInstance.create()).connect(); const r = await c.runAndReadAll('select 42 as x'); if (Number(r.getRows()[0][0]) !== 42) process.exit(1)"
           test "$(docker exec omb id -un)" = maus
-          timeout 90 docker exec omb agent-browser --session ci-browser open 'data:text/html,<title>OMB browser smoke</title><h1>Browser ready</h1>'
-          timeout 15 docker exec omb agent-browser --session ci-browser get title | grep -Fx 'OMB browser smoke'
-          timeout 15 docker exec omb agent-browser --session ci-browser close
+          docker exec omb sh -ec 'test -z "$(command -v agent-browser)"; test -z "$(command -v chromium)"; test ! -e /opt/openmausbot-browser'
 
   publish:
     name: publish to GHCR
@@ -548,28 +532,17 @@ jobs:
             type=sha,format=long
             type=ref,event=tag
       - id: keys
-        # What the two slow layers install: `agent-browser install` fetches
-        # Chrome for Testing's last-known-good Stable, and the Cloud home takes
-        # each engine's npm latest. Keyed on those versions, the layers (and
-        # their digests) carry over from the last publish until a release; a
-        # code-only push re-pulls only the app layers. A lookup that fails keys
-        # on today's date instead, so neither is ever frozen at an old release.
         env:
           CLOUD_HOME_ENGINES: "@anthropic-ai/claude-code @openai/codex"
         run: |
           today="date-$(date -u +%F)"
-          chrome=$(curl -fsSL --max-time 30 https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json | jq -er .channels.Stable.version) || chrome=""
-          [[ "$chrome" =~ ^[0-9]+(\.[0-9]+)+$ ]] || chrome=$today
-          # An arm64 image takes Debian's Chromium instead: key it on the newest bookworm build, security updates included.
-          chromium=$(curl -fsSL --max-time 30 'https://qa.debian.org/madison.php?package=chromium&s=bookworm,bookworm-security&a=arm64&text=on' | awk -F'|' '{gsub(/ /, "", $2); print $2}' | sort -V | tail -n 1) || chromium=""
-          [[ "$chromium" =~ ^[0-9][0-9A-Za-z.+~:-]*$ ]] || chromium=$today
           engines="" engines_tag=""
           for package in $CLOUD_HOME_ENGINES; do
             version=$(npm view "$package@latest" version 2>/dev/null) || version=""
             if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9][0-9A-Za-z.+-]*$ ]]; then engines=$CLOUD_HOME_ENGINES engines_tag=$today; break; fi
             engines="$engines $package@$version"
           done
-          { echo "chrome=$chrome"; echo "chromium=$chromium"; echo "engines=${engines# }"; echo "engines_tag=$engines_tag"; } | tee -a "$GITHUB_OUTPUT"
+          { echo "engines=${engines# }"; echo "engines_tag=$engines_tag"; } | tee -a "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
@@ -577,9 +550,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            CHROME_CACHE_TAG=${{ steps.keys.outputs.chrome }}
-            CHROMIUM_CACHE_TAG=${{ steps.keys.outputs.chromium }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       # The Cloud Pro home machine (the Dockerfile's cloud-home target), on the
@@ -603,8 +573,6 @@ jobs:
           context: .
           target: cloud-home
           build-args: |
-            CHROME_CACHE_TAG=${{ steps.keys.outputs.chrome }}
-            CHROMIUM_CACHE_TAG=${{ steps.keys.outputs.chromium }}
             CLOUD_HOME_ENGINES=${{ steps.keys.outputs.engines }}
             ENGINES_CACHE_TAG=${{ steps.keys.outputs.engines_tag }}
           push: true

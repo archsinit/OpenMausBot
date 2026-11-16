@@ -39,8 +39,6 @@ defaults:
   team: Launch Room
   model: claude/claude-haiku-5-5
   approval: full
-  computer: browser
-  browser: { enabled: true, profile: guest }
   cwd: /work/visitors/
   tools: { deny: ["native:Bash"] }
 teams:
@@ -51,8 +49,6 @@ bots:
     manages: [Support]
     model: claude/claude-sonnet-5-5
     effort: medium
-    computer: local
-    browser: false
     tools: { deny: [] }
     soul: { file: souls/lead.md }
     skills: [{ file: skills/launch-report/SKILL.md }]
@@ -63,18 +59,32 @@ rooms:
 `));
     expect(team.bots[0]).toEqual({
       name: "Room Lead", team: "Launch Room", chief: true, manages: ["Support"], soul: "Lead the rehearsal.\n",
-      model: { instanceId: "claude", model: "claude-sonnet-5-5" }, effort: "medium", approval: "full", computer: "local",
-      cwd: "/work/visitors", browser: { enabled: false }, tools: null,
+      model: { instanceId: "claude", model: "claude-sonnet-5-5" }, effort: "medium", approval: "full",
+      cwd: "/work/visitors", tools: null,
       skills: [{ name: "launch-report", description: "Write the report.", text: expect.stringContaining("Body."), enabled: true, file: "skills/launch-report/SKILL.md" }],
     });
     expect(team.bots[1]).toMatchObject({ name: "Priya", team: "Launch Room", model: { instanceId: "claude", model: "claude-haiku-5-5" },
-      browser: { enabled: true, profile: "guest" }, tools: { deny: ["native:Bash"] }, soul: "You are Priya.", skills: [], manages: [] });
+      tools: { deny: ["native:Bash"] }, soul: "You are Priya.", skills: [], manages: [] });
     expect(team.bots[1]).not.toHaveProperty("chief");
     expect(team.teams).toEqual([{ name: "Launch Room", brief: "We rehearse.", prune: true }]);
     expect(team.rooms).toEqual([{ name: "Rehearsal", members: ["Room Lead", "Priya"], responder: "Room Lead" }]);
     expect(team.engines).toEqual([
       { kind: "claude", key: { env: "ANTHROPIC_API_KEY" }, baseUrl: "https://gateway.example", everyClaudeBot: true },
       { kind: "openai-compatible", key: { file: join(dir, "keys", "compat") }, baseUrl: { env: "COMPAT_URL" } },
+    ]);
+    expect(team.warnings).toEqual([]);
+  });
+
+  it("drops legacy disabled automation fields from defaults and bots", () => {
+    const team = loadTeamFile(file(`version: 1
+defaults: { computer: off, browser: false }
+bots:
+  - { name: A }
+  - { name: B, computer: off, browser: false }
+`));
+    expect(team.bots).toEqual([
+      { name: "A", manages: [], skills: [] },
+      { name: "B", manages: [], skills: [] },
     ]);
     expect(team.warnings).toEqual([]);
   });
@@ -104,10 +114,10 @@ rooms:
     expect(team.teams[0]!.brief).toBe("Line one.\nLine two.\n");
   });
 
-  it("reads JSON too, and warns about a bot left on an automatic computer", () => {
+  it("reads JSON without automation warnings", () => {
     const team = loadTeamFile(file(JSON.stringify({ version: 1, bots: [{ name: "Solo" }] }), "team.json"));
     expect(team.bots).toEqual([{ name: "Solo", manages: [], skills: [] }]);
-    expect(team.warnings).toEqual([expect.stringContaining('bot "Solo" has no computer set')]);
+    expect(team.warnings).toEqual([]);
   });
 
   it.each([

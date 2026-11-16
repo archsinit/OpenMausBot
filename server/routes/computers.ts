@@ -1,3 +1,4 @@
+import { withoutRetiredAutomation } from "./retired-automation.ts";
 import { z, type ZodString } from "zod";
 import * as boat from "../boat.ts";
 import { boatHealth } from "../boat-health.ts";
@@ -101,7 +102,7 @@ export function createComputerRoutes(deps: ComputerRouteDeps): RouteHandler {
   // A map owner is a bot id or a team computer's key; a bot's hold may sit on the shared desktop's key.
   const frames = createComputerFramesRoutes({ ...deps, computerControl: { snapshot: botComputerControlSnapshot } });
   const recovery = createCloudComputerRecoveryRoutes({ ...deps, botComputerControlKey: deps.cloudComputerOwner });
-  return async (context) => {
+  return withoutRetiredAutomation(async (context) => {
     if (await usage(context) !== PASS) return;
     if (await frames(context) !== PASS) return;
     if (await recovery(context) !== PASS) return;
@@ -468,5 +469,5 @@ export function createComputerRoutes(deps: ComputerRouteDeps): RouteHandler {
       });
     }
     return PASS;
-  };
+  });
 }

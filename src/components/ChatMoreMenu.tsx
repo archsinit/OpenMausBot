@@ -1,5 +1,5 @@
 import { useMemo, useState, type JSX } from "react";
-import { Bug, Copy, Cpu, Download, Gauge, ListChecks, MessagesSquare, Monitor, MoreHorizontal, RotateCcw, Search, Share, SquarePen, UserPlus, UserRound, Users } from "lucide-react";
+import { Bug, Copy, Cpu, Download, Gauge, ListChecks, MessagesSquare, MoreHorizontal, RotateCcw, Search, Share, SquarePen, UserPlus, UserRound, Users } from "lucide-react";
 import { currentTaskBot, openBotThread, useStore, visibleMessages, type Bot } from "@/state/store";
 import { useAdvancedMode } from "@/lib/interface-mode";
 import { useShowThreads } from "@/lib/thread-preferences";
@@ -64,25 +64,17 @@ export function useChatMoreItems(profile: Bot, phoneHeader = false): { items: Si
       onSelect: () => dispatch({ type: "toggleSettings", open: true }),
     },
   ] : [];
-  const phoneScreen: SidebarMenuItem[] = phoneHeader ? [
-    ...(remoteClient ? [] : [{
+  const phoneScreen: SidebarMenuItem[] = phoneHeader && !remoteClient ? [{
       key: "model",
       label: t("model.simple.model"),
       icon: <Cpu size={16} />,
       value: modelName,
       trailing: <UsageBars engine={selection?.instanceId} hover={false} />,
       onSelect: () => openBotSettings(dispatch, "model"),
-    } satisfies SidebarMenuItem]),
-    {
-      key: "computer",
-      label: t("chat.computer"),
-      icon: <Monitor size={16} />,
-      active: state.computerOpen,
-      onSelect: () => dispatch({ type: "toggleComputer" }),
-    },
-  ] : [];
+    } satisfies SidebarMenuItem] : [];
   const items: SidebarMenuItem[] = [
     ...phoneItems,
+    { key: "data", label: t("computer.tab.data"), icon: <Gauge size={16} />, onSelect: () => dispatch({ type: "toggleDataPanel" }) },
     {
       key: "find",
       label: t("chat.find"),

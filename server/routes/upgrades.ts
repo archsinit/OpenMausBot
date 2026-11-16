@@ -2,6 +2,7 @@
 // hosted-workspace and maintenance gates; the route that owns the path then answers the handshake.
 import { ServerResponse, type IncomingMessage, type Server } from "node:http";
 import { Socket } from "node:net";
+import { isRetiredAutomationPath, RETIRED_AUTOMATION_ERROR } from "./retired-automation.ts";
 
 const HANDSHAKE_MS = 10_000;
 const EARLY_BYTES = 64 * 1024;
@@ -44,6 +45,10 @@ export function createUpgrades(): Upgrades {
         let path: string;
         try { path = new URL(req.url ?? "", "http://localhost").pathname; }
         catch { res.writeHead(400).end(); return; }
+        if (isRetiredAutomationPath(path)) {
+          res.writeHead(410, { "content-type": "application/json", "cache-control": "no-store" }).end(JSON.stringify(RETIRED_AUTOMATION_ERROR));
+          return;
+        }
         if (!owners.some((owns) => owns(path))) { res.writeHead(404).end(); return; }
         // Keep reading while auth awaits, so a closed tab's FIN is observed; buffer any eagerly sent WebSocket bytes.
         const upgrade: PendingUpgrade = { socket, head, release: () => socket.off("data", buffer) };

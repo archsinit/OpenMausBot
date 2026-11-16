@@ -262,7 +262,7 @@ export function cloudIntroView(offer: CloudOffer | null | undefined): { badge: s
   const cheapest = Math.min(...offer.plans.filter(plan => plan.trialDays).map(plan => plan.amount));
   return {
     badge: days === 1 ? t("cloudIntro.badge.one") : t("cloudIntro.badge.many", { days }),
-    points: [t("cloudIntro.routines"), t("cloudIntro.phone"), offer.creditUsd ? t("cloudIntro.credit", { credit: usd(offer.creditUsd) }) : t("cloudIntro.included")],
+    points: [t("cloudIntro.routines"), t("cloudIntro.phone"), ...(offer.creditUsd ? [t("cloudIntro.credit", { credit: usd(offer.creditUsd) })] : [])],
     price: t("cloudIntro.price", { price: usd(cheapest / 100) }),
     moneyBack: moneyBackLine(offer),
   };

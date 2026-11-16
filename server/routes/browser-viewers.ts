@@ -3,6 +3,7 @@
 // web UI's, on the new engine only: a page's file picker is answered by POST …/browser/upload and a finished download
 // is fetched from GET …/browser/download/:id. Never mix login frames into the general events feed, which every device
 // reads.
+import { withoutRetiredAutomation } from "./retired-automation.ts";
 import { createReadStream, rmSync } from "node:fs";
 import type { IncomingMessage } from "node:http";
 import { dirname, join } from "node:path";
@@ -102,7 +103,7 @@ async function answerUpload(req: IncomingMessage, deps: BrowserViewerRouteDeps, 
 export function createBrowserViewerRoutes(deps: BrowserViewerRouteDeps): RouteHandler {
   deps.upgrades.route((path) => STREAM.test(path));
   const uploading = new Set<string>();
-  return async ({ req, res, url, path, method, auth, json, readBody }) => {
+  return withoutRetiredAutomation(async ({ req, res, url, path, method, auth, json, readBody }) => {
     const live = LIVE.exec(path);
     const stream = live ? null : STREAM.exec(path);
     const upload = live || stream ? null : UPLOAD.exec(path);
@@ -198,5 +199,5 @@ export function createBrowserViewerRoutes(deps: BrowserViewerRouteDeps): RouteHa
       res.once("close", () => { reading.destroy(); resolve(); });
       reading.pipe(res);
     });
-  };
+  });
 }

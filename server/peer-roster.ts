@@ -20,7 +20,7 @@ export interface RosterMember extends Pick<DefaultBotFields, "defaultBot"> {
 
 const sectionKey = (section?: string): string => section?.trim() || "";
 
-export const PEER_ACCESS_HELP = "Every bot can reach every other bot, in any department, and list_bots shows each one with its exact id. A bot it does not show is archived or shared with different people, so it cannot be reached. Never use computer control to get around this.";
+export const PEER_ACCESS_HELP = "Every bot can reach every other bot, in any department, and list_bots shows each one with its exact id. A bot it does not show is archived or shared with different people, so it cannot be reached. Respect this access boundary; do not try another route around it.";
 
 // Authority (supervising, incidents, setup changes, automations, a person's brief) follows departments,
 // a Chief's managedSections and Team Cloud ownership. Reach below never widens it.
@@ -137,7 +137,7 @@ export function reachRefusal(from: RosterMember, target: RosterMember, lookedAft
     const name = peerName(target.name);
     const who = lookedAfterBy?.(target);
     const ask = who ? `ask ${peerName(who)}, who looks after it` : "ask an admin";
-    return `${name} is shared with different people from ${peerName(from.name)}, so nothing was sent. Tell the person in one plain sentence: "${name} isn't shared here; ${ask}." Never use computer control to get around this.`;
+    return `${name} is shared with different people from ${peerName(from.name)}, so nothing was sent. Tell the person in one plain sentence: "${name} isn't shared here; ${ask}." Respect this access boundary; do not try another route around it.`;
   }
   return `${peerName(target.name)} cannot be reached from ${peerName(from.name)}. ${PEER_ACCESS_HELP}`;
 }

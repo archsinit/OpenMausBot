@@ -213,12 +213,7 @@ describe("setupSystemPrompt connected apps", () => {
     }
   });
 
-  it("sends a website sign-in to request_sign_in, never a password in chat, and Google accounts only through connected apps", () => {
-    for (const [name, connectedApps] of EVERY_STATE) {
-      const text = prompt(connectedApps);
-      expect(text, name).toContain("For a website no connected app covers, call request_sign_in at its sign-in page so the user signs in themselves");
-      expect(text, name).toContain("never ask for a password or code in chat");
-      expect(text, name).toContain("Gmail and other Google accounts only connect through connected apps: Google blocks sign-in in your browser.");
-    }
+  it("does not offer browser sign-in automation", () => {
+    expect(setupSystemPrompt(true, { skills: true, connectedApps: { state: "available" } })).not.toMatch(/request_sign_in|fill_login/);
   });
 });

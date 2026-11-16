@@ -617,13 +617,16 @@ describe("agents-proxy MCP surface", () => {
   });
 
   it("preserves a large refusal's error status even when its text is capped", async () => {
-    computerStatus = 409;
-    computerResponse = { error: `Unavailable: ${"x".repeat(30_000)}` };
-    const result = await callTool("select_computer", {});
-    expect(result.result.isError).toBe(true);
-    expect(result.result.content[0].text.length).toBeLessThan(17_000);
-    expect(result.result.content[0].text).toContain("Unavailable:");
-    expect(computerRequests).toHaveLength(1);
+    const original = threadResponse;
+    threadResponse = { error: `Unavailable: ${"x".repeat(30_000)}` };
+    try {
+      const calls = threadCalls;
+      const result = await callTool("start_thread", { title: "Check", message: "Check the queue." });
+      expect(result.result.isError).toBe(true);
+      expect(result.result.content[0].text.length).toBeLessThan(17_000);
+      expect(result.result.content[0].text).toContain("Unavailable:");
+      expect(threadCalls).toBe(calls + 1);
+    } finally { threadResponse = original; }
   });
 
   it("answers the MCP handshake and lists the agents tools", async () => {
@@ -632,22 +635,18 @@ describe("agents-proxy MCP surface", () => {
     const list = await rpc("tools/list");
     expect(list.result.tools.map((t: { name: string }) => t.name)).toEqual([
       "tool_result_read",
-      "list_shared_computers",
-      "shared_computer",
       "list_room_targets",
       "coordinate_bots",
       "assignment_status",
       "list_bots",
       "usage_limits",
       "list_rooms",
-      "select_computer",
       "list_threads",
       "close_thread",
       "rename_thread",
       "start_thread",
       "burst",
       "list_models",
-      "vm_exec",
       "attach_file",
       "show_widget",
       "show_html",
@@ -662,8 +661,6 @@ describe("agents-proxy MCP surface", () => {
       "propose_bot_deletion",
       "manage_room",
       "request_credential",
-      "request_sign_in",
-      "fill_login",
       "decide",
       "extract",
       "message_person",
@@ -710,63 +707,58 @@ describe("agents-proxy MCP surface", () => {
     }
     const credential = tool("request_credential");
     expect(credential.description).toContain("on a secure card in the app or a QR-paired phone, never in chat");
-    expect(credential.description).toContain("onePasswordToken: a 1Password service account token");
+    expect(JSON.stringify(credential)).not.toMatch(/onePasswordToken|boxToken/);
     expect(credential.description).toContain("You never see the value");
     expect(Object.keys(credential.inputSchema.properties)).toEqual(["credential_id", "address", "label", "reason", "placeholder", "delivery", "replace"]);
     expect(credential.inputSchema.properties.address.description).toMatch(/^credential_id email only/);
     expect(credential.inputSchema.required).toBeUndefined();
   });
 
-  it("select_computer inspects actual choices with a GET when no target is given", async () => {
+  it("does not advertise select_computer and refuses discovery without reaching the server", async () => {
     const response = await callTool("select_computer", {});
-    expect(response.result.isError).toBeFalsy();
-    expect(JSON.parse(response.result.content[0].text)).toEqual(computerResponse);
-    expect(computerRequests).toEqual([{ method: "GET", url: "/api/internal/computer/select", body: null }]);
-    expect(lastAuth).toBe(`Bearer ${TOKEN}`);
+    expect(response.error).toEqual({ code: -32602, message: "Unknown tool: select_computer" });
+    expect(computerRequests).toEqual([]);
     const list = await rpc("tools/list");
-    const tool = list.result.tools.find((entry: { name: string }) => entry.name === "select_computer");
-    expect(tool.inputSchema).toMatchObject({ type: "object", additionalProperties: false,
-      properties: { surface: { type: "string", enum: ["auto", "cloud", "vm", "local", "browser"] } } });
-    expect(tool.inputSchema.required ?? []).not.toContain("surface");
-    expect(tool.description).toContain("end this turn immediately");
-    expect(tool.description).toContain("with a configured provider it can start or provision one when needed");
-    expect(tool.description).toContain("Do not provision for ordinary chat or just to inspect availability");
-    expect(tool.annotations?.readOnlyHint).not.toBe(true);
+    expect(list.result.tools.map((tool: { name: string }) => tool.name)).not.toContain("select_computer");
   });
 
-  it.each(["auto", "cloud", "vm", "local", "browser"])("select_computer posts the requested %s target without inventing success", async (surface) => {
-    computerResponse = { state: "pending", surface: surface === "auto" ? "vm" : surface, instruction: "End this turn; the original request will resume." };
+  it.each(["auto", "cloud", "vm", "local", "browser"])("rejects remembered select_computer target %s without reaching the server", async (surface) => {
     const response = await callTool("select_computer", { surface });
-    expect(response.result.isError).toBeFalsy();
-    expect(JSON.parse(response.result.content[0].text)).toEqual(computerResponse);
-    expect(computerRequests).toEqual([{ method: "POST", url: "/api/internal/computer/select", body: { surface } }]);
-    expect(lastAuth).toBe(`Bearer ${TOKEN}`);
-  });
-
-  it.each(["other", "off", " VM ", 42, null, {}, ["vm"]].map((surface) => ({ surface })))("select_computer rejects invalid target $surface before contacting the server", async ({ surface }) => {
-    const response = await callTool("select_computer", { surface });
-    expect(response.result.isError).toBe(true);
-    expect(response.result.content[0].text).toContain("Choose auto, cloud, vm, local or browser");
+    expect(response.error).toEqual({ code: -32602, message: "Unknown tool: select_computer" });
     expect(computerRequests).toEqual([]);
   });
 
-  it.each([
-    { status: 409, args: { surface: "cloud" }, error: "No existing cloud computer. Create one in the Computer panel first." },
-    { status: 503, args: {}, error: "Computer discovery is temporarily unavailable." },
-  ])("select_computer relays a $status server refusal as a tool error", async ({ status, args, error }) => {
+  it.each(["other", "off", " VM ", 42, null, {}, ["vm"]].map((surface) => ({ surface })))("rejects removed select_computer even with invalid target $surface", async ({ surface }) => {
+    const response = await callTool("select_computer", { surface });
+    expect(response.error).toEqual({ code: -32602, message: "Unknown tool: select_computer" });
+    expect(computerRequests).toEqual([]);
+  });
+
+  it.each([409, 503])("rejects removed select_computer independently of backend status %s", async (status) => {
     computerStatus = status;
-    computerResponse = { error };
-    const response = await callTool("select_computer", args);
-    expect(response.result.isError).toBe(true);
-    expect(response.result.content[0].text).toContain(error);
-    expect(computerRequests).toHaveLength(1);
+    computerResponse = { error: "Unavailable" };
+    const response = await callTool("select_computer", { surface: "cloud" });
+    expect(response.error).toEqual({ code: -32602, message: "Unknown tool: select_computer" });
+    expect(computerRequests).toEqual([]);
+  });
+
+  it("never advertises or executes remembered automation tools even with legacy capability switches", async () => {
+    const names = (await rpc("tools/list")).result.tools.map((tool: { name: string }) => tool.name);
+    const removed = ["list_shared_computers", "shared_computer", "ask_for_computer", "reset_cloud_computer",
+      "select_computer", "vm_exec", "request_sign_in", "fill_login", "agent_browser_open", "computer_screenshot",
+      "saved_steps_run", "join_meeting", "leave_meeting", "meeting_status", "post_in_meeting_chat", "post_meeting_notes"];
+    lastAuth = undefined;
+    for (const name of removed) {
+      expect(names, name).not.toContain(name);
+      expect((await callTool(name, {})).error, name).toEqual({ code: -32602, message: `Unknown tool: ${name}` });
+    }
+    expect(lastAuth).toBeUndefined();
   });
 
   it("advertises read annotations only for the reviewed built-in reads", async () => {
     const list = await rpc("tools/list");
     const readNames = [
       "tool_result_read",
-      "list_shared_computers",
       "assignment_status", "list_bots", "usage_limits", "list_rooms", "list_threads",
       "list_models", "list_team_setup",
       "session_search", "trigger_info", "list_waits", "skills_list",
@@ -911,31 +903,14 @@ describe("agents-proxy MCP surface", () => {
     });
   });
 
-  it("vm_exec returns the exit code and output as text, and marks a failure as an error", async () => {
-    const ok = await callTool("vm_exec", { command: "python3 make.py && ls -l report.pdf", timeout_seconds: 120 });
-    expect(ok.result.isError).toBeFalsy();
-    expect(ok.result.content[0].text).toBe("exit code 0\n--- stdout ---\nPDF_OK");
-    expect(lastExecBody).toEqual({ command: "python3 make.py && ls -l report.pdf", timeout_seconds: 120 });
-
-    execResponse = { exitCode: 1, stdout: "", stderr: "ModuleNotFoundError: No module named 'reportlab'\n", timedOut: false };
-    const failed = await callTool("vm_exec", { command: "python3 make.py" });
-    expect(failed.result.isError).toBe(true);
-    expect(failed.result.content[0].text).toBe("exit code 1\n--- stderr ---\nModuleNotFoundError: No module named 'reportlab'");
-    expect(lastExecBody).toEqual({ command: "python3 make.py" });
-
-    execResponse = { exitCode: 124, stdout: "partial", stderr: "", timedOut: true };
-    const slow = await callTool("vm_exec", { command: "sleep 999" });
-    expect(slow.result.isError).toBe(true);
-    expect(slow.result.content[0].text).toContain("ran past its time limit");
-    expect(slow.result.content[0].text).toContain("partial");
-
-    execStatus = 409;
-    execResponse = { error: "You have no Local VM desktop in this turn, so there is nowhere to run a command." };
-    const none = await callTool("vm_exec", { command: "ls" });
-    expect(none.result.isError).toBe(true);
-    expect(none.result.content[0].text).toContain("no Local VM desktop");
-    execStatus = 200;
-    execResponse = { exitCode: 0, stdout: "PDF_OK\n", stderr: "", timedOut: false };
+  it("does not advertise vm_exec and rejects remembered shell calls without executing them", async () => {
+    lastExecBody = null;
+    const list = await rpc("tools/list");
+    expect(list.result.tools.map((tool: { name: string }) => tool.name)).not.toContain("vm_exec");
+    for (const args of [{ command: "python3 make.py", timeout_seconds: 120 }, { command: "ls" }, {}]) {
+      expect((await callTool("vm_exec", args)).error).toEqual({ code: -32602, message: "Unknown tool: vm_exec" });
+    }
+    expect(lastExecBody).toBeNull();
   });
 
   it("attach_file sends only the path and name, and tells the model the file is in the chat", async () => {
@@ -1180,39 +1155,24 @@ describe("agents-proxy MCP surface", () => {
     expect(JSON.stringify(lastCredentialBody)).not.toContain("secret");
   });
 
-  it("asks for a sign-in with only the site and the bot's reason, and ends the turn", async () => {
-    const res = await callTool("request_sign_in", { site: " https://example.com/login ", reason: "The report is behind a login." });
-    expect(res.result.isError).toBeFalsy();
-    expect(res.result.content[0].text).toContain("The person was asked to sign in to example.com on your built-in browser.");
-    expect(res.result.content[0].text).toContain("Your turn ends now");
-    expect(res.result.content[0].text).toContain("resumes you when they finish or decline");
-    expect(res.result.content[0].text).toContain("Never ask for the password or a code in chat");
-    expect(lastSignInBody).toEqual({
-      fromBotId: "bot-asker",
-      fromThreadId: "thread-asker-routine",
-      site: "https://example.com/login",
-      reason: "The report is behind a login.",
-    });
+  it("does not advertise request_sign_in and never opens a website sign-in card", async () => {
     lastSignInBody = null;
-    expect((await callTool("request_sign_in", { site: "  " })).result.isError).toBe(true);
+    for (const args of [{ site: "https://example.com/login", reason: "Report" }, { site: "  " }]) {
+      expect((await callTool("request_sign_in", args)).error).toEqual({ code: -32602, message: "Unknown tool: request_sign_in" });
+    }
+    const list = await rpc("tools/list");
+    expect(list.result.tools.map((tool: { name: string }) => tool.name)).not.toContain("request_sign_in");
     expect(lastSignInBody).toBeNull();
   });
 
-  it("fills a saved login with at most a username and a submit choice, and hands the harness's status through, a refusal as an error", async () => {
-    const filled = await callTool("fill_login", {});
-    expect(filled.result.isError).toBeFalsy();
-    expect(filled.result.content[0].text).toBe("Filled the username and the password for alice on example.com.");
-    expect(lastFillBody).toEqual({ fromBotId: "bot-asker", fromThreadId: "thread-asker-routine" });
-    fillAnswer = { ok: false, text: "No saved login for accounts.example.com." };
-    const refused = await callTool("fill_login", { username: " bob " });
-    expect(refused.result.isError).toBe(true);
-    expect(refused.result.content[0].text).toBe("No saved login for accounts.example.com.");
-    expect(lastFillBody).toEqual({ fromBotId: "bot-asker", fromThreadId: "thread-asker-routine", username: "bob" });
-    fillAnswer = { ok: true, text: "Filled the username and the password for alice on example.com." };
-    await callTool("fill_login", { submit: false });
-    expect(lastFillBody).toEqual({ fromBotId: "bot-asker", fromThreadId: "thread-asker-routine", submit: false });
-    await callTool("fill_login", { submit: true });
-    expect(lastFillBody).toEqual({ fromBotId: "bot-asker", fromThreadId: "thread-asker-routine" });
+  it("does not advertise fill_login and never forwards saved-login input", async () => {
+    lastFillBody = null;
+    for (const args of [{}, { username: "bob" }, { submit: false }, { submit: true }]) {
+      expect((await callTool("fill_login", args)).error).toEqual({ code: -32602, message: "Unknown tool: fill_login" });
+    }
+    const list = await rpc("tools/list");
+    expect(list.result.tools.map((tool: { name: string }) => tool.name)).not.toContain("fill_login");
+    expect(lastFillBody).toBeNull();
   });
 
   it("asks for any other secret by its name, reason and delivery, never its value", async () => {
@@ -1683,39 +1643,47 @@ describe("agents-proxy MCP surface", () => {
     expect(res.result.isError).toBeFalsy();
   });
 
-  it.each(["box", "cloud"])("maps %s execution to the explicit Boat runner without changing stored wire values", async (run_on) => {
+  it.each(["box", "cloud"])("rejects the removed %s trigger runner", async (run_on) => {
     const res = await callTool("create_trigger", { when: "schedule",
-      name: "Boat check", instructions: "Check explicitly on Boat.",
+      name: "Check", instructions: "Check the queue.",
       schedule: { type: "daily", time: "09:00" }, run_on,
     });
-    expect(res.result.isError).toBeFalsy();
-    expect(lastRoutineRequestBody.routine.runOn).toBe("cloud");
-    const update = await callTool("manage_trigger", {
-      action: "update", trigger_id: "routine-morning", changes: { run_on, runOn: "cloud" },
-    });
-    expect(update.result.isError).toBeFalsy();
-    expect(lastRoutineRequestBody.changes.runOn).toBe("cloud");
+    expect(res.result.isError).toBe(true);
+    for (const field of ["run_on", "runOn"]) {
+      for (const when of ["schedule", "app_event", "webhook", "limit_reset"]) {
+        for (const name of ["trigger", "create_trigger"]) {
+          lastRoutineRequestBody = null;
+          const response = await callTool(name, { action: "create", when, name: "Check", instructions: "Check the queue.", [field]: run_on });
+          expect(response.result.isError, `${name}: ${when} ${field}`).toBe(true);
+          expect(lastRoutineRequestBody).toBeNull();
+        }
+      }
+      for (const name of ["trigger", "manage_trigger"]) {
+        lastRoutineRequestBody = null;
+        const args = { [field]: run_on, name: "Check" };
+        const update = await callTool(name, { action: "update", trigger_id: "routine-morning", ...(name === "trigger" ? args : { changes: args }) });
+        expect(update.result.isError, `${name}: ${field}`).toBe(true);
+        expect(lastRoutineRequestBody).toBeNull();
+      }
+    }
   });
 
-  it("advertises VPS-compatible default execution separately from the Boat runner", async () => {
+  it("advertises only normal trigger execution", async () => {
     const list = await rpc("tools/list");
     const routine = list.result.tools.find((entry: { name: string }) => entry.name === "trigger");
-    expect(routine.inputSchema.properties.run_on.enum).toEqual(["maus", "box"]);
-    expect(routine.inputSchema.properties.run_on.description).toContain("INCLUDING a self-hosted VPS");
+    expect(routine.inputSchema.properties.run_on.enum).toEqual(["maus"]);
+    expect(routine.inputSchema.properties.run_on.description).not.toMatch(/VPS|Boat|computer/);
   });
 
-  it("preserves execution settings copied from list_triggers", async () => {
+  it("preserves supported execution settings copied from list_triggers", async () => {
     const res = await callTool("create_trigger", { when: "schedule",
-      name: "Cloud check",
-      instructions: "Check the queue.",
+      name: "Queue check", instructions: "Check the queue.",
       schedule: { type: "interval", everyMinutes: 15, anchorAt: "2026-09-01T09:00:00+05:30" },
-      runOn: "cloud",
-      timeoutMinutes: 20,
+      runOn: "maus", timeoutMinutes: 20,
     });
     expect(res.result.isError).toBeFalsy();
     expect(lastRoutineRequestBody.routine).toMatchObject({
-      runOn: "cloud",
-      timeoutMinutes: 20,
+      runOn: "maus", timeoutMinutes: 20,
       schedule: { type: "interval", everyMinutes: 15, anchorAt: "2026-09-01T09:00:00+05:30" },
     });
   });
@@ -2021,7 +1989,7 @@ describe("agents-proxy MCP surface", () => {
     lastProfileRequestBody = null;
     const res = await callTool("propose_profile", { reason: "asked" });
     expect(res.result.isError).toBe(true);
-    expect(res.result.content[0].text).toContain("needs at least one of name, title, description, soul, cwd, notifications, speakReplies, or browserProfile");
+    expect(res.result.content[0].text).toContain("needs at least one of name, title, description, soul, cwd, notifications, speakReplies.");
     expect(lastProfileRequestBody).toBeNull();
   });
 
@@ -2494,7 +2462,7 @@ describe("tool bridge", () => {
   /** The main child's switches: a Chief with skills and shared computers. */
   const CHIEF = { OMB_SKILL_AUTHORING_ENABLED: "1", OMB_SHARED_COMPUTERS_ENABLED: "1", OMB_CHIEF_OF_STAFF: "1", OMB_COMPUTER_SELECTION: "1" };
   const CHIEF_ONLY = ["create_bot", "list_team_setup", "propose_team_setup", "propose_bot_deletion", "manage_room", "retry_thread"];
-  const HOT = ["tool_result_read", "list_room_targets", "coordinate_bots", "list_bots", "list_rooms", "select_computer", "attach_file", "publish_page", "post_to_room", "post_to_thread", "request_credential", "request_sign_in", "fill_login", "message_person", "memory_update"];
+  const HOT = ["tool_result_read", "list_room_targets", "coordinate_bots", "list_bots", "list_rooms", "attach_file", "publish_page", "post_to_room", "post_to_thread", "request_credential", "message_person", "memory_update"];
   let chief: Rpc;
   let plain: Rpc;
   let off: Rpc;
@@ -2618,7 +2586,7 @@ describe("tool bridge", () => {
   });
 
   it("use_tool refuses a name outside the profile in the words a direct call to it is refused with, as a failed call the model can read", async () => {
-    for (const name of ["made_up", "skill_manage", "shared_computer", "send_voice_note", "find_tool", "use_tool"]) {
+    for (const name of ["made_up", "skill_manage", "send_voice_note", "find_tool", "use_tool"]) {
       // find_tool and use_tool are this proxy's own, so only the bridged form is unknown
       if (name !== "find_tool" && name !== "use_tool") {
         const direct = await plain("tools/call", { name, arguments: {} });
@@ -2626,6 +2594,18 @@ describe("tool bridge", () => {
         expect(refusalOf(await use(plain, name, {})), name).toBe(direct.error.message);
       }
       expect(refusalOf(await use(plain, name, {})), name).toBe(`Unknown tool: ${name}`);
+    }
+  });
+
+  it("explicitly rejects remembered automation through use_tool without reaching the harness", async () => {
+    for (const proxy of [chief, plain]) {
+      const names = (await listed(proxy)).map((tool) => tool.name);
+      lastAuth = undefined;
+      for (const name of ["select_computer", "shared_computer", "vm_exec", "request_sign_in", "fill_login", "join_meeting"]) {
+        expect(names).not.toContain(name);
+        expect(refusalOf(await use(proxy, name, {}))).toBe("Desktop and browser automation is not available.");
+      }
+      expect(lastAuth).toBeUndefined();
     }
   });
 
@@ -2740,12 +2720,14 @@ describe("tool bridge", () => {
       expect(page.result.isError).toBeFalsy();
       expect(page.result.content[0].text).toContain("Fixture-");
     } finally { agentsResponse = original; }
-    computerStatus = 409;
-    computerResponse = { error: `Unavailable: ${"x".repeat(30_000)}` };
-    const refused = await use(chief, "select_computer", {});
-    expect(refused.result.isError).toBe(true);
-    expect(refused.result.content[0].text.length).toBeLessThan(17_000);
-    expect(refused.result.content[0].text).toContain("Unavailable:");
+    const originalThread = threadResponse;
+    threadResponse = { error: `Unavailable: ${"x".repeat(30_000)}` };
+    try {
+      const refused = await use(chief, "start_thread", { title: "Check", message: "Check the queue." });
+      expect(refused.result.isError).toBe(true);
+      expect(refused.result.content[0].text.length).toBeLessThan(17_000);
+      expect(refused.result.content[0].text).toContain("Unavailable:");
+    } finally { threadResponse = originalThread; }
   });
 
   it("still answers a hidden tool called by its own name: the profile, not the list, is what a turn may call", async () => {

@@ -980,13 +980,13 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           sessionModelSwitch: "in-session",
           // pi core has no MCP client of its own.
           agentsMcp: true,
-          computerMcp: true,
+          computerMcp: false,
           composioMcp: true,
           phoneMcp: true,
           customMcp: true,
-          browserMcp: true,
+          browserMcp: false,
           dataMcp: true, emailMcp: true, deviceMcp: true,
-          localComputerMcp: true,
+          localComputerMcp: false,
           images: true,
           nativeImageInput: true,
           // pi rejects an unsupported level and the turn keeps the engine default.

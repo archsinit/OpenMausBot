@@ -1,3 +1,4 @@
+import { hasRetiredAutomationSettings, RETIRED_AUTOMATION_ERROR } from "./retired-automation.ts";
 import { z } from "zod";
 
 import { approvalModeFor, isApprovalMode, type ApprovalMode } from "../../shared/approval-mode.ts";
@@ -111,6 +112,7 @@ export function createBotPatchRoutes(deps: BotPatchRouteDeps): RouteHandler {
       if (!body || typeof body !== "object" || Array.isArray(body)) {
         return json(res, 400, { error: "body must be a JSON object" });
       }
+      if (hasRetiredAutomationSettings(body)) return json(res, 410, RETIRED_AUTOMATION_ERROR);
       const pairedDevice = req.headers["x-openmausbot-companion"] === "1";
       if ((auth.kind === "session" && !auth.scopes.includes("admin")) || pairedDevice) {
         const session = auth.kind === "session" ? auth.session : undefined;

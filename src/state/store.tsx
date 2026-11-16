@@ -730,6 +730,7 @@ export type Action =
   | { type: "toggleSettings"; open?: boolean; section?: BotSettingsSection; botId?: string }
   | { type: "togglePlugins"; open?: boolean; surface?: "apps" | "mcp" }
   | { type: "toggleComputer"; open?: boolean; botId?: string }
+  | { type: "toggleDataPanel"; open?: boolean; botId?: string }
   | { type: "openDataResult"; botId: string; cardId: string }
   | { type: "dataResultFocusConsumed"; requestId: number }
   | { type: "openSignIn"; botId: string; messageId: string; url: string; site: string; place: import("../../shared/wire").Surface }
@@ -1413,7 +1414,7 @@ export function reducer(state: AppState, action: Action): AppState {
       return state.unreadDivider?.threadId === action.threadId ? { ...state, unreadDivider: null } : state;
     case "openDataResult": {
       if (!state.bots.some((bot) => bot.id === action.botId)) return state;
-      const selected = reducer(reducer(state, { type: "select", id: action.botId }), { type: "toggleComputer", open: true });
+      const selected = reducer(reducer(state, { type: "select", id: action.botId }), { type: "toggleDataPanel", open: true });
       return { ...selected, dataResultFocus: { botId: action.botId, id: action.cardId, requestId: (state.dataResultFocus?.requestId ?? 0) + 1, consumed: false } };
     }
     case "dataResultFocusConsumed":
@@ -1428,7 +1429,9 @@ export function reducer(state: AppState, action: Action): AppState {
     case "signInFocusConsumed":
       return state.signInFocus?.requestId === action.requestId
         ? { ...state, signInFocus: { ...state.signInFocus, consumed: true } } : state;
-    case "toggleComputer": {
+    case "toggleComputer":
+      return { ...state, computerOpen: false };
+    case "toggleDataPanel": {
       const open = action.open ?? !state.computerOpen;
       return {
         ...state, selectedId: action.botId !== undefined && state.bots.some((bot) => bot.id === action.botId) ? action.botId : state.selectedId,

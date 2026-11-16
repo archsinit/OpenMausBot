@@ -252,7 +252,7 @@ export function createSettingsRegistry(deps: RegistryDeps): SettingEntry[] {
     provider("voice.baseUrl", "Voice server address", ["tts", "voice", "speech", "chatterbox"], () => cfg().tts?.baseUrl, (text) => ({ tts: { ...cfg().tts, baseUrl: text } })),
   ];
 
-  const secret: SettingEntry[] = (Object.keys(CREDENTIAL_TARGETS) as CredentialTargetId[]).map((credentialId) => {
+  const secret: SettingEntry[] = (Object.keys(CREDENTIAL_TARGETS) as CredentialTargetId[]).filter((id) => id !== "boxToken" && id !== "onePasswordToken").map((credentialId) => {
     const target = CREDENTIAL_TARGETS[credentialId];
     return {
       id: `keys.${credentialId}`, label: target.label, help: target.description, synonyms: ["key", "api key", "token", "credential", target.label.split(" ")[0]!.toLowerCase()],
@@ -317,8 +317,6 @@ export function createSettingsRegistry(deps: RegistryDeps): SettingEntry[] {
       ["backup", "backups", "restore", "export", "import", "schedule"], () => "managed in Settings"),
     ownerOnly("phone.pairing", "Paired devices", "Pairing a phone or computer with a code, removing one, and what each paired device may do.", "Settings → Phone & devices",
       ["pair", "pairing", "qr", "code", "paired", "revoke", "remove device", "device access"], () => "managed in Settings"),
-    ownerOnly("computer.lending", "Lending this computer", "Which folders and apps this computer lends to a Cloud or server; each grant is picked and confirmed in the desktop app's own dialogs.", "Settings → Desktops & browser",
-      ["lend", "lending", "share computer", "share folders", "pause sharing"], () => "managed in Settings"),
     ownerOnly("data.keepHere", "Keep bots on this computer", "Whether this computer's bots stay here or move to My Cloud; the desktop app takes it only from the person's own click.", "Settings → Data",
       ["keep here", "move to cloud", "move back", "bring back"], () => "managed in Settings"),
     ownerOnly("appearance.sidebarPicture", "Sidebar picture", "The picture at the top of the sidebar; it is a file the person picks or removes.", "Settings → Overview",

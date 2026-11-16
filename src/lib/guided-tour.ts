@@ -40,8 +40,6 @@ export interface TourStep {
 export const TOUR_STEPS: TourStep[] = [
   { id: "tour.composer", anchor: "composer", placement: "above" },
   { id: "tour.model", anchor: "model", placement: "below" },
-  { id: "tour.computer", anchor: "computer", placement: "below", onExit: "openComputer" },
-  { id: "tour.computer-browser", anchor: "computer-browser", fallbackAnchor: "computer-tabs", skipIfMissing: true, placement: "below", onEnter: "openComputer", onExit: "closeComputer" },
   { id: "tour.tools", anchor: "tools", skipIfMissing: true, placement: "right", onExit: "openTools" },
   { id: "tour.apps", anchor: "nav-apps", skipIfMissing: true, placement: "right", onEnter: "openTools", onExit: "openApps" },
   { id: "tour.apps-panel", anchor: "apps-panel", placement: "below", onEnter: "openApps", onExit: "closeApps" },
@@ -54,7 +52,6 @@ export const TOUR_STEPS: TourStep[] = [
 // pill opens. Those steps point at the pill there, and give up rather than wait if even that is missing (a group chat).
 const SIMPLE_STEPS: Partial<Record<TourStepId, Partial<TourStep>>> = {
   "tour.model": { anchor: "bot-pill", skipIfMissing: true, copy: "onboarding.tour.model-simple" },
-  "tour.computer": { anchor: "bot-pill", skipIfMissing: true, copy: "onboarding.tour.computer-simple" },
 };
 
 const SIMPLE_TOUR_STEPS: TourStep[] = TOUR_STEPS.map((step) => ({ ...step, ...SIMPLE_STEPS[step.id] }));

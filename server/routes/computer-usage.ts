@@ -1,3 +1,4 @@
+import { withoutRetiredAutomation } from "./retired-automation.ts";
 import * as boat from "../boat.ts";
 import type { AppConfig } from "../config.ts";
 import type { TeamComputers } from "../team-computers.ts";
@@ -15,11 +16,11 @@ export interface ComputerUsageRouteDeps {
  * usage snapshot, never a name, an id or a state. `cloudComputers` is null while the Boat account changes or the
  * provider cannot be read. */
 export function createComputerUsageRoutes(deps: ComputerUsageRouteDeps): RouteHandler {
-  return async ({ res, path, method, json }) => {
+  return withoutRetiredAutomation(async ({ res, path, method, json }) => {
     if (method !== "GET" || path !== "/api/computers/usage") return PASS;
     res.setHeader("cache-control", "private, no-store");
     return json(res, 200, { cloudComputers: await cloudComputers(deps), teamComputers: deps.teamComputers.list().length });
-  };
+  });
 }
 
 async function cloudComputers({ cfg, managedBoatOwners, computerProviderConfigTransitions }: ComputerUsageRouteDeps): Promise<number | null> {

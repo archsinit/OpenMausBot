@@ -1,3 +1,4 @@
+import { withoutRetiredAutomation } from "./retired-automation.ts";
 import * as boat from "../boat.ts";
 import { boatHealth } from "../boat-health.ts";
 import type { ComputerControl } from "../computer-control.ts";
@@ -104,7 +105,7 @@ export function createComputerFramesRoutes(deps: ComputerFramesRouteDeps, frames
     held: (owner) => computerControl.snapshot(owner).held,
     paused: () => deps.computerProviderConfigTransitions.has("box") || !boat.boatConfigured(cfg),
   });
-  return async ({ res, url, path, method, json }) => {
+  return withoutRetiredAutomation(async ({ res, url, path, method, json }) => {
     if (method !== "GET" || path !== "/api/computers/frames") return PASS;
     res.setHeader("cache-control", "private, no-store");
     const configured = boat.boatConfigured(cfg);
@@ -119,5 +120,5 @@ export function createComputerFramesRoutes(deps: ComputerFramesRouteDeps, frames
     });
     const payload: MapComputersPayload = { configured, available: configured && cache.available(), now: Date.now(), computers };
     return json(res, 200, payload);
-  };
+  });
 }

@@ -46,9 +46,9 @@ const botFields = {
   model: z.string().regex(/^[\w.-]+\/\S.*$/, "must be INSTANCE/MODEL, such as claude/claude-sonnet-5-5").optional(),
   effort: z.enum(["none", "low", "medium", "high", "xhigh", "max"]).optional(),
   approval: z.enum(["ask", "edits", "auto", "full"], { error: "must be ask, edits, auto or full (custom is set in the desktop app)" }).optional(),
-  computer: z.enum(["auto", "off", "browser", "local", "vm", "cloud"]).optional(),
+  computer: z.literal("off", { error: "computer automation is retired; remove computer (only legacy computer: off is accepted)" }).optional(),
   cwd: z.string().min(1).optional(),
-  browser: z.union([z.boolean(), z.object({ enabled: z.boolean(), profile: z.string().trim().min(1).max(100).optional() }).strict()]).optional(),
+  browser: z.literal(false, { error: "browser automation is retired; remove browser (only legacy browser: false is accepted)" }).optional(),
   tools: z.object({ allow: z.array(z.string()).optional(), deny: z.array(z.string()).optional() }).strict().optional(),
   skills: z.array(z.object({ file: z.string().trim().min(1), enabled: z.boolean().optional() }).strict()).optional(),
 };
@@ -95,9 +95,7 @@ export interface DesiredBot {
   model?: { instanceId: string; model: string };
   effort?: string;
   approval?: "ask" | "edits" | "auto" | "full";
-  computer?: "auto" | "off" | "browser" | "local" | "vm" | "cloud";
   cwd?: string;
-  browser?: { enabled: boolean; profile?: string };
   /** null: no selection, so every tool (a file's `tools: {}` or `{ deny: [] }`). */
   tools?: ToolScope | null;
   skills: DesiredSkill[];
@@ -228,16 +226,14 @@ export function checkTeamFile(input: TeamFileInput, file: string, dir: string): 
       return [{ name: parsed.name, description: parsed.description, text: body, enabled: skill.enabled !== false, file: skill.file }];
     });
     if (new Set(skills.map((skill) => skill.name)).size !== skills.length) throw usageError(`${where}: two skills share a name`);
-    if (bot.computer === undefined) warnings.push(`${where} has no computer set: on auto it may ask which computer to use, and nobody answers a headless run`);
     const slash = bot.model?.indexOf("/") ?? -1;
-    const browser = bot.browser === undefined ? undefined : typeof bot.browser === "boolean" ? { enabled: bot.browser } : bot.browser;
     return {
       name: bot.name, ...(bot.was ? { was: bot.was } : {}), ...(bot.team ? { team: bot.team } : {}),
       ...(bot.title !== undefined ? { title: bot.title } : {}), ...(description !== undefined ? { description } : {}),
       ...(bot.chief !== undefined ? { chief: bot.chief } : {}), manages: bot.manages ?? [], ...(soul !== undefined ? { soul } : {}),
       ...(bot.model ? { model: { instanceId: bot.model.slice(0, slash), model: bot.model.slice(slash + 1) } } : {}),
       ...(bot.effort ? { effort: bot.effort } : {}), ...(bot.approval ? { approval: bot.approval } : {}),
-      ...(bot.computer ? { computer: bot.computer } : {}), ...(cwd ? { cwd } : {}), ...(browser ? { browser } : {}),
+      ...(cwd ? { cwd } : {}),
       ...(tools !== undefined ? { tools } : {}), skills,
     };
   });

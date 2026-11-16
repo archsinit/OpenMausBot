@@ -16,12 +16,7 @@ import { cacheUntilConfigChanges,
   DATA_DIR,
   ensureDirs,
   instanceConfigs,
-  isValidSshAlias,
-  loadBrowserProfileIdAliases,
   loadConfig,
-  localVmIdleTimeoutMinutes,
-  localVmMaxInstances,
-  localVmMode,
   parseConfigPatch,
   parseStoredConfig,
   persistableInstanceConfigs,
@@ -33,16 +28,11 @@ import { cacheUntilConfigChanges,
   saveConfig,
   skillAuthoringEnabled,
   sharedComputersEnabled,
+  ownerLendingEnabled,
   builtInBrowserEnabled,
-  browserProfilePartitionId,
-  browserProfilePartitionTarget,
-  browserProfileReplacementConflict,
-  browserProfileRoutingConflict,
   stripControlPlaneEnv,
   stripWorkspaceCredentialEnv,
   syncCredentialEnv,
-  vpsSshAlias,
-  browserEngineAttachCdpUrl,
   withInstanceCli,
   WORKSPACE_CREDENTIAL_ENV,
   PROVIDER_CREDENTIAL_ENV,
@@ -236,24 +226,22 @@ describe("configuration boundaries", () => {
   it("loads a config that still has the removed cloud-overflow and idle-release keys, and drops them", () => {
     const stored = {
       language: "en",
-      features: { browser: true, computerClaimIdleRelease: true, cloudOverflow: true },
+      features: { showToolCalls: true, computerClaimIdleRelease: true, cloudOverflow: true },
       cloudOverflow: { perSecondCostUsd: 0.0004, idleStopMs: 300_000, allowlistedThreads: ["t1"] },
     };
-    expect(parseStoredConfig(stored)).toEqual({ language: "en", features: { browser: true } });
-    expect(parseConfigPatch(stored)).toEqual({ language: "en", features: { browser: true } });
+    expect(parseStoredConfig(stored)).toEqual({ language: "en", features: { showToolCalls: true } });
+    expect(parseConfigPatch(stored)).toEqual({ language: "en", features: { showToolCalls: true } });
   });
 
   it("loads a config that still switches on chief escalations, and drops the switch", () => {
-    const stored = { language: "en", features: { browser: true, chiefEscalations: true } };
-    expect(parseStoredConfig(stored)).toEqual({ language: "en", features: { browser: true } });
-    expect(parseConfigPatch(stored)).toEqual({ language: "en", features: { browser: true } });
+    const stored = { language: "en", features: { showToolCalls: true, chiefEscalations: true } };
+    expect(parseStoredConfig(stored)).toEqual({ language: "en", features: { showToolCalls: true } });
+    expect(parseConfigPatch(stored)).toEqual({ language: "en", features: { showToolCalls: true } });
   });
 
   it("rejects malformed stored instances and API patches", () => {
     expect(() => parseStoredConfig({ instances: { claude: { driver: 42 } } })).toThrow("instances.claude.driver");
-    expect(() => parseStoredConfig({ browserProfiles: [{ id: "../evil", name: "Unsafe" }] })).toThrow(
-      "browserProfiles.0.id",
-    );
+    expect(parseStoredConfig({ browserProfiles: [{ id: "../evil", name: "Unsafe" }] })).toEqual({});
     expect(() => parseConfigPatch({ opencodeGo: { apiKey: 42 } })).toThrow("opencodeGo.apiKey");
     expect(() => parseConfigPatch({ profile: [] })).toThrow("profile");
   });
@@ -299,261 +287,46 @@ describe("configuration boundaries", () => {
   });
 
 
-  it("canonicalizes legacy browser profile ids without dropping other stored settings", () => {
-    expect(parseStoredConfig({
-      profile: { name: "Ada", email: "ada@example.com" },
-      rooms: { turnTimeoutMinutes: 20 },
-      features: { browser: true },
-      browserProfiles: [
-        { id: "Work", name: " Work " },
-        { id: "Work", name: "Second workspace" },
-      ],
-      instances: { claude: { driver: "claudeAgent", config: { cli: "/opt/claude" } } },
-    })).toEqual({
-      profile: { name: "Ada", email: "ada@example.com" },
-      rooms: { turnTimeoutMinutes: 20 },
-      features: { browser: true },
-      browserProfiles: [
-        { id: "work", name: "Work", partitionId: "Work" },
-        { id: "work-2", name: "Second workspace" },
-      ],
-      instances: { claude: { driver: "claudeAgent", config: { cli: "/opt/claude" } } },
-    });
-  });
+  it.each(["box", "vps", "localVm", "browserProfiles", "browserEngine"])(
+    "strips stored %s settings but rejects new writes with 410",
+    (field) => {
+      for (const value of [{}, null, "invalid"]) {
+        const input = { language: "en", xai: { key: "kept" }, [field]: value };
+        expect(parseStoredConfig(input)).toEqual({ language: "en", xai: { key: "kept" } });
+        for (const write of [parseConfigPatch, saveConfig]) {
+          expect(() => write(input)).toThrow(expect.objectContaining({ status: 410, code: "automation_removed" }));
+        }
+      }
+    },
+  );
 
-  it("preserves an unambiguous uppercase profile's exact durable partition", () => {
-    const config = parseStoredConfig({
-      browserProfiles: [{ id: "ClientA", name: "Client A" }],
-    });
-    expect(config.browserProfiles).toEqual([
-      { id: "clienta", name: "Client A", partitionId: "ClientA" },
-    ]);
-    expect(browserProfilePartitionId(config.browserProfiles![0]!)).toBe("ClientA");
-    expect(browserProfilePartitionTarget(config, "clienta")).toEqual({
-      profileId: "clienta",
-      partitionId: "ClientA",
-    });
-  });
+  it.each(["browser", "sharedComputers", "savedSteps", "cloudComputerAutoReplace"])(
+    "strips the stored %s feature without losing supported settings",
+    (field) => {
+      for (const value of [true, false, null, "invalid"]) {
+        const input = { features: { showToolCalls: true, [field]: value } };
+        expect(parseStoredConfig(input)).toEqual({ features: { showToolCalls: true } });
+        expect(() => parseConfigPatch(input)).toThrow(expect.objectContaining({ status: 410, code: "automation_removed" }));
+      }
+    },
+  );
 
-  it("isolates case-colliding legacy profiles instead of sharing an account", () => {
-    const config = parseStoredConfig({
-      browserProfiles: [
-        { id: "Work", name: "Uppercase" },
-        { id: "work", name: "Canonical" },
-      ],
-    });
-    expect(config.browserProfiles).toEqual([
-      { id: "work-2", name: "Uppercase" },
-      { id: "work", name: "Canonical" },
-    ]);
-    const partitions = config.browserProfiles!.map(browserProfilePartitionId);
-    expect(new Set(partitions.map((id) => id.toLowerCase())).size).toBe(partitions.length);
-  });
+  it.each(["computer", "cloudBackend", "autoStartVps", "browser", "browserProfile"])(
+    "removes new-bot %s automation defaults while preserving the model and template",
+    (field) => {
+      const retained = { profile: { modelSelection: { instanceId: "codex", model: "kept" } }, memory: {}, skills: [], routines: [] };
+      const input = { newBotDefaults: { ...retained, profile: { ...retained.profile, [field]: "legacy" } } };
+      expect(parseStoredConfig(input).newBotDefaults).toEqual(retained);
+      expect(() => parseConfigPatch(input)).toThrow(expect.objectContaining({ status: 410, code: "automation_removed" }));
+      expect(() => saveConfig(input)).toThrow(expect.objectContaining({ status: 410, code: "automation_removed" }));
+    },
+  );
 
-  it("reserves explicit suffix ids while isolating a case collision", () => {
-    const config = parseStoredConfig({
-      browserProfiles: [
-        { id: "Work", name: "Uppercase" },
-        { id: "work", name: "Canonical" },
-        { id: "work-2", name: "Explicit suffix" },
-      ],
-    });
-    expect(config.browserProfiles).toEqual([
-      { id: "work-3", name: "Uppercase" },
-      { id: "work", name: "Canonical" },
-      { id: "work-2", name: "Explicit suffix" },
-    ]);
-    const partitions = config.browserProfiles!.map(browserProfilePartitionId);
-    expect(new Set(partitions.map((id) => id.toLowerCase())).size).toBe(3);
-  });
-
-  it("round-trips migrated partition aliases idempotently", () => {
-    const once = parseStoredConfig({
-      browserProfiles: [
-        { id: "ClientA", name: "Client A" },
-        { id: "Personal", name: "Personal" },
-      ],
-    });
-    expect(parseStoredConfig(JSON.parse(JSON.stringify(once)))).toEqual(once);
-  });
-
-  it("keeps explicit suffix partitions owned by their own canonical profile", () => {
-    const once = parseStoredConfig({
-      browserProfiles: [
-        { id: "Foo", name: "Case collision" },
-        { id: "FOO-2", name: "Explicit suffix" },
-        { id: "foo", name: "Canonical" },
-      ],
-    });
-    expect(once.browserProfiles).toEqual([
-      { id: "foo-3", name: "Case collision" },
-      { id: "foo-2", name: "Explicit suffix", partitionId: "FOO-2" },
-      { id: "foo", name: "Canonical" },
-    ]);
-    const profiles = once.browserProfiles!;
-    for (const [index, profile] of profiles.entries()) {
-      const partition = browserProfilePartitionId(profile).toLowerCase();
-      expect(
-        profiles.some((candidate, candidateIndex) => candidateIndex !== index && candidate.id === partition),
-      ).toBe(false);
-    }
-    expect(parseStoredConfig(JSON.parse(JSON.stringify(once)))).toEqual(once);
-  });
-
-  it("keeps legacy Guest isolated from an explicit Guest-2 profile", () => {
-    const once = parseStoredConfig({
-      browserProfiles: [
-        { id: "Guest", name: "Legacy guest account" },
-        { id: "Guest-2", name: "Explicit guest suffix" },
-      ],
-    });
-    expect(once.browserProfiles).toEqual([
-      { id: "guest-3", name: "Legacy guest account", partitionId: "Guest" },
-      { id: "guest-2", name: "Explicit guest suffix", partitionId: "Guest-2" },
-    ]);
-    expect(parseStoredConfig(JSON.parse(JSON.stringify(once)))).toEqual(once);
-  });
-
-  it("repairs a prior cross-mapped partition without moving either exact legacy account", () => {
-    const path = join(DATA_DIR, "config.json");
-    mkdirSync(DATA_DIR, { recursive: true });
-    writeFileSync(path, JSON.stringify({
-      browserProfiles: [
-        { id: "foo-2", name: "First", partitionId: "foo-2-2" },
-        { id: "foo-2-2", name: "Second", partitionId: "FOO-2" },
-        { id: "foo", name: "Canonical" },
-      ],
-    }));
-    try {
-      const once = loadConfig();
-      expect(once.browserProfiles).toEqual([
-        { id: "foo-2-3", name: "First", partitionId: "foo-2-2" },
-        { id: "foo-2-2-2", name: "Second", partitionId: "FOO-2" },
-        { id: "foo", name: "Canonical" },
-      ]);
-      const aliases = loadBrowserProfileIdAliases();
-      const first = browserProfilePartitionTarget(once, aliases.get("foo-2")!);
-      const second = browserProfilePartitionTarget(once, aliases.get("foo-2-2")!);
-      expect(first).toEqual({ profileId: "foo-2-3", partitionId: "foo-2-2" });
-      expect(second).toEqual({ profileId: "foo-2-2-2", partitionId: "FOO-2" });
-      // bots.json may be migrated before config.json is rewritten: a second hydration must leave migrated references fixed.
-      expect(aliases.get(first!.profileId) ?? first!.profileId).toBe(first!.profileId);
-      expect(aliases.get(second!.profileId) ?? second!.profileId).toBe(second!.profileId);
-      expect(parseStoredConfig(JSON.parse(JSON.stringify(once)))).toEqual(once);
-    } finally {
-      rmSync(path, { force: true });
-    }
-  });
-
-  it("keeps chained partition aliases fixed across repeated raw-config hydration", () => {
-    const path = join(DATA_DIR, "config.json");
-    mkdirSync(DATA_DIR, { recursive: true });
-    writeFileSync(path, JSON.stringify({
-      browserProfiles: [
-        { id: "foo", name: "First", partitionId: "Bar" },
-        { id: "bar", name: "Second", partitionId: "Baz" },
-      ],
-    }));
-    try {
-      const once = loadConfig();
-      expect(once.browserProfiles).toEqual([
-        { id: "foo", name: "First", partitionId: "Bar" },
-        { id: "bar-2", name: "Second", partitionId: "Baz" },
-      ]);
-      const aliases = loadBrowserProfileIdAliases();
-      const hydrate = (id: string) => aliases.get(id) ?? id;
-      expect(hydrate("foo")).toBe("foo");
-      expect(hydrate(hydrate("foo"))).toBe("foo");
-      expect(hydrate("bar")).toBe("bar-2");
-      expect(hydrate(hydrate("bar"))).toBe("bar-2");
-
-      const first = browserProfilePartitionTarget(once, hydrate("foo"));
-      const second = browserProfilePartitionTarget(once, hydrate("bar"));
-      expect(first).toEqual({ profileId: "foo", partitionId: "Bar" });
-      expect(second).toEqual({ profileId: "bar-2", partitionId: "Baz" });
-      expect(parseStoredConfig(JSON.parse(JSON.stringify(once)))).toEqual(once);
-    } finally {
-      rmSync(path, { force: true });
-    }
-  });
-
-  it("blocks a new logical id from claiming another profile's retained partition", () => {
-    const profiles = [
-      { id: "client-repaired", name: "Existing", partitionId: "Client" },
-      { id: "client", name: "New account" },
-    ];
-    expect(browserProfileRoutingConflict(profiles)).toMatch(/already used by another durable session/i);
-  });
-
-  it("blocks same-write reuse of a legacy partition that is being erased", () => {
-    expect(browserProfileReplacementConflict(
-      [{ id: "legacy-client", name: "Legacy", partitionId: "Client" }],
-      [{ id: "client", name: "New account" }],
-    )).toMatch(/delete it first, then add/i);
-  });
-
-  it("truncates 40-character collision suffixes without stealing an explicit id", () => {
-    const base = "a".repeat(40);
-    const explicitSuffix = `${"a".repeat(38)}-2`;
-    const once = parseStoredConfig({
-      browserProfiles: [
-        { id: base.toUpperCase(), name: "Case collision" },
-        { id: explicitSuffix.toUpperCase(), name: "Explicit suffix" },
-        { id: base, name: "Canonical" },
-      ],
-    });
-    expect(once.browserProfiles).toEqual([
-      { id: `${"a".repeat(38)}-3`, name: "Case collision" },
-      { id: explicitSuffix, name: "Explicit suffix", partitionId: explicitSuffix.toUpperCase() },
-      { id: base, name: "Canonical" },
-    ]);
-    expect(once.browserProfiles!.every((profile) => profile.id.length <= 40)).toBe(true);
-    expect(parseStoredConfig(JSON.parse(JSON.stringify(once)))).toEqual(once);
-  });
-
-  it("accepts only a simple VPS SSH config alias and exposes no credentials", () => {
-    expect(isValidSshAlias("production-vps")).toBe(true);
-    expect(isValidSshAlias("prod; reboot")).toBe(false);
-    expect(() => parseConfigPatch({ vps: { sshAlias: "prod; reboot" } })).toThrow("vps.sshAlias");
-    expect(parseConfigPatch({ vps: { sshAlias: "production-vps" } })).toEqual({
-      vps: { sshAlias: "production-vps" },
-    });
-    expect(vpsSshAlias({ vps: { sshAlias: "production-vps" } })).toBe("production-vps");
-    expect(vpsSshAlias({ vps: { sshAlias: "-bad" } })).toBeNull();
-  });
-
-  it("validates browserEngine.attachCdpUrl as a bare CDP port or an http(s)/ws(s) URL, and forwards it only when configured", () => {
-    expect(parseStoredConfig({})).toEqual({});
-    expect(browserEngineAttachCdpUrl({})).toBeNull();
-    for (const value of ["9333", "1", "65535", "http://127.0.0.1:9333", "https://cdp.internal:9333/", "ws://127.0.0.1:9333/devtools/browser/abc"]) {
-      expect(parseStoredConfig({ browserEngine: { attachCdpUrl: value } })).toEqual({ browserEngine: { attachCdpUrl: value } });
-      expect(parseConfigPatch({ browserEngine: { attachCdpUrl: value } })).toEqual({ browserEngine: { attachCdpUrl: value } });
-      expect(browserEngineAttachCdpUrl({ browserEngine: { attachCdpUrl: value } })).toBe(value);
-    }
-    for (const value of ["0", "70000", "not-a-url", "ftp://127.0.0.1:9333", "javascript:alert(1)"]) {
-      expect(() => parseConfigPatch({ browserEngine: { attachCdpUrl: value } })).toThrow("browserEngine.attachCdpUrl");
-    }
-    expect(parseConfigPatch({ browserEngine: { attachCdpUrl: "" } })).toEqual({ browserEngine: { attachCdpUrl: "" } });
-    expect(browserEngineAttachCdpUrl({ browserEngine: { attachCdpUrl: "" } })).toBeNull();
-  });
-
-  it("takes browserEngine.idleTimeoutMinutes as whole minutes up to the engine's own hour", () => {
-    for (const value of [1, 10, 60]) {
-      expect(parseStoredConfig({ browserEngine: { idleTimeoutMinutes: value } })).toEqual({ browserEngine: { idleTimeoutMinutes: value } });
-      expect(parseConfigPatch({ browserEngine: { idleTimeoutMinutes: value } })).toEqual({ browserEngine: { idleTimeoutMinutes: value } });
-    }
-    for (const value of [0, 61, 2.5, -1, "10"]) expect(() => parseConfigPatch({ browserEngine: { idleTimeoutMinutes: value } })).toThrow();
-    expect(parseConfigPatch({ browserEngine: { attachCdpUrl: "9333", idleTimeoutMinutes: 5 } })).toEqual({ browserEngine: { attachCdpUrl: "9333", idleTimeoutMinutes: 5 } });
-  });
-
-  it("keeps a browser profile's My Chrome choice through saving, loading and migration, and nothing else", () => {
-    const mine = { id: "profile-mine", name: "Mine", browser: "chrome" };
-    expect(parseConfigPatch({ browserProfiles: [mine, { id: "profile-work", name: "Work" }] })).toEqual({ browserProfiles: [mine, { id: "profile-work", name: "Work" }] });
-    expect(parseStoredConfig({ browserProfiles: [mine] }).browserProfiles).toEqual([mine]);
-    expect(parseStoredConfig({ browserProfiles: [{ id: "Mine", name: "Mine", browser: "chrome" }] }).browserProfiles)
-      .toEqual([{ id: "mine", name: "Mine", browser: "chrome", partitionId: "Mine" }]);
-    for (const browser of ["edge", "firefox", "", true]) {
-      expect(() => parseConfigPatch({ browserProfiles: [{ ...mine, browser }] })).toThrow("browserProfiles.0.browser");
+  it("disables browser, sharing and owner lending for legacy configs", () => {
+    for (const cfg of [{}, parseStoredConfig({ features: { browser: true, sharedComputers: true } })]) {
+      expect(builtInBrowserEnabled(cfg)).toBe(false);
+      expect(sharedComputersEnabled(cfg)).toBe(false);
+      expect(ownerLendingEnabled(cfg)).toBe(false);
     }
   });
 
@@ -595,82 +368,19 @@ describe("configuration boundaries", () => {
     expect(() => parseConfigPatch({ mcp: { callTimeoutMinutes: 10, surprise: 1 } })).toThrow("mcp");
   });
 
-  it("preserves shared Local VM behavior by default and accepts bounded per-bot mode", () => {
-    expect(localVmMode({})).toBe("shared");
-    expect(localVmMaxInstances({})).toBe(2);
-    expect(parseConfigPatch({ localVm: { mode: "per-bot", maxInstances: 4 } })).toEqual({
-      localVm: { mode: "per-bot", maxInstances: 4 },
-    });
-    expect(parseConfigPatch({ localVm: { maxInstances: 5 } })).toEqual({
-      localVm: { maxInstances: 5 },
-    });
-    expect(parseConfigPatch({ localVm: { mode: "per-bot", maxInstances: 8 } })).toEqual({
-      localVm: { mode: "per-bot", maxInstances: 8 },
-    });
-    expect(localVmMode({ localVm: { mode: "per-bot" } })).toBe("per-bot");
-    expect(localVmMaxInstances({ localVm: { maxInstances: 3 } })).toBe(3);
-  });
-
-  it("accepts pool mode with the same bounded seat count", () => {
-    expect(parseConfigPatch({ localVm: { mode: "pool", maxInstances: 4 } })).toEqual({
-      localVm: { mode: "pool", maxInstances: 4 },
-    });
-    expect(localVmMode({ localVm: { mode: "pool" } })).toBe("pool");
-    expect(localVmMode({})).toBe("shared");
-  });
-
-  it("keeps skill authoring on by default with an explicit opt-out, and the browser off by default", () => {
+  it("keeps skill authoring on by default with an explicit opt-out", () => {
     expect(skillAuthoringEnabled({})).toBe(true);
     expect(skillAuthoringEnabled({ features: {} })).toBe(true);
     expect(skillAuthoringEnabled({ features: { skillAuthoring: true } })).toBe(true);
-    expect(parseConfigPatch({ features: { skillAuthoring: false } })).toEqual({
-      features: { skillAuthoring: false },
-    });
+    expect(parseConfigPatch({ features: { skillAuthoring: false } })).toEqual({ features: { skillAuthoring: false } });
     expect(skillAuthoringEnabled({ features: { skillAuthoring: false } })).toBe(false);
     expect(parseConfigPatch({ features: { skillRecorder: true } })).toEqual({ features: {} });
-    expect(builtInBrowserEnabled({})).toBe(true);
-    expect(builtInBrowserEnabled({ features: { skillAuthoring: true } })).toBe(true);
-    expect(parseConfigPatch({ features: { browser: false } })).toEqual({ features: { browser: false } });
-    expect(builtInBrowserEnabled({ features: { browser: false } })).toBe(false);
-    expect(builtInBrowserEnabled({ features: { browser: true } })).toBe(true);
-    const cloudHome = { OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93" };
-    expect(builtInBrowserEnabled({}, { OMB_PUBLIC_URL: "https://selfhosted.example.test" })).toBe(true);
-    expect(builtInBrowserEnabled({}, cloudHome)).toBe(true);
-    expect(builtInBrowserEnabled({ features: { browser: false } }, cloudHome)).toBe(false);
-    expect(parseConfigPatch({ browserProfiles: [{ id: "work", name: " Work " }] })).toEqual({
-      browserProfiles: [{ id: "work", name: "Work" }],
-    });
-    expect(() => parseConfigPatch({ browserProfiles: [{ id: "../evil", name: "x" }] })).toThrow(/browserProfiles.*id/i);
-    expect(() => parseConfigPatch({ browserProfiles: [{ id: "Work", name: "Work" }] })).toThrow(/browserProfiles.*id/i);
-    expect(() => parseConfigPatch({
-      browserProfiles: [{ id: "work", name: "Work", partitionId: "OtherAccount" }],
-    })).toThrow(/browserProfiles/i);
-    expect(() => parseConfigPatch({ browserProfiles: [{ id: "ok", name: "" }] })).toThrow(/browserProfiles.*name/i);
-    expect(() => parseConfigPatch({
-      browserProfiles: [{ id: "work", name: "Work" }, { id: "work", name: "Work again" }],
-    })).toThrow(/browserProfiles.*id.*duplicated/i);
-    expect(() => parseConfigPatch({ features: { skillAuthoring: "yes" } })).toThrow(
-      "features.skillAuthoring",
-    );
+    expect(() => parseConfigPatch({ features: { skillAuthoring: "yes" } })).toThrow("features.skillAuthoring");
   });
 
   it("accepts only off, ask and auto for sharing learned skills", () => {
     expect(parseConfigPatch({ features: { shareLearnedSkills: "off" } })).toEqual({ features: { shareLearnedSkills: "off" } });
     expect(() => parseConfigPatch({ features: { shareLearnedSkills: "always" } })).toThrow("features.shareLearnedSkills");
-  });
-
-  it("keeps computer sharing off unless config.json explicitly turns it on", () => {
-    expect(sharedComputersEnabled({})).toBe(false);
-    expect(sharedComputersEnabled({ features: {} })).toBe(false);
-    expect(sharedComputersEnabled({ features: { skillAuthoring: true } })).toBe(false);
-    expect(sharedComputersEnabled({ features: { sharedComputers: false } })).toBe(false);
-    expect(sharedComputersEnabled({ features: { sharedComputers: true } })).toBe(true);
-    expect(parseConfigPatch({ features: { sharedComputers: true } })).toEqual({
-      features: { sharedComputers: true },
-    });
-    expect(() => parseConfigPatch({ features: { sharedComputers: "yes" } })).toThrow(
-      "features.sharedComputers",
-    );
   });
 
   it("drops the retired routines-in-conversation switch instead of refusing the config", () => {
@@ -687,31 +397,6 @@ describe("configuration boundaries", () => {
     expect(showToolCallsEnabled({ features: { showToolCalls: true } })).toBe(true);
   });
 
-  it.each([0, 1.5, 9, "2", null])("rejects an invalid per-bot VM limit: %j", (maxInstances) => {
-    expect(() => parseConfigPatch({ localVm: { maxInstances } })).toThrow("localVm.maxInstances");
-  });
-
-  it("keeps the 8-hour Local VM idle timeout by default and accepts a bounded override", () => {
-    expect(localVmIdleTimeoutMinutes({})).toBe(480);
-    expect(localVmIdleTimeoutMinutes({ localVm: { mode: "per-bot" } })).toBe(480);
-    expect(parseStoredConfig({ localVm: { mode: "per-bot", maxInstances: 3 } })).toMatchObject({
-      localVm: { mode: "per-bot", maxInstances: 3 },
-    });
-    for (const idleTimeoutMinutes of [5, 30, 1_440]) {
-      expect(parseConfigPatch({ localVm: { idleTimeoutMinutes } })).toEqual({ localVm: { idleTimeoutMinutes } });
-      expect(localVmIdleTimeoutMinutes({ localVm: { idleTimeoutMinutes } })).toBe(idleTimeoutMinutes);
-    }
-    expect(parseStoredConfig({ localVm: { idleTimeoutMinutes: 30 } })).toMatchObject({ localVm: { idleTimeoutMinutes: 30 } });
-  });
-
-  it.each([0, 4, 1.5, 1_441, "30", null])("rejects an invalid Local VM idle timeout: %j", (idleTimeoutMinutes) => {
-    expect(() => parseConfigPatch({ localVm: { idleTimeoutMinutes } })).toThrow("localVm.idleTimeoutMinutes");
-    expect(() => parseStoredConfig({ localVm: { idleTimeoutMinutes } })).toThrow("localVm.idleTimeoutMinutes");
-  });
-
-  it.each(["one-per-bot", "windows", 1, null])("rejects an invalid Local VM mode: %j", (mode) => {
-    expect(() => parseConfigPatch({ localVm: { mode } })).toThrow("localVm.mode");
-  });
 });
 
 describe("a config.json saved with a byte order mark", () => {
@@ -753,15 +438,16 @@ describe("a config.json saved with a byte order mark", () => {
     }
   });
 
-  it("keeps the browser's allow-list when the owner flips its local-sites switch", () => {
+  it("rejects retired browser writes without changing the file", () => {
     const path = join(DATA_DIR, "config.json");
     mkdirSync(DATA_DIR, { recursive: true });
-    writeFileSync(path, JSON.stringify({ browserEngine: { engine: "chrome", egress: { allow: ["10.0.0.5"] } } }));
+    const original = JSON.stringify({ browserEngine: { egress: { allow: ["10.0.0.5"] } }, profile: { name: "Ada" } });
+    writeFileSync(path, original);
     try {
-      saveConfig({ browserEngine: { egress: { localNetwork: true } } });
-      expect(JSON.parse(readFileSync(path, "utf8")).browserEngine).toEqual({ engine: "chrome", egress: { allow: ["10.0.0.5"], localNetwork: true } });
-      saveConfig({ browserEngine: { egress: { localNetwork: false } } });
-      expect(JSON.parse(readFileSync(path, "utf8")).browserEngine).toEqual({ engine: "chrome", egress: { allow: ["10.0.0.5"], localNetwork: false } });
+      expect(() => saveConfig({ browserEngine: { egress: { localNetwork: true } } })).toThrow(
+        expect.objectContaining({ status: 410, code: "automation_removed" }),
+      );
+      expect(readFileSync(path, "utf8")).toBe(original);
     } finally {
       rmSync(path, { force: true });
     }
@@ -1606,7 +1292,7 @@ describe("credential env preference", () => {
     process.env.OMB_OPENAI_IMAGE_KEY = "env-image";
     const cfg = loadConfig();
     expect(cfg.xai).toEqual({ key: "env-xai", url: "https://api.example.test/v1" });
-    expect(cfg.box).toEqual({ token: "env-box" });
+    expect(cfg).not.toHaveProperty("box");
     expect(cfg.opencodeGo).toEqual({ apiKey: "env-ocg" });
     expect(cfg.tts).toEqual({ key: "env-tts", fishKey: "env-fish", voice: "narrator" });
     expect(cfg.imageGen).toEqual({ key: "env-image" });
@@ -1641,7 +1327,7 @@ describe("credential env preference", () => {
       for (const entry of Object.values(instanceConfigs(cfg))) {
         for (const value of Object.values(entry.environment ?? {})) expect(Object.values(included)).not.toContain(value);
       }
-      saveConfig({ tts: { voice: "chosen" }, box: { token: "" }, decider: { enabled: true, jobs: { roomRouting: true } } });
+      saveConfig({ tts: { voice: "chosen" }, decider: { enabled: true, jobs: { roomRouting: true } } });
       const disk = readFileSync(join(DATA_DIR, "config.json"), "utf8");
       const runtime = JSON.stringify([loadConfig(), instanceConfigs(loadConfig()), persistableInstanceConfigs(loadConfig())]);
       for (const token of [included.OMB_CLOUD_BOAT_TOKEN, included.OMB_CLOUD_VOICE_TOKEN, included.OMB_CLOUD_DECIDER_TOKEN]) {
@@ -1650,7 +1336,8 @@ describe("credential env preference", () => {
       }
       process.env.BOX_TOKEN = "box_own";
       process.env.OMB_TTS_KEY = "sk-own";
-      expect(loadConfig()).toMatchObject({ box: { token: "box_own" }, tts: { key: "sk-own" } });
+      expect(loadConfig()).toMatchObject({ tts: { key: "sk-own" } });
+      expect(loadConfig()).not.toHaveProperty("box");
       expect(JSON.stringify(instanceConfigs(loadConfig()))).not.toContain("box_own");
     } finally {
       vi.unstubAllEnvs();
@@ -1853,51 +1540,29 @@ describe("credential env preference", () => {
     });
   });
 
-  it("loads legacy browser profiles without resetting config and canonicalizes them on the next write", () => {
+  it("removes legacy automation on save without resetting other file settings", () => {
     const path = join(DATA_DIR, "config.json");
     writeFileSync(path, JSON.stringify({
       xai: { key: "file-xai", url: "https://api.example.test/v1" },
       profile: { name: "Ada" },
-      features: { browser: true },
-      browserProfiles: [
-        { id: "Client", name: "Client one" },
-        { id: "Client", name: "Client two" },
-      ],
+      features: { browser: true, showToolCalls: false },
+      browserProfiles: [{ id: "Client", name: "Client one" }],
+      box: { token: "legacy-secret" },
       futureSetting: { keep: true },
     }));
-
-    expect(loadConfig()).toMatchObject({
-      xai: { key: "file-xai", url: "https://api.example.test/v1" },
-      profile: { name: "Ada" },
-      features: { browser: true },
-      browserProfiles: [
-        { id: "client", name: "Client one", partitionId: "Client" },
-        { id: "client-2", name: "Client two" },
-      ],
-    });
-
+    expect(loadConfig()).toMatchObject({ xai: { key: "file-xai" }, profile: { name: "Ada" }, features: { showToolCalls: false } });
+    expect(loadConfig()).not.toHaveProperty("browserProfiles");
     saveConfig({ features: { showToolCalls: true } });
     const persisted = JSON.parse(readFileSync(path, "utf8"));
     expect(persisted).toMatchObject({
       xai: { key: "file-xai", url: "https://api.example.test/v1" },
       profile: { name: "Ada" },
-      features: { browser: true, showToolCalls: true },
-      browserProfiles: [
-        { id: "client", name: "Client one", partitionId: "Client" },
-        { id: "client-2", name: "Client two" },
-      ],
+      features: { showToolCalls: true },
       futureSetting: { keep: true },
     });
-
-    saveConfig({ browserProfiles: [
-      { id: "client", name: "Renamed client" },
-      { id: "client-2", name: "Client two" },
-    ] });
-    const renamed = JSON.parse(readFileSync(path, "utf8"));
-    expect(renamed.browserProfiles).toEqual([
-      { id: "client", name: "Renamed client", partitionId: "Client" },
-      { id: "client-2", name: "Client two" },
-    ]);
+    expect(persisted).not.toHaveProperty("browserProfiles");
+    expect(persisted).not.toHaveProperty("box");
+    expect(persisted.features).not.toHaveProperty("browser");
   });
 
   it("treats a blanked file field as absent when env supplies the secret", () => {
@@ -1919,7 +1584,7 @@ describe("credential env preference", () => {
     });
     expect(process.env.XAI_API_KEY).toBe("just-saved");
     expect(process.env.COMPOSIO_API_KEY).toBe("ak_just_saved");
-    expect(process.env.BOX_TOKEN).toBeUndefined();
+    expect(process.env.BOX_TOKEN).toBe("boot-injected");
     expect(process.env.OMB_TTS_KEY).toBeUndefined();
     expect(process.env.OMB_FISH_AUDIO_API_KEY).toBeUndefined();
   });
@@ -2129,7 +1794,7 @@ describe("changedInstanceIds", () => {
   it("replaces nothing for sections no driver reads", () => {
     expect(reloaded({ onboarding: { hintsSeen: ["tour.composer"] } })).toEqual([]);
     expect(reloaded({ profile: {}, language: "de", tts: {}, features: {} })).toEqual([]);
-    expect(reloaded({ box: { token: "boat" }, composio: { apiKey: "c" }, budgets: { monthlyUsd: 5 } })).toEqual([]);
+    expect(reloaded({ composio: { apiKey: "c" }, budgets: { monthlyUsd: 5 } })).toEqual([]);
   });
   it("replaces an engine whose driver reads a saved key from the env", () => {
     const own = instanceConfigs({ instances: { own: { driver: "mistral", config: { url: "http://127.0.0.1:9/v1" } } }, mistral: { key: "m1" } });

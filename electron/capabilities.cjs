@@ -207,6 +207,9 @@ function desktopCapabilities({
     }, unavailable);
   }
 
+  Object.assign(screenPreview, { available: false, interaction: "none", reasonCode: "unsupported" });
+  Object.assign(localComputer, { available: false, support: "unsupported", enabled: false, status: "unavailable", reasonCode: "unsupported" });
+
   return {
     remote: Boolean(remote),
     host: {

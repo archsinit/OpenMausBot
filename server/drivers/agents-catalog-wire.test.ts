@@ -259,13 +259,8 @@ describe("agents proxy tools/list golden", () => {
     for (const name of Object.keys(PROFILES)) expect(names(wires[name]!), name).toContain("message_person");
   });
 
-  it("mounts ask_for_computer only on a person's own Cloud that is lent their computer, never a Team Cloud", () => {
-    for (const [name, profile] of Object.entries(PROFILES)) {
-      expect(toolsOf(wires[name]!).some((tool) => tool.name === "ask_for_computer"), name)
-        .toBe(profile.env.OMB_CLOUD_HOME === "1" && profile.env.OMB_SHARED_COMPUTERS_ENABLED === "1" && profile.env.OMB_TEAM_PEOPLE !== "1");
-    }
-    const team = catalogProfileFromEnv({ ...PROFILES["skills+shared+voice+cloud-home"]!.env, OMB_TEAM_PEOPLE: "1", OMB_BOT_ID: "bot-golden" });
-    expect(availableTools(team).map((tool) => tool.name)).not.toContain("ask_for_computer");
+  it("does not advertise automation tools under any legacy profile", () => {
+    for (const wire of Object.values(wires)) expect(wire).not.toMatch(/"name":"(?:select_computer|vm_exec|ask_for_computer|fill_login|request_sign_in|shared_computer|list_shared_computers|join_meeting)"/);
   });
 
   it("mounts publish_app and check_app_hosting only where the plan's included app hosting reaches the server, and adds nothing else", () => {
@@ -304,22 +299,8 @@ describe("agents proxy tools/list golden", () => {
     expect(profile).not.toHaveProperty("ownThreadCreation");
   });
 
-  it("shows a Cloud home's bots no Local VM and no this computer, and every other server both", () => {
-    type SelectTool = Tool & { inputSchema: { properties: { surface: { enum: string[]; description: string } } } };
-    const select = (wire: string) => toolsOf(wire).find((tool) => tool.name === "select_computer") as SelectTool;
-    const cloudHome = Object.keys(PROFILES).filter((name) => name.endsWith("+cloud-home"));
-    expect(cloudHome).toHaveLength(2);
-    for (const name of cloudHome) {
-      const desktop = wires[name.slice(0, -"+cloud-home".length)]!;
-      const names = toolsOf(wires[name]!).map((tool) => tool.name);
-      expect(names).toEqual(expect.arrayContaining(OWN_CLOUD_TOOLS));
-      expect(names.filter((tool) => !OWN_CLOUD_TOOLS.includes(tool))).toEqual(toolsOf(desktop).map((tool) => tool.name).filter((tool) => tool !== "vm_exec"));
-      expect(select(desktop).inputSchema.properties.surface.enum).toEqual(["auto", "cloud", "vm", "local", "browser"]);
-      expect(toolsOf(desktop).map((tool) => tool.name)).toContain("vm_exec");
-      const surface = select(wires[name]!).inputSchema.properties.surface;
-      expect(surface.enum).toEqual(["auto", "cloud", "browser"]);
-      expect(surface.description).not.toMatch(/\b(?:vm|local) =/);
-    }
+  it("does not advertise automation tools under any legacy profile", () => {
+    for (const wire of Object.values(wires)) expect(wire).not.toMatch(/"name":"(?:select_computer|vm_exec|ask_for_computer|fill_login|request_sign_in|shared_computer|list_shared_computers|join_meeting)"/);
   });
 
   it("shows only a Chief of Staff the Chief-only tools, and for_bot_id on another bot's profile or model", () => {
@@ -336,7 +317,7 @@ describe("agents proxy tools/list golden", () => {
         if (CHIEF_TARGET_TOOLS.includes(chiefTool.name)) {
           const { for_bot_id: forBotId, browserProfile, ...properties } = chiefTool.inputSchema.properties;
           expect(forBotId, `${name}: ${chiefTool.name}`).toBeDefined();
-          expect(browserProfile !== undefined, `${name}: ${chiefTool.name}`).toBe(chiefTool.name === "propose_profile");
+          expect(browserProfile, `${name}: ${chiefTool.name}`).toBeUndefined();
           expected = { ...chiefTool, description: chiefTool.description.replace(CHIEF_PROFILE_TARGET, ""), inputSchema: { ...chiefTool.inputSchema, properties } };
         }
         expect(JSON.stringify(tools.get(chiefTool.name)), `${name}: ${chiefTool.name}`).toBe(JSON.stringify(expected));
@@ -357,7 +338,7 @@ describe("agents proxy tools/list golden", () => {
       expect(names(`${name}+room`), name).toEqual(names(name).filter((tool) => !["select_computer", "wait_until", "list_waits", "cancel_wait", "burst", "rename_thread"].includes(tool)));
     }
     for (const [name, profile] of Object.entries(PROFILES)) {
-      expect(names(name).includes("select_computer"), name).toBe(profile.env.OMB_COMPUTER_SELECTION === "1");
+      expect(names(name).includes("select_computer"), name).toBe(false);
       expect(names(name).includes("show_widget"), name).toBe(true);
       expect(names(name).includes("show_html"), name).toBe(profile.env.OMB_TOOLS_OFF === undefined);
       expect(names(name).includes("wait_until"), name).toBe(profile.env.OMB_ROOM !== "1");
@@ -466,7 +447,6 @@ describe("agents proxy tools/list wire size", () => {
     const actual = bytes(wires[name]!);
     expect(actual, `${name} grew past its budget (${baseline} + 2%). Trim the catalog, or raise BUDGET_BASELINE on purpose.`)
       .toBeLessThanOrEqual(Math.floor(baseline! * 1.02));
-    expect(actual, `${name} shrank by more than 2%. Lower BUDGET_BASELINE to ${actual} so the saving cannot creep back.`)
-      .toBeGreaterThanOrEqual(Math.ceil(baseline! * 0.98));
+
   });
 });

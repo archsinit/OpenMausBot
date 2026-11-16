@@ -2026,10 +2026,10 @@ export const ClaudeDriver: ProviderDriver<ClaudeConfig> = {
           guestTurns: "confined",
           agentsMcp: true,
         customMcp: true,
-          computerMcp: true,
+          computerMcp: false,
           composioMcp: true, mcpToolsFoundByName: true,
           phoneMcp: true,
-          browserMcp: true,
+          browserMcp: false,
           dataMcp: true, emailMcp: true, deviceMcp: true,
           images: true,
           nativeImageInput: true,
@@ -2041,7 +2041,7 @@ export const ClaudeDriver: ProviderDriver<ClaudeConfig> = {
           get strictResume() {
             return cliVersionChecked && cliVersion !== null && claudeCliSupports(cliVersion, "--system-prompt-snapshot");
           },
-          localComputerMcp: true,
+          localComputerMcp: false,
           hooks: true, askTool: { kind: "mcp", server: "ogb", name: "ask_user" },
         },
         sendTurn: (turn) => authRecovery.send(turn, sendTurn),

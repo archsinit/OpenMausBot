@@ -8,7 +8,6 @@ import { AdminOnly } from "../../AdminOnly";
 import { AutomaticRecoverySettings } from "../../AutomaticRecoverySettings";
 import { AwayEmailsSetting } from "../../AwayEmailsSetting";
 import { PausedBotsButton } from "../../AwakeBotsPicker";
-import { BrowserProxyRow, BuiltInBrowserRow, NewBrowserSettings, ServerSitesRow } from "../../BrowserSettingsRows";
 import { CacheKeepWarmSettings } from "../../CacheKeepWarmSettings";
 import { TeamPeopleCard } from "../../CloudAccountSettings";
 import { CloudKeepHere } from "../../CloudKeepHere";
@@ -18,21 +17,18 @@ import { DecisionModelSettings } from "../../DecisionModelSettings";
 import { DefaultBotSidebarRow } from "../../DefaultBotControls";
 import { EnginesSettings } from "../../EnginesSettings";
 import { ImageGenerationSettings } from "../../ImageGenerationSettings";
-import { LocalComputerSection } from "../../LocalComputerSection";
 import { McpCallTimeoutSettings } from "../../McpCallTimeoutSettings";
 import { DefaultBotSettings } from "../../NewBotDialog";
 import { PlaceLookRows } from "../../PlaceLookCard";
 import { ProfileFields } from "../../ProfileSettings";
 import { RoomTurnTimeoutSettings } from "../../RoomTurnTimeoutSettings";
-import { SavedStepsRow } from "../../SavedStepsRow";
-import { Card, SettingRow, SettingsDisclosureRow, SettingsFoldRow, SettingsGroup, SettingsLinkRow, SettingsRows } from "../../SettingsPrimitives";
+import { Card, SettingRow, SettingsFoldRow, SettingsGroup, SettingsLinkRow, SettingsRows } from "../../SettingsPrimitives";
 import { KEY_SECTIONS } from "../../keys/key-catalog";
-import { DesktopKinds } from "../DesktopKinds";
 import { SkillsSection } from "../../SkillsSection";
 import { ThreadConcurrencySettings } from "../../ThreadConcurrencySettings";
 import { usePhonePlaceState } from "../phone-status";
 import { KeysPage } from "../../keys/KeysPage";
-import { BrowserProfilesRow, ExperimentalFeaturesRow, NewBotEffortRow } from "../../AppSettingsRows";
+import { ExperimentalFeaturesRow, NewBotEffortRow } from "../../AppSettingsRows";
 import { ServerUpdateRow } from "../../ServerUpdateRow";
 import { versionLine } from "../settings-context";
 import { useSettingsShell } from "../settings-shell";
@@ -172,27 +168,6 @@ export function BotsPage() {
     </SettingsGroup></AdvancedSection>}
     {skillsLibraryEnabled(state.config) && <div data-settings-block="skills"><SkillsSection /></div>}
     <AdvancedSection anchor="early"><div data-settings-block="early"><ExperimentalFeaturesRow /></div></AdvancedSection>
-  </>;
-}
-
-export function DesktopsPage() {
-  const { ctx, anchor } = useSettingsShell();
-  const [details, setDetails] = useState(anchor === "desktop-details");
-  return <>
-    <SettingsGroup label={t("settings.desktops.browserSection")} block="browser">
-      <SettingsRows><BuiltInBrowserRow /><ServerSitesRow /><BrowserProxyRow />{ctx.advanced && <div data-settings-block="new-browser" className="contents"><NewBrowserSettings /></div>}</SettingsRows>
-    </SettingsGroup>
-    <AdminOnly><DesktopKinds /></AdminOnly>
-    <BrowserProfilesRow />
-    {ctx.advanced && (
-      <AdminOnly>
-        <SettingsDisclosureRow id="desktop-details" block="desktop-details" title={t("settings.desktops.detailsTitle")} subtitle={t("settings.desktops.detailsLine")}
-          open={details} onToggle={() => setDetails((open) => !open)}>
-          <div className="flex flex-col gap-6 px-4 py-4"><LocalComputerSection /></div>
-        </SettingsDisclosureRow>
-      </AdminOnly>
-    )}
-    <AdvancedSection anchor="automation"><SettingsGroup label={t("settings.desktops.automation")} block="automation"><SettingsRows><SavedStepsRow /></SettingsRows></SettingsGroup></AdvancedSection>
   </>;
 }
 

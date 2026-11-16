@@ -1,3 +1,4 @@
+import { withoutRetiredAutomation } from "./retired-automation.ts";
 import type { CloudComputerAnswering } from "../../shared/cloud-computer-recovery.ts";
 import { boatIdOf } from "../boat.ts";
 import { boatHealth, type BoatHealth } from "../boat-health.ts";
@@ -35,7 +36,7 @@ export function cloudComputerAnswering(
 /** GET and POST /api/bots/:id/computer/recovery: what MausBot is doing about a bot's cloud computer that stopped answering,
  * whether it answers now, and the computer panel's Restart computer and Replace computer. Admin-only like every computer route. */
 export function createCloudComputerRecoveryRoutes(deps: CloudComputerRecoveryRouteDeps): RouteHandler {
-  return async ({ req, res, path, method, json, readBody }) => {
+  return withoutRetiredAutomation(async ({ req, res, path, method, json, readBody }) => {
     const m = path.match(/^\/api\/bots\/([\w-]+)\/computer\/recovery$/);
     if (!m || (method !== "GET" && method !== "POST")) return PASS;
     const bot = deps.store.bot(m[1]!);
@@ -64,5 +65,5 @@ export function createCloudComputerRecoveryRoutes(deps: CloudComputerRecoveryRou
       release();
       deps.cloudComputerUsed(owner);
     }
-  };
+  });
 }

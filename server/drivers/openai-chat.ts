@@ -948,9 +948,9 @@ export function createOpenAIChatRuntime<Config>(options: RuntimeOptions<Config>)
     },
     adapter: {
       provider: options.driverKind,
-      capabilities: { ...(options.computerUse ? { computerMcp: options.tools !== false,
-        localComputerMcp: options.tools !== false,
-        browserMcp: options.tools !== false, nativeImageInput: true, images: true } : {}),
+      capabilities: { ...(options.computerUse ? { computerMcp: false,
+        localComputerMcp: false,
+        browserMcp: false, nativeImageInput: true, images: true } : {}),
         ...(options.modelVariants ? { modelVariants: true } : {}), sessionModelSwitch: "in-session", customMcp: options.tools !== false, agentsMcp: options.tools !== false, composioMcp: options.tools !== false,
         dataMcp: options.tools !== false,
         emailMcp: options.tools !== false,

@@ -17,6 +17,7 @@ import {
 } from "./endpoints.ts";
 import {
   denyReason,
+  isRetiredAutomationPath,
   isBrowserControlAccess,
   isCloudDesktopAccess,
   isMessageFileDownload,
@@ -422,9 +423,8 @@ export function createProxyHandler(options: ProxyOptions) {
         error: "browser control is off for this device — enable it in Remote access settings on the host computer",
       };
     };
-    if (viewers.isViewerPath(req.url)) {
-      viewers.handleHttp(req, res, device);
-      return;
+    if (viewers.isViewerPath(req.url) || isRetiredAutomationPath(path)) {
+      return sendJson(res, 410, { error: "Desktop and browser automation is unsupported" });
     }
     const denial = denyReason({
       path,
@@ -793,7 +793,7 @@ export function createProxyHandler(options: ProxyOptions) {
     req.pipe(upstream);
   };
 
-  handle.upgrade = (req: IncomingMessage, socket: Duplex, head: Buffer, listener: ProxyListener = "lan"): void => {
+  handle.upgrade = (req: IncomingMessage, socket: Duplex, _head: Buffer, listener: ProxyListener = "lan"): void => {
     if (req.headers.origin) {
       socket.destroy();
       return;
@@ -809,7 +809,7 @@ export function createProxyHandler(options: ProxyOptions) {
       socket.destroy();
       return;
     }
-    viewers.handleUpgrade(req, socket, head, device);
+    socket.end("HTTP/1.1 410 Gone\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
   };
   handle.closeViewers = (): void => viewers.closeAll();
   /** The endpoint list again, as an event on every event stream the device holds: a phone hears a change of where it

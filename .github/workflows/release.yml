@@ -212,24 +212,9 @@ jobs:
             bin_team=$(codesign -dv --verbose=4 "$bin" 2>&1 | sed -n 's/^TeamIdentifier=//p')
             test -n "$app_team" && test "$bin_team" = "$app_team" || {
               echo "::error::cloudflared is not signed by the app's Developer ID team in $app"; exit 1; }
-            for browser_bin in "$app/Contents/Resources/browser-engine/agent-browser" "$app/Contents/Resources/browser-engine/chrome/"*/chrome-headless-shell; do
-              test -x "$browser_bin"
-              codesign --verify --strict "$browser_bin"
-              browser_team=$(codesign -dv --verbose=4 "$browser_bin" 2>&1 | sed -n 's/^TeamIdentifier=//p')
-              test "$browser_team" = "$app_team" || { echo "::error::browser runtime has the wrong signing team"; exit 1; }
-            done
+            node --input-type=module -e 'import { existsSync } from "node:fs"; import { join } from "node:path"; for (const name of ["browser-engine", "cua-driver", "cua-driver.exe", "cua-sdk"]) { if (existsSync(join(process.argv[1], name))) throw new Error("Retired automation resource: " + name); }' "$app/Contents/Resources"
             echo "ok: $app"
           done
-
-      - name: "Gate: signed native browser works with an empty home"
-        run: |
-          case "$(node -p process.arch)" in
-            arm64) resources="$PWD/release/mac-arm64/OpenMausBot.app/Contents/Resources" ;;
-            x64) resources="$PWD/release/mac/OpenMausBot.app/Contents/Resources" ;;
-            *) exit 1 ;;
-          esac
-          node scripts/smoke-browser-bundle.mjs --resources "$resources"
-          OMB_SMOKE_DIST="$resources/server" node scripts/smoke-packaged-server.mjs --browser-bundle "$resources/browser-engine"
 
       - name: "Gate: both packaged servers start and every helper path resolves"
         run: |
@@ -260,8 +245,7 @@ jobs:
             expected_arch=x86_64
             case "$app" in *mac-arm64*) expected_arch=arm64 ;; esac
             cloudflared="$res/cloudflared/cloudflared"
-            for bin in "$res/cua-driver" "$res/cua-sdk/native/libcua_driver_sdk.dylib" \
-              "$res/cua-sdk/native/cua_driver_node_runtime.node" "$res/android-platform-tools/darwin/adb" "$cloudflared"; do
+            for bin in "$res/android-platform-tools/darwin/adb" "$cloudflared"; do
               test "$(lipo -archs "$bin")" = "$expected_arch" || {
                 echo "::error::$bin is not the expected $expected_arch executable"; exit 1; }
             done
@@ -369,12 +353,13 @@ jobs:
         shell: bash
         run: rm -rf dist dist-server release
       - run: pnpm package:win
-      - name: "Gate: bundled browser works with an empty home"
-        run: node scripts/smoke-browser-bundle.mjs --resources "${{ github.workspace }}/release/win-unpacked/resources"
-      - name: "Gate: packaged Windows server discovers its browser"
+      - name: Verify automation resources are absent
+        run: >-
+          node --input-type=module -e 'import { existsSync } from "node:fs"; import { join } from "node:path"; for (const name of ["browser-engine", "cua-driver", "cua-driver.exe", "cua-sdk"]) { if (existsSync(join(process.argv[1], name))) throw new Error("Retired automation resource: " + name); }' "${{ github.workspace }}/release/win-unpacked/resources"
+      - name: Verify the packaged server starts
         env:
           OMB_SMOKE_DIST: ${{ github.workspace }}/release/win-unpacked/resources/server
-        run: node scripts/smoke-packaged-server.mjs --browser-bundle "${{ github.workspace }}/release/win-unpacked/resources/browser-engine"
+        run: node scripts/smoke-packaged-server.mjs
       - name: Verify the packaged tree and start the packaged server
         shell: bash
         run: |
@@ -446,10 +431,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Clean generated output
         run: pnpm clean
-      - name: Stage the pinned CUA runtime
-        run: pnpm build:cua:linux
-      - name: Prove overlay-free X11 input routing
-        run: dbus-run-session -- xvfb-run -a pnpm smoke:cua-x11-input
       - run: pnpm package:linux
       - name: Verify the packaged updater target
         run: |
@@ -479,12 +460,13 @@ jobs:
           sudo chown root:root release/linux-unpacked/chrome-sandbox
           sudo chmod 4755 release/linux-unpacked/chrome-sandbox
           test "$(stat -c '%U:%G %a' release/linux-unpacked/chrome-sandbox)" = "root:root 4755"
-      - name: "Gate: installed browser works with Ubuntu sandbox restrictions"
-        run: node scripts/smoke-browser-bundle.mjs --resources /opt/OpenMausBot/resources
-      - name: "Gate: packaged Linux server discovers its browser"
+      - name: Verify automation resources are absent
+        run: >-
+          node --input-type=module -e 'import { existsSync } from "node:fs"; import { join } from "node:path"; for (const name of ["browser-engine", "cua-driver", "cua-driver.exe", "cua-sdk"]) { if (existsSync(join(process.argv[1], name))) throw new Error("Retired automation resource: " + name); }' /opt/OpenMausBot/resources
+      - name: Verify the packaged server starts
         env:
           OMB_SMOKE_DIST: /opt/OpenMausBot/resources/server
-        run: node scripts/smoke-packaged-server.mjs --browser-bundle /opt/OpenMausBot/resources/browser-engine
+        run: node scripts/smoke-packaged-server.mjs
       - name: "Gate: packaged server and phone helper load as ES modules"
         run: node scripts/check-module-scopes.mjs /opt/OpenMausBot/resources
       - name: Smoke the packages

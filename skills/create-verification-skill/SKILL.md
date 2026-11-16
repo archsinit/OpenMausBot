@@ -15,8 +15,8 @@ Use the tools already mounted on this bot to establish:
 
 - the exact project or app being verified;
 - its existing launch command and reliable ready signal;
-- the safest available control surface: existing project CLI, browser,
-  computer, phone, or shell;
+- the safest available control surface: an existing project CLI, API,
+  phone, or shell;
 - one read-only health check;
 - up to three important user workflows and the observable result that proves
   each one worked;

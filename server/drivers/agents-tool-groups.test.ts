@@ -79,6 +79,7 @@ describe("tool groups on the agents server", () => {
       bytes[group] = full.filter((tool) => TOOL_GROUP_MEMBERS[group].tools.has(tool.name)).reduce((sum, tool) => sum + JSON.stringify(tool).length, 0);
     }
     for (const group of TOOL_GROUPS) {
+      if (group === "meetings") { expect(bytes[group]).toBe(0); continue; }
       const tokens = bytes[group] / 4;
       expect(TOOL_GROUP_TOKENS[group], `${group}: about ${Math.round(tokens)}`).toBeGreaterThan(tokens * 0.8);
       expect(TOOL_GROUP_TOKENS[group], `${group}: about ${Math.round(tokens)}`).toBeLessThan(tokens * 1.25);

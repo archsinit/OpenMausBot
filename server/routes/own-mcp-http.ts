@@ -3,6 +3,7 @@
 // process per server in every session. The turn's capability rides the Authorization header, and the endpoints behind
 // these answers check it, as they check the stdio proxies'.
 import type { IncomingHttpHeaders } from "node:http";
+import { isRetiredAutomationPath, RETIRED_AUTOMATION_ERROR } from "./retired-automation.ts";
 
 import { agentsMcp } from "../drivers/agents-mcp.ts";
 import { AGENTS_MCP_ENV } from "../drivers/agents-mcp-env.ts";
@@ -26,6 +27,7 @@ function agentsEnv(headers: IncomingHttpHeaders, token: string, harness: string)
 }
 
 export async function ownMcpHttpRoutes({ req, res, path, method, json, readBody }: RouteContext): ReturnType<RouteHandler> {
+  if (isRetiredAutomationPath(path)) return json(res, 410, RETIRED_AUTOMATION_ERROR);
   if (!path.startsWith(OWN_MCP_HTTP_PATH)) return PASS;
   const name = path.slice(OWN_MCP_HTTP_PATH.length);
   const kind = name === "agents" ? "agents" : parseHarnessMcpKind(name);

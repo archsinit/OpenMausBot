@@ -77,14 +77,11 @@ describe("what a bridged turn is listed", () => {
       "coordinate_bots",
       "list_bots",
       "list_rooms",
-      "select_computer",
       "attach_file",
       "publish_page",
       "post_to_room",
       "post_to_thread",
       "request_credential",
-      "request_sign_in",
-      "fill_login",
       "message_person",
       "memory_update",
       FIND_TOOL,
@@ -98,14 +95,11 @@ describe("what a bridged turn is listed", () => {
       "coordinate_bots",
       "list_bots",
       "list_rooms",
-      "select_computer",
       "attach_file",
       "publish_page",
       "post_to_room",
       "post_to_thread",
       "request_credential",
-      "request_sign_in",
-      "fill_login",
       "send_voice_note",
       "message_person",
       "memory_update",
@@ -121,7 +115,7 @@ describe("what a bridged turn is listed", () => {
     for (const { name, profile: turn } of everyProfile()) {
       const tools = availableTools(turn);
       const hot = createToolBridge(tools as BridgeTool[]).listed.length - 2;
-      expect(hot, name).toBeGreaterThanOrEqual(12);
+      expect(hot, name).toBeGreaterThanOrEqual(9);
       expect(hot, name).toBeLessThanOrEqual(16);
       expect(hot, name).toBeLessThan(tools.length / 2);
     }
@@ -259,7 +253,6 @@ describe("find_tool", () => {
     ["switch this bot to a different model", "propose_model"],
     ["search my earlier conversations", "session_search"],
     ["delete one of my routines for good", "delete_trigger"],
-    ["run a shell command in the VM", "vm_exec"],
     ["add an MCP server", "mcp_server"],
     ["see how the threads I opened are going", "list_threads"],
     ["write a line to today's log", "memory_log"],
@@ -267,7 +260,6 @@ describe("find_tool", () => {
     ["save this procedure as a reusable skill", "skill_manage"],
     ["create a new specialist bot", "create_bot"],
     ["rename a room or change its members", "manage_room"],
-    ["use the desktop the user shared", "shared_computer"],
     ["open a separate job for each pull request", "start_thread"],
     ["read the whole message from an old conversation", "session_search"],
     ["retry the failed thread", "retry_thread"],
@@ -285,7 +277,6 @@ describe("find_tool", () => {
     // delete_trigger shares the word
     ["delete a teammate", "propose_bot_deletion"],
     ["my skills", "skills_list"],
-    ["computers shared with this workspace", "list_shared_computers"],
   ])("returns the hidden tool among its few matches for a looser request: %s", async (query, expected) => {
     expect(names((await found(bridgeFor(FULL_CHIEF), query)).matches)).toContain(expected);
   });
@@ -353,11 +344,11 @@ describe("find_tool", () => {
     }
     // and a Cloud home, which has no Local VM, cannot find its shell
     expect(names((await found(bridgeFor({ cloudHome: true }), "run a shell command in the VM")).matches)).not.toContain("vm_exec");
-    expect(names((await found(bridgeFor(), "run a shell command in the VM")).matches)).toContain("vm_exec");
+    expect(names((await found(bridgeFor(), "run a shell command in the VM")).matches)).not.toContain("vm_exec");
   });
 
   it("points at the tool list for a tool that is already in it", async () => {
-    for (const listed of ["post_to_room", "list_bots", "select_computer"]) {
+    for (const listed of ["post_to_room", "list_bots", "request_credential"]) {
       const answer = await bridgeFor().find({ query: listed });
       expect(answer.isError).toBeFalsy();
       expect(answer.text).toBe(`${listed} is in your tool list: call it directly.`);
@@ -409,7 +400,7 @@ describe("use_tool", () => {
   it("names a tool outside this turn's profile for the front end to refuse as it refuses a direct call", () => {
     // No answer of its own: the proxy's one unknown-tool check rejects it,
     // in the same words as a direct call.
-    for (const name of ["made_up", "create_bot", "skill_manage", "shared_computer", "send_voice_note", "create_options_card", FIND_TOOL, USE_TOOL]) {
+    for (const name of ["made_up", "create_bot", "skill_manage", "send_voice_note", "create_options_card", FIND_TOOL, USE_TOOL]) {
       expect(bridgeFor().use({ name, arguments: { anything: true } }), name).toEqual({ name, arguments: { anything: true } });
     }
   });

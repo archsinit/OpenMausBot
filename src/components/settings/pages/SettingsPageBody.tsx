@@ -3,14 +3,14 @@ import { AccountPage, PlanPage } from "./AccountPages";
 import { AppPage, AppearancePage, GeneralPage } from "./AppPages";
 import { DataPage, ImportExportPage, InstallationsPage, PeoplePage, SpendingPage, VaultPage } from "./DataPages";
 import { PhonePage } from "./PhonePage";
-import { AiPage, BotsPage, DesktopsPage, OverviewPage } from "./PlacePages";
+import { AiPage, BotsPage, OverviewPage } from "./PlacePages";
 
 const PAGES: Record<SettingsPageId, () => React.ReactNode> = {
   overview: OverviewPage,
   phone: PhonePage,
   ai: AiPage,
   bots: BotsPage,
-  desktops: DesktopsPage,
+  desktops: OverviewPage,
   vault: VaultPage,
   usage: SpendingPage,
   transfer: ImportExportPage,

@@ -59,8 +59,8 @@ export interface SavedSteps {
   observe(event: RuntimeEvent): void;
 }
 
-export function savedStepsEnabled(cfg: Pick<AppConfig, "features">): boolean {
-  return cfg.features?.savedSteps !== false;
+export function savedStepsEnabled(_cfg: Pick<AppConfig, "features">): boolean {
+  return false;
 }
 
 const keepsFromSaving = (event: RuntimeEvent): boolean =>

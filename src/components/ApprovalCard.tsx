@@ -17,7 +17,6 @@ import { cardAutomation } from "@/lib/automations";
 import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
 import { useCloudGuest } from "@/lib/cloud-guest";
 import { yourComputerAsk } from "@/lib/your-computer";
-import { computerAskWords } from "@/lib/computer-ask";
 import { mcpRequestActionLabel } from "@/lib/mcp-request-label";
 import { TriggerCard } from "./TriggerCard";
 import { CardHint } from "./CardHint";
@@ -457,7 +456,7 @@ export function ApprovalCard({
   threadId?: string;
 }) {
   const card = message.card;
-  if (!card) return null;
+  if (!card || card.computerAsk || card.yourComputer || card.approvalScope === "local-computer") return null;
   if (cardAutomation(card)) return <TriggerCard card={card} threadId={threadId} />;
   const applied = card.autoApplied === true && card.answered === "allow" && !card.held
     ? appliedChange(card, bot?.name ?? t("approval.someone"))
@@ -495,17 +494,6 @@ export function ApprovalCard({
         })
     : undefined;
 
-  const turnOn = computerAskWords(card, bot?.name ?? t("approval.someone"));
-  if (turnOn) {
-    const state = card.computerAsk?.state;
-    const waiting = state === "asking" || state === "failed";
-    return (
-      <div data-computer-ask={state} className="w-full">
-        <CompactApprovalRow header={turnOn.line} summary={waiting ? turnOn.reason : undefined} detail="" showDetailInline={false} outcome={turnOn.outcome}
-          allowed={state === "on" || state === "turning-on"} byVoice={byVoice} waiting={waiting} answeredBelow={waiting && !card.dismissed} />
-      </div>
-    );
-  }
   if (!isRoutineRequest && !isSkillRequest && !isProfileRequest && !titled && !card.modelRequest) {
     const waiting = !settled && !expired;
     const ask = yourComputerAsk(card, bot?.name ?? t("approval.someone"));
