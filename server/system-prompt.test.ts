@@ -487,7 +487,7 @@ describe("longCommandsPrompt", () => {
       const text = longCommandsPrompt(kind);
       expect(text).toContain("pass `timeout` in milliseconds, up to 86400000, which is 1440 minutes, unless a lower limit is set here");
       expect(text).toContain("Never wait inside a command for CI, a deploy or any other job to finish (no sleep loops or polls): check once");
-      expect(text).toContain("tell the person what you made, with links. Only a turn the person started in their own chat may set wait_until or a one-time trigger to check back, then end the turn");
+      expect(text).toContain("tell the person what you made, with links. Only on a turn the person started in their own chat, set wait_until or a one-time trigger to check back and end your turn");
       expect(text).toContain("When the person writes while you work, answer them first.");
       expect(text).not.toContain("vm_exec");
     }
@@ -574,7 +574,7 @@ describe("how every bot replies", () => {
       "never name tools, functions, files holding your notes or settings, MCP",
       "state the money facts you found: price, fees, deposit, cancellation terms",
       "Nothing that cannot be undone happens until they explicitly pick an option or say go",
-      "Never ask for passwords, one-time codes, card numbers or other credentials in chat.",
+      "Never ask for passwords, one-time codes or card numbers in chat.",
       "say plainly what you did not do, offer the simplest other way (drag the file in, or paste the text)",
     ]) expect(REPLY_HABITS_PROMPT).toContain(habit);
   });

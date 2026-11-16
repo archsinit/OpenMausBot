@@ -678,21 +678,23 @@ describe("workspace", () => {
   });
 
   // The rules sit in the cached half of a turn's system prompt and the notes in its volatile half: the rules must hold
-  // nothing that changes from turn to turn, and the two together must be what memorySystemPrompt always said.
+  // nothing that changes from turn to turn, and the two together are what memorySystemPrompt says (which, in one piece,
+  // leaves a refused turn's rules out).
   it("splits into standing rules and what memory holds now, which together are the whole memory prompt", () => {
     writeMemoryTopic(BOT, "trip.md", "---\ntitle: Trip\n---\n- Flies Friday\n");
     writeMemoryFile(BOT, "- The owner likes figs.");
-    for (const opts of [{}, { managedWrites: true }, { managedWrites: true, fileTools: false }, { fileTools: false }, { managedWrites: true, writesRefused: true }, { enabled: false }]) {
+    for (const opts of [{}, { managedWrites: true }, { managedWrites: true, fileTools: false }, { fileTools: false }, { managedWrites: true, writesRefused: true }, { enabled: false }] as Array<{ writesRefused?: boolean }>) {
       const rules = memoryRulesPrompt(BOT, opts), notes = memoryNotesPrompt(BOT, opts);
-      expect(rules + notes, JSON.stringify(opts)).toBe(memorySystemPrompt(BOT, opts));
+      expect((opts.writesRefused ? "" : rules) + notes, JSON.stringify(opts)).toBe(memorySystemPrompt(BOT, opts));
       expect(rules, JSON.stringify(opts)).not.toMatch(/figs|Flies Friday|trip\.md|Your memory \(MEMORY\.md\)/);
     }
     expect(memoryRulesPrompt(BOT, { managedWrites: true })).toContain("Change MEMORY.md only with memory_update.");
     expect(memoryNotesPrompt(BOT, { managedWrites: true })).toContain("The owner likes figs.");
     expect(memoryNotesPrompt(BOT, { managedWrites: true })).toContain("- memory/trip.md");
-    // A turn whose notes would be refused gets no write rules, only where its facts go.
-    expect(memoryRulesPrompt(BOT, { managedWrites: true, writesRefused: true })).toBe("");
+    // A refusal can change from turn to turn, so it never changes the cached rules: the turn's notes override them.
+    expect(memoryRulesPrompt(BOT, { managedWrites: true, writesRefused: true })).toBe(memoryRulesPrompt(BOT, { managedWrites: true }));
     expect(memoryNotesPrompt(BOT, { managedWrites: true, writesRefused: true })).toContain("Notes cannot be saved from this conversation");
+    expect(memoryNotesPrompt(BOT, { managedWrites: true, writesRefused: true })).toContain("Whatever your memory instructions say, do not call memory_update");
     // With no way to write, the saved memory is context only, all of it in the notes.
     expect(memoryRulesPrompt(BOT, { fileTools: false })).toBe("");
     expect(memoryNotesPrompt(BOT, { fileTools: false })).toContain("this turn has no memory editing tools");

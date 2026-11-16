@@ -559,24 +559,26 @@ export function memoryTopicIndex(botId: string): string {
 }
 
 export const REMEMBER_AND_FORGET =
-  " Asked to remember something, save it now with memory_update append, one fact per call, as a plain statement about them, then confirm in one short line of their words." +
+  " When the person asks you to remember something, save it now with memory_update append, one fact per call, as a plain statement about them, then confirm in one short line of their words." +
   " When it changes or replaces an entry already in your memory, use memory_update supersede on that old entry instead of append, carrying into the new text whatever in the old entry still holds (pass its until date again if it still applies), so your memory never keeps both." +
-  " Asked to forget something, call memory_update with action forget and a few words that name it, once per thing: it leaves your notes, topic notes and About me and is not learned again; confirm in one plain line." +
+  " When the person asks you to forget something, call memory_update with action forget and a few words that name it, once per thing: it leaves your notes, topic notes and About me and is not learned again; confirm in one plain line." +
   " A standing preference for all their bots (where reminders go, how replies should sound) is saved once with memory_update action prefer, one line in their About me that every bot reads. Never pass it on to each bot.";
 
+/** In the volatile half beside the stable memory rules, which it overrides for the turn. */
 const NOTES_IN_RESULT =
   " Notes cannot be saved from this conversation: on this Cloud only a conversation that only its owner writes in may change memory, and another bot or person wrote here." +
-  " Do not call memory_update or memory_log or edit memory files. Put any fact worth keeping in your reply; for work another bot handed you, in your result to that bot.";
+  " Whatever your memory instructions say, do not call memory_update or memory_log or edit memory files this turn. Put any fact worth keeping in your reply; for work another bot handed you, in your result to that bot.";
 
 type MemoryPromptOptions = { managedWrites?: boolean; fileTools?: boolean; enabled?: boolean; writesRefused?: boolean };
 
 const memoryReadOnly = (opts: MemoryPromptOptions): boolean => opts.fileTools === false && !opts.managedWrites;
 
 /** How this bot keeps memory: the same for every turn of a conversation, so it belongs in the cached half of the system
- * prompt. Empty when memory is off or the turn cannot write it: a conversation whose notes are refused (`writesRefused`,
- * which stays so once someone else has written in it) is told where facts go instead, by memoryNotesPrompt. */
+ * prompt. Empty when memory is off or the bot has no way to write it. It ignores `writesRefused`, which can change from
+ * turn to turn: a refused turn is told in the volatile half (memoryNotesPrompt) not to write, overriding these rules, so
+ * a refusal never changes the cached prefix or relaunches the engine. */
 export function memoryRulesPrompt(botId: string, opts: MemoryPromptOptions = {}): string {
-  if (opts.enabled === false || opts.writesRefused || memoryReadOnly(opts)) return "";
+  if (opts.enabled === false || memoryReadOnly(opts)) return "";
   const memoryFile = join(workspaceDir(botId), "MEMORY.md");
   const topicDir = join(workspaceDir(botId), "memory");
   const writeGuidance = opts.managedWrites
@@ -606,10 +608,11 @@ export function memoryNotesPrompt(botId: string, opts: MemoryPromptOptions = {})
 }
 
 /** Memory is a prompt-injection persistence vector once a bot copies untrusted text into it.
- * `writesRefused`: this turn's notes would be refused, so it is told where facts go instead. The rules and the notes in one;
- * a turn's system prompt puts memoryRulesPrompt in its stable half and memoryNotesPrompt in its volatile half. */
+ * `writesRefused`: this turn's notes would be refused, so it is told where facts go instead, with no write rules. For a
+ * prompt in one piece; a turn's system prompt puts memoryRulesPrompt in its stable half (always, see there) and
+ * memoryNotesPrompt in its volatile half. */
 export function memorySystemPrompt(botId: string, opts: MemoryPromptOptions = {}): string {
-  return memoryRulesPrompt(botId, opts) + memoryNotesPrompt(botId, opts);
+  return (opts.writesRefused ? "" : memoryRulesPrompt(botId, opts)) + memoryNotesPrompt(botId, opts);
 }
 
 function topicIndexBlock(botId: string, fileTools: boolean): string {

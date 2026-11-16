@@ -8,6 +8,8 @@ import { volatileContextNote, withVolatileNote } from "./drivers/prompt-split.ts
 import { meetingsUnavailablePrompt } from "./meetings/prompt.ts";
 import { REPLY_HABITS_PROMPT } from "./reply-habits.ts";
 import { setupSystemPrompt } from "./setup-mode.ts";
+import { computerSelectionPrompt } from "./surface.ts";
+import { memoryRulesPrompt, workspaceDir } from "./workspace.ts";
 import {
   AGENTS_TOOL_BRIDGE_PROMPT, CREDENTIAL_PROMPT, PROFILE_PROMPT, SIGN_IN_PROMPT, TEAM_MEMORY_PROMPT, TRIGGER_PROMPT, botPersona, buildSystemPrompt,
   computerPrompt, longCommandsPrompt, type ComputerPromptKind, type PromptPart,
@@ -20,6 +22,8 @@ function directChatParts(setup: boolean): PromptPart[] {
   return [
     { id: "setup", label: "Setup", text: setupSystemPrompt(setup, { skills: true, connectedApps: { state: "available" } }) },
     { id: "meetings", label: "Meetings", text: meetingsUnavailablePrompt({ agentsTools: true, cloudComputer: false }) },
+    // Both used to ride the volatile note; they are the same every turn, so the stable half carries them now.
+    { id: "computer-selection", label: "Choosing a computer", text: computerSelectionPrompt() },
     { id: "credential", label: "Credentials", text: CREDENTIAL_PROMPT },
     { id: "routine", label: "Triggers", text: TRIGGER_PROMPT },
     { id: "profile", label: "Profile changes", text: PROFILE_PROMPT },
@@ -44,6 +48,8 @@ async function measured(): Promise<Record<string, number>> {
     "tool-bridge": bytes(AGENTS_TOOL_BRIDGE_PROMPT),
     "sign-in": bytes(SIGN_IN_PROMPT),
     "chief-of-staff": bytes(chief),
+    // The bot's own memory paths vary with the data folder, so they count as empty strings here.
+    "memory-rules": bytes(memoryRulesPrompt(BOT.id, { managedWrites: true }).replaceAll(JSON.stringify(workspaceDir(BOT.id)).slice(0, -1), "\"")),
     ...Object.fromEntries(directChatParts(true).map((part) => [part.id, bytes(part.text)])),
     ...Object.fromEntries(KINDS.map((kind) => [`computer:${kind}`, bytes(computerPrompt(kind) + longCommandsPrompt(kind))])),
     "claude:direct-chat": bytes(chat.stable),
@@ -56,28 +62,32 @@ async function measured(): Promise<Record<string, number>> {
   };
 }
 
-/** Bytes when the budget was last set. */
+/** Bytes when the budget was last set. The direct chat's stable half now also carries "computer-selection", and a bot's
+ * stable half "memory-rules" too (with its own paths), both moved out of the volatile note: 8,895 before the move and the
+ * rewording (when the two rode the note, about 3,800 more bytes per conversation), 8,389 + 2,048 after. */
 const PROMPT_BUDGET_BASELINE: Record<string, number> = {
-  "reply-habits": 2065,
+  "reply-habits": 2046,
   "tool-bridge": 593,
   "sign-in": 2552,
-  "chief-of-staff": 4798,
+  "chief-of-staff": 4856,
+  "memory-rules": 2048,
   "setup": 2396,
   "meetings": 294,
-  "credential": 840,
+  "computer-selection": 1269,
+  "credential": 895,
   "routine": 2624,
   "profile": 931,
   "team-memory": 286,
-  "computer:vm-private": 5436,
-  "computer:vm-shared": 5431,
-  "computer:box": 4035,
-  "computer:vps": 4679,
-  "computer:local": 4988,
-  "claude:direct-chat": 7084,
-  "claude:setup-chat": 9480,
+  "computer:vm-private": 5435,
+  "computer:vm-shared": 5430,
+  "computer:box": 4034,
+  "computer:vps": 4678,
+  "computer:local": 4987,
+  "claude:direct-chat": 8389,
+  "claude:setup-chat": 10785,
   "claude:volatile-note": 178,
-  "codex:direct-chat": 7084,
-  "codex:setup-chat": 9480,
+  "codex:direct-chat": 8389,
+  "codex:setup-chat": 10785,
   "codex:resumed-instructions": 213,
   "codex:volatile-note": 97,
 };
