@@ -9,9 +9,10 @@ export function createGracefulShutdown({
   cleanup,
   exit,
   timeoutMs = 6_000,
-}: GracefulShutdownOptions): () => void {
+}: GracefulShutdownOptions): (code?: number) => void {
   let started = false;
-  return () => {
+  /** `code`: what the process exits with once closed (server/crash-guard.ts passes CRASH_EXIT_CODE); 0 by default. */
+  return (code = 0) => {
     if (started) return;
     started = true;
 
@@ -25,7 +26,7 @@ export function createGracefulShutdown({
 
     void Promise.race([settled, deadline]).finally(() => {
       if (timer) clearTimeout(timer);
-      exit(0);
+      exit(code);
     });
   };
 }
