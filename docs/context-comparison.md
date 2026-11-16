@@ -1,5 +1,9 @@
 # Installed Pi first-request context comparison
 
+This records the first desktop/browser-removal deployment. For the subsequent
+phone/Data/helper removal and latest installed measurements, see
+[the second-phase results](lean-removal.md#installed-first-request-comparison).
+
 Implementation commit: `648c16157bbddfc58bc9751f03387cdd46f1ee3f`.
 Installed fork: `0.1.161-archsinit.1`, on `maus-desktop`.
 Pi stayed at `1.5.2`; model stayed `openai-codex/gpt-6.1-sol`, medium reasoning.
