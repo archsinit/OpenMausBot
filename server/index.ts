@@ -337,7 +337,7 @@ import { generateThreadTitle, llmThreadTitlesEnabled } from "./thread-title-gene
 import { engineCommandCpuMs, engineProcessExited, engineProcessGone, ENGINE_EXIT_STALL_MS, stallLimitMs, stallNotice, TurnWatchdog } from "./turn-watchdog.ts"; import { createIdleThreads } from "./host/idle-threads.ts";
 import { TurnResources, type TurnOwner } from "./turn-resources.ts";
 import { createPhoneHold } from "./phone-screen/hold.ts"; import { createPhoneGate } from "./routes/phone-gate.ts";
-import { endHoldUnlessOn, usbPhoneOffered, usbPhoneTakeoverEnabled } from "./phone-screen/flag.ts";
+import { endHoldUnlessOn, usbPhoneOffered, usbPhoneTakeoverEnabled } from "./phone-screen/flag.ts"; import { optionalMounts } from "./optional-mounts.ts";
 import { createPhoneScreenRoutes } from "./routes/phone-screen.ts";
 import {
   ensureWorkspace,
@@ -2404,7 +2404,7 @@ function dataExportRoots(bot: { id: string; cwd?: string }): string[] {
   const downloads = join(homedir(), "Downloads");
   return [...(existsSync(downloads) ? [downloads] : []), ...(bot.cwd ? [bot.cwd] : []), workspaceDir(bot.id)];
 }
-let dataUnavailableLogged = false;
+let dataUnavailableLogged = false; const optional = optionalMounts();
 function dataIntegration(botId: string, turn: { threadId: string; generation: string }) {
   const unavailable = dataEngine.unavailable(); if (serverTurnedOff(store.bot(botId)?.toolsOff, "data")) return null;
   if (unavailable !== null) {
@@ -7908,7 +7908,7 @@ async function beginTurn(
 
       const integrations: NonNullable<Parameters<typeof instance.adapter.sendTurn>[0]["integrations"]> = {};
       let browser: Awaited<ReturnType<typeof browserIntegration>> = null;
-      const skills = availableSkills(), phoneOffered = HAS_USB_PORT && usbPhoneOffered(instance, skills) && !proactive.fence.confines(threadId) && !botApiThread(threadId);
+      const skills = availableSkills(), phoneOffered = HAS_USB_PORT && usbPhoneOffered(instance, skills) && !proactive.fence.confines(threadId) && !botApiThread(threadId) && await optional.phone(threadId, providerText, skills);
       const selectedSkills = selectBundledSkills(
         providerText,
         [
@@ -8311,7 +8311,7 @@ async function beginTurn(
           description: liveBot?.description ?? bot.description,
           text: providerText,
         });
-      if (liveBot && instance.adapter.capabilities.dataMcp === true) {
+      if (liveBot && instance.adapter.capabilities.dataMcp === true && optional.data(bot.id, threadId, providerText)) {
         const data = dataIntegration(bot.id, { threadId, generation: dispatchClaimId });
         if (data) integrations.data = data;
       }
@@ -9777,7 +9777,7 @@ async function runClaimedGroupMemberTurn(
   );
   const roomContext = roomWindow.text;
   const turnImages = usesNativeImageInput ? [...burstImages, ...resolvedLatestImages.images, ...await videoFramesWithin(burstImages.length + resolvedLatestImages.images.length, resolvedLatestImages.videos)] : [];
-  const skills = availableSkills(), phoneOffered = HAS_USB_PORT && usbPhoneOffered(instance, skills);
+  const skills = availableSkills(), phoneOffered = HAS_USB_PORT && usbPhoneOffered(instance, skills) && await optional.phone(threadId, `${roomContext}\n${latestUser?.text ?? ""}`, skills);
   const selectedSkills = mergeSkills(
     selectBundledSkills(
       roomContext,
@@ -9949,7 +9949,7 @@ async function runClaimedGroupMemberTurn(
       ?? computerToolsRefusal(readyBot.toolScope, "room", readyBot.name);
     if (unsupported) throw unsupported;
   }
-  if (instance.adapter.capabilities.dataMcp === true) {
+  if (instance.adapter.capabilities.dataMcp === true && optional.data(readyBot.id, threadId, `${roomContext}\n${latestUser?.text ?? ""}`)) {
     const data = dataIntegration(readyBot.id, { threadId, generation: internalGeneration });
     if (data) integrations.data = data;
   }
