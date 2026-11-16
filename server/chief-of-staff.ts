@@ -1,3 +1,4 @@
+import { readPromptGuide } from "./prompt-guides.ts";
 import { botOwner, nameFromEmail } from "../shared/bot-owner.ts";
 import { canManage, hasAuthority, inChargeOfEvery, peerName, renderRoster, reachablePeers, type RosterMember, type TeamPrompt } from "./peer-roster.ts"; import { chiefLevel } from "./chief-level.ts";
 import type { TaskRecord } from "./store.ts";
@@ -20,6 +21,8 @@ const OTHERS_MIN_BOTS = 8;
 
 const SPECIALISTS = "When a job needs a specialist you do not have (an ongoing area of work, a different skill set, or work to run in parallel), add one with create_bot without asking first, then tell the person in one line; they can undo it. When their goal matches a ready-made team, list_team_library has its roles to create the same way. Never add a bot just to look busy, or one that duplicates a teammate.";
 
+const [TEAM_PREFERENCES, DELEGATION_START, DELEGATION_RETURN] = readPromptGuide("coordination-chief.md").split("\n");
+
 const sectionKey = (section?: string): string => section?.trim() || "";
 
 /** Names the team every turn; who is busy changes turn to turn, so it rides the volatile half instead. */
@@ -38,6 +41,7 @@ export function chiefOfStaffPrompt(
   canDelegate: boolean,
   also?: (bot: ChiefTeamMember) => boolean,
   departments?: readonly string[],
+  opts?: { guides?: boolean },
 ): TeamPrompt {
   const chief = bots.find((bot) => bot.id === chiefId);
   const chiefSection = sectionKey(chief?.section);
@@ -61,7 +65,12 @@ export function chiefOfStaffPrompt(
   }) : "";
 
   const delegation = canDelegate
-    ? "Use list_bots or list_room_targets for the live reachable roster. Use coordinate_bots to assign actual teammates concrete work, or with consult: true to ask them for advice. It returns immediately and keeps you available to the user; give clear, self-contained briefs, then end your turn — you resume automatically when their results return, success or failure. Say that work is assigned, not completed; only claim completion after the teammate's result has actually arrived, and if a teammate fails or stalls, tell the user plainly and decide the next step yourself. Leads can coordinate their own specialists. Do not poll or wait, send acknowledgements as new work, or substitute native helpers for named bots. On return, verify the requested outcome, resolve decisions within the user's scope, request concrete corrections with rework=true when necessary, and return one consolidated answer. Consultations are advice, not proof that work or tests ran. A refusal from coordinate_bots means nothing was sent: fix what it names (usually the id — copy it from list_bots or your roster; a unique teammate name also works) and retry, and never describe a handoff the tool did not accept."
+    ? [
+      !opts?.guides && DELEGATION_START,
+      "Say that work is assigned, not completed; only claim completion after the teammate's result has actually arrived, and if a teammate fails or stalls, tell the user plainly and decide the next step yourself. Leads can coordinate their own specialists. Do not poll or wait, send acknowledgements as new work, or substitute native helpers for named bots.",
+      !opts?.guides && DELEGATION_RETURN,
+      "Consultations are advice, not proof that work or tests ran. A refusal from coordinate_bots means nothing was sent: fix what it names (usually the id — copy it from list_bots or your roster; a unique teammate name also works) and retry, and never describe a handoff the tool did not accept.",
+    ].filter(Boolean).join(" ")
     : "Your current engine cannot contact teammates. Be honest about that limitation and ask the user to choose a delegation-compatible engine before promising coordinated work.";
 
   const isChief = !chief?.defaultBot || chief.chiefOfStaff === true;
@@ -81,7 +90,7 @@ export function chiefOfStaffPrompt(
       : "",
     canDelegate && `Every other bot on this team, in any department, is reachable too: consult it or hand it work with coordinate_bots whenever a job needs it, without asking anyone to set anything up. Reaching a bot${responsibleFor || person ? " outside your team" : ""} gives you no authority over it: its setup, its threads and its incidents stay with its own Chief, so ask rather than direct.`,
     "Do the work yourself, bring in a teammate when one fits the job, and return one concise consolidated answer. Never invent a teammate's progress or result. Normal permission and approval rules still apply.",
-    canDelegate && "A standing preference the person states for all their bots (where reminders go, how replies should sound) is one line you save yourself with memory_update action prefer: every bot reads it. Never send it to each bot with coordinate_bots.",
+    canDelegate && !opts?.guides && TEAM_PREFERENCES,
     canDelegate ? SPECIALISTS : "",
     canDelegate && isChief ? EVERYONE_ON_THE_MAP : "",
     canDelegate && isChief

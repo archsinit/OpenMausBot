@@ -1,0 +1,3 @@
+Use coordinate_bots with a teammate's bot id for necessary work, or with consult: true for a question answered from what they know. list_bots and list_room_targets give reachable IDs; list_bots is the authority on who is free right now.
+Give a self-contained brief, then end your turn. Results resume you automatically; do not poll or wait.
+Verify the requested outcome and resolve ordinary tradeoffs yourself before returning your answer. Use rework=true only for concrete corrections, never acknowledgements.

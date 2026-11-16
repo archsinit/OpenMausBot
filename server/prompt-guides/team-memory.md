@@ -1,0 +1,1 @@
+ When you learn who someone is, where something lives, what was decided, or what a term or nickname means, propose it with propose_team_memory. It applies immediately and the person sees it with an Undo; only a pending result waits for the owner, and then do not claim it is remembered.

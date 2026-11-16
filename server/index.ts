@@ -405,12 +405,10 @@ import {
   computerPrompt,
   composioSystemPrompt,
   customMcpPrompt,
-  CREDENTIAL_PROMPT,
   longCommandsPrompt,
-  THREADS_PROMPT, WIDGET_PROMPT, JUST_DO_IT_PROMPT,
+  JUST_DO_IT_PROMPT,
   LEARN_PROMPT,
   PROFILE_PROMPT,
-  TEAM_MEMORY_PROMPT,
   TRIGGER_PROMPT,
   ROUTINE_EXECUTION_PROMPT, READ_ONLY_ROUTINE_EXECUTION_PROMPT,
   WEBHOOK_PROMPT, BOT_API_PROMPT, BOT_API_OWNER_PROMPT, AUTOMATION_REPLY_PROMPT,
@@ -420,6 +418,8 @@ import {
 } from "./system-prompt.ts";
 import { shellTimeoutHookResult } from "./shell-timeout-hint.ts";
 import { spillToolResult } from "./tool-result-spill.ts";
+import { promptGuidePath } from "./prompt-guide-access.ts";
+import { credentialParts, sharedMemoryParts, roomManualParts, roomRequesterRule, roomWorkflowInstructions } from "./prompt-manual-parts.ts";
 import { gatedLocalComputer } from "./local-computer.ts";
 import { desktopComputer, thisComputerNotReadyError } from "./desktop-computer.ts";
 import { askToUseYourComputer, cancelYourComputerAsks, claimWithYourComputerConsent, dismissStaleYourComputerCards, yourComputerCallFrom, yourComputerWaiting, type YourComputerBus } from "./your-computer-consent.ts";
@@ -2943,6 +2943,7 @@ function previewSystemPrompt(bot: BotRecord) {
   const persona = botPersona(bot);
   const instance = registry.get(bot.modelSelection.instanceId);
   const caps = instance?.adapter.capabilities;
+  const guidesPath = instance ? promptGuidePath({ driverKind: instance.driverKind, toolScope: bot.toolScope }) : undefined;
   const teamComputer = inheritedTeamComputer(bot);
   const previewComputer = teamComputer ? "cloud" : bot.computer;
   const computerPromptKind = resolveComputerPromptKind({
@@ -2952,9 +2953,9 @@ function previewSystemPrompt(bot: BotRecord) {
   });
   const peers = reachablePeers(store.bots, bot);
   const coordination = chiefLevel(bot)
-    ? chiefOfStaffSystemPrompt(bot.id, store.bots, true, undefined, store.sections)
+    ? chiefOfStaffSystemPrompt(bot.id, store.bots, true, undefined, store.sections, { guides: Boolean(guidesPath) })
     : peers.length > 0
-      ? peerRosterSystemPrompt(peers, bot)
+      ? peerRosterSystemPrompt(peers, bot, { guides: Boolean(guidesPath) })
       : "";
   const agentsMounted = caps?.agentsMcp === true;
   const previewPlan = resolveSurface({
@@ -2988,15 +2989,15 @@ function previewSystemPrompt(bot: BotRecord) {
     { id: "mcp", label: "MCP servers", text: caps?.customMcp ? customMcpPrompt(Object.keys(engineMcpServers(bot)), mcpServersHost.off(bot)) : "" }, { id: "to-connect", label: "Connections to make", text: cloudConnections.prompt(bot) },
     { id: "browser", label: "Browser", text: previewPlan.browser ? browserPromptFor(bot, agentsMounted) : "" },
     { id: "coordination", label: "Team", text: agentsMounted && coordination ? ` ${coordination}` : "" },
-    { id: "credential", label: "Credentials", text: agentsMounted ? CREDENTIAL_PROMPT + savedSecretsPrompt(botLogins.secretNamesFor(bot.id, TEAM_READER)) : "" },
+    ...credentialParts(agentsMounted, agentsMounted ? savedSecretsPrompt(botLogins.secretNamesFor(bot.id, TEAM_READER)) : ""),
     { id: "routine", label: "Triggers", text: agentsMounted ? TRIGGER_PROMPT : "" },
     { id: "profile", label: "Profile changes", text: agentsMounted ? PROFILE_PROMPT : "" },
     { id: "section-context", label: "Section context", text: sectionContextSystemPrompt(bot.section) },
-    { id: "team-memory", label: "Team memory", text: teamMemory.systemPrompt(bot.section) + (agentsMounted ? TEAM_MEMORY_PROMPT : "") },
+    ...sharedMemoryParts(teamMemory.systemPrompt(bot.section), agentsMounted),
     teamAvailabilityPart(agentsMounted && coordination ? peers : []),
     { id: "memory", label: "Memory", text: memorySystemPrompt(bot.id, { managedWrites: agentsMounted, fileTools: Boolean(privateWorkspace), enabled: bot.memoryEnabled !== false }) },
     { id: "skills", label: "Skills index", text: privateWorkspace ? skillsHost.skillsIndex(bot, undefined, instance) : "" },
-  ], agentsMounted ? { env: agentsToolBridgeEnv(cfg, bot, instance && turnEngine(instance, providerConfigs(), registry.lastSnapshot(instance.instanceId), bot.cwd ?? undefined)) } : undefined, { replyStyle: bot.replyStyle, rules: cfg.everyBotRules });
+  ], agentsMounted ? { env: agentsToolBridgeEnv(cfg, bot, instance && turnEngine(instance, providerConfigs(), registry.lastSnapshot(instance.instanceId), bot.cwd ?? undefined)) } : undefined, { replyStyle: bot.replyStyle, rules: cfg.everyBotRules, guidesPath });
   const totalBytes = built.sections.reduce((n, s) => n + s.bytes, 0);
   return {
     sections: built.sections,
@@ -7921,6 +7922,7 @@ async function beginTurn(
         if (Object.keys(custom).length) Object.assign(integrations, chatAppsMcp.turnMounts(custom, bot.toolScope));
       }
       if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) throw new DirectTurnSetupCancelled("turn stopped while its tools were prepared"); const worksInWorkspace = supportsWorkspaceFiles(instance.driverKind);
+      const guidesPath = promptGuidePath({ driverKind: instance.driverKind, toolScope: bot.toolScope, confined: guestConfined || cloudGuestOpened(threadId) || botApiThread(threadId) || proactive.fence.confines(threadId) });
       if (worksInWorkspace) {
         ensureWorkspace(bot.id, appLanguage());
         if (bot.memoryEnabled !== false) beginMemoryTurn(teamHost.layer(bot.id, threadId), threadId); botBox.lend(bot.id, threadId, teamHost.layerDirs(bot.id, threadId));
@@ -8275,11 +8277,10 @@ async function beginTurn(
           store.bots.filter((one) => !one.hidden).map((one) => one.name)), sectionPeers, opts?.mentions)
         : [];
       const teamPrompt = chiefLevel(bot)
-        ? chiefOfStaffPrompt(bot.id, store.bots, Boolean(integrations.agents), (peer) => personalReach.listed(bot, peer, threadId), store.sections)
+        ? chiefOfStaffPrompt(bot.id, store.bots, Boolean(integrations.agents), (peer) => personalReach.listed(bot, peer, threadId), store.sections, { guides: Boolean(guidesPath) })
         : integrations.agents && sectionPeers.length > 0
-          ? peerRosterPrompt(sectionPeers, bot)
+          ? peerRosterPrompt(sectionPeers, bot, { guides: Boolean(guidesPath) })
           : { rules: "", roster: "" }; const coordinationPrompt = teamPrompt.rules + (integrations.agents ? personalReach.prompt(bot, threadId, sectionPeers) : "");
-      const credentialPrompt = integrations.agents ? CREDENTIAL_PROMPT + savedSecretsPrompt(botLogins.secretNamesFor(bot.id, vaultReaders.turn(threadId))) + THREADS_PROMPT + WIDGET_PROMPT : "";
       const routinePrompt = integrations.agents ? TRIGGER_PROMPT : "";
       const profilePrompt = integrations.agents ? PROFILE_PROMPT : "";
       const recallPrompt = integrations.agents && bot.memoryEnabled !== false ? SESSION_SEARCH_SYSTEM_PROMPT : "";
@@ -8386,7 +8387,8 @@ async function beginTurn(
         { id: "assignment", label: "Teammate task", text: coordinationNode?.parentId ? `\n${coordinationSystemInstructions()}` : "" },
         { id: "outstanding", label: "Outstanding teammate work", text: teammatePrompts.outstanding(threadId) },
         { id: "teammate-questions", label: "Teammates' questions to the person", text: teammatePrompts.questions(liveBot ?? bot, threadId) },
-        { id: "credential", label: "Credentials", text: credentialPrompt }, { id: "just-do-it", label: "Just do it", text: approvalModeForTurn(bot, commsDepth > 0, threadId) === "full" && !isUnattended(bot.id, threadId) && coordinationNode?.origin?.kind !== "outside" ? JUST_DO_IT_PROMPT : "" },
+        ...credentialParts(Boolean(integrations.agents), integrations.agents ? savedSecretsPrompt(botLogins.secretNamesFor(bot.id, vaultReaders.turn(threadId))) : "", true),
+        { id: "just-do-it", label: "Just do it", text: approvalModeForTurn(bot, commsDepth > 0, threadId) === "full" && !isUnattended(bot.id, threadId) && coordinationNode?.origin?.kind !== "outside" ? JUST_DO_IT_PROMPT : "" },
         { id: "recall", label: "Recall", text: recallPrompt },
         { id: "routine", label: "Routines", text: routinePrompt },
         { id: "active-routines", label: "Active automations", text: integrations.agents && !confined && (!CLOUD_HOME || cloudOwnerOnlyThread(threadId)) ? activeRoutinesContext({
@@ -8398,7 +8400,7 @@ async function beginTurn(
         { id: "profile", label: "Profile changes", text: profilePrompt },
         { id: "learn", label: "Skill authoring", text: learnPrompt },
         { id: "section-context", label: "Section context", text: sectionContextSystemPrompt(bot.section) },
-        { id: "team-memory", label: "Team memory", text: teamMemory.systemPrompt(bot.section) + (integrations.agents ? TEAM_MEMORY_PROMPT : "") },
+        ...sharedMemoryParts(teamMemory.systemPrompt(bot.section), Boolean(integrations.agents)),
         // Volatile, so a teammate starting or finishing never changes the stable half.
         teamAvailabilityPart(coordinationPrompt ? sectionPeers : []),
         { id: "recent", label: "Recent work", text: recentWorkPrompt(recentWork(recentWorkSources(bot), bot, { userName: CLOUD_TEAM ? teamHost.personName(teamConversationPerson(threadId)) ?? "the team" : cfg.profile?.name?.trim() || "User", currentThreadId: threadId, ...recentWorkFilter(threadId) })) },
@@ -8410,7 +8412,7 @@ async function beginTurn(
         { id: "webhook", label: "Webhook provenance", text: opts?.automationSource === "webhook" ? WEBHOOK_PROMPT : opts?.automationSource === "api" ? (botApiThread(threadId) ? BOT_API_PROMPT : BOT_API_OWNER_PROMPT) : "" },
         { id: "automation-reply", label: "Automation reply", text: opts?.automationSource && automationReports.reportsElsewhere(threadId) ? AUTOMATION_REPLY_PROMPT : "" },
         { id: "mentions", label: "Mentions", text: (tagged.length ? `The user named these existing teammates: ${tagged.map(b => `${peerName(b.name)} (${b.id})`).join(", ")}. Use coordinate_bots when their contribution is needed; do not substitute native helper agents for these bots.` : "") + placesElsewhere.mentioned(providerText, store.bots) },
-      ].filter((part) => (apiFenced ? BOT_API_PARTS.has(part.id) : !confined || READ_AND_DRAFT_PARTS.has(part.id))), integrations.agents, { replyStyle: liveBot?.replyStyle ?? bot.replyStyle, rules: cfg.everyBotRules });
+      ].filter((part) => (apiFenced ? BOT_API_PARTS.has(part.id) : !confined || READ_AND_DRAFT_PARTS.has(part.id))), integrations.agents, { replyStyle: liveBot?.replyStyle ?? bot.replyStyle, rules: cfg.everyBotRules, guidesPath });
       turnPromptBytes.set(threadId, { stable: Buffer.byteLength(prompt.stable), volatile: Buffer.byteLength(prompt.volatile) });
       // Recall rides in front of this turn's message, never the system prompt, whose volatile half is re-sent whole on any change.
       const recalled = autoRecallPrompt(bot, threadId, resolvedImages.text, {
@@ -10066,12 +10068,11 @@ async function runClaimedGroupMemberTurn(
   const roster = roomMembers.map(roomRosterLine).join(", ");
   const roomHandoff = orchestration?.roomHandoffId ? coordinator.node(orchestration.roomHandoffId) : undefined;
   const roomRequester = roomHandoff?.parentId ? store.bot(coordinator.node(roomHandoff.parentId)?.botId ?? "")?.name : undefined;
-  const requesterRule = roomRequester
-    ? ` Don't use coordinate_bots toward @${roomRequester} or whoever assigned its work; to ask @${roomRequester} something, end your turn with the question — it is resumed with your reply.`
-    : "";
+  const requesterRule = roomRequesterRule(roomRequester);
   const outsideRoom = integrations.agents && orchestration && !orchestration.roomHandoffId
     ? reachablePeers(store.bots, bot).filter((peer) => !readyGroup.memberIds.includes(peer.id))
     : [];
+  const guidesPath = promptGuidePath({ driverKind: instance.driverKind, toolScope: readyBot.toolScope, confined: roomGuestConfined || cloudGuestOpened(threadId) });
   const system = [
     `You are ${bot.name}, a bot in the room "${readyGroup.name}" in OpenMausBot.`,
     bot.title && `Role: ${bot.title}.`,
@@ -10080,11 +10081,7 @@ async function runClaimedGroupMemberTurn(
     readyGroup.bulletin.trim() && `Room bulletin (shared instructions for everyone):\n${readyGroup.bulletin.trim()}`,
     `Reply as yourself, briefly and conversationally. To bring a teammate in, mention them like @Name — they'll see the conversation and respond.${readyGroup.dm ? "" : ` To get ${typeof userName === "string" ? `${userName}'s` : "a person's"} attention or ask them something blocking, write @you.`} A "[reacted 👍 to …]" line is that person's whole reply to the message it names: 👍 means yes, go ahead when that message asked them something or offered to do something, and only got it (start no new work) when it just told them something; 👎 means no.`,
     outsideRoom.length > 0 && roomPeerRosterSystemPrompt(outsideRoom), sharedNamesNote(roomMembers.filter((member) => member.id !== bot.id), Boolean(integrations.agents)),
-    integrations.agents && (CREDENTIAL_PROMPT + savedSecretsPrompt(botLogins.secretNamesFor(bot.id, vaultReaders.turn(threadId))) + (orchestration && !orchestration.roomHandoffId ? THREADS_PROMPT : "")).trim(),
-    integrations.agents && (!orchestration || orchestration.roomHandoffId) && "For actual OpenMausBot teamwork, discover IDs with list_room_targets and use coordinate_bots for advice or work in this or another room. Do not substitute native coding helpers for these named bots. Consult only when needed to make a decision; no discussion step is mandatory. Give concrete responsibilities, exact accessible paths and acceptance checks. End your turn after assigning; busy teammates queue and results automatically resume you. When they return, finish the requested verification and give the user one final answer. Native helper names are not evidence that an OpenMausBot teammate participated. Plain @mentions are only for conversational replies in this room." + requesterRule,
-    integrations.agents && TRIGGER_PROMPT.trim(),
-    integrations.agents && PROFILE_PROMPT.trim(),
-    integrations.agents && skillAuthoringEnabled(cfg) && LEARN_PROMPT.trim(),
+    ...roomWorkflowInstructions({ indexed: Boolean(guidesPath), agents: Boolean(integrations.agents), secrets: integrations.agents ? savedSecretsPrompt(botLogins.secretNamesFor(bot.id, vaultReaders.turn(threadId))) : "", threads: Boolean(orchestration && !orchestration.roomHandoffId), coordinate: !orchestration || Boolean(orchestration.roomHandoffId), requester: requesterRule, skills: skillAuthoringEnabled(cfg) }),
     orchestration?.systemInstructions,
   ]
     .filter(Boolean)
@@ -10160,16 +10157,17 @@ async function runClaimedGroupMemberTurn(
       mounted: Boolean(integrations.device), offered: instance.adapter.capabilities.deviceMcp === true,
       turn: { botId: readyBot.id, threadId, generation: internalGeneration }, place: "computer",
     }),
+    ...roomManualParts(Boolean(guidesPath), Boolean(integrations.agents), Boolean(orchestration && !orchestration.roomHandoffId), skillAuthoringEnabled(cfg)),
     { id: "recall", label: "Recall", text: integrations.agents && bot.memoryEnabled !== false ? SESSION_SEARCH_SYSTEM_PROMPT : "" }, { id: "just-do-it", label: "Just do it", text: preparedApprovalMode === "full" && !isUnattended(bot.id, threadId) ? JUST_DO_IT_PROMPT : "" },
     teamAvailabilityPart(outsideRoom),
     { id: "recent", label: "Recent work", text: recentWorkPrompt(recentLines) },
     { id: "section-context", label: "Section context", text: sectionContextSystemPrompt(bot.section) },
-    { id: "team-memory", label: "Team memory", text: teamMemory.systemPrompt(bot.section) + (integrations.agents ? TEAM_MEMORY_PROMPT : "") },
+    ...sharedMemoryParts(teamMemory.systemPrompt(bot.section), Boolean(integrations.agents)),
     { id: "memory", label: "Memory", text: roomMemory ? `\n${roomMemory.trim()}` : "" },
     { id: "skills", label: "Skills index", text: workspace ? skillsHost.skillsIndex(bot, threadId, instance, cwd ?? null) : "" },
     { id: "skill-instructions", label: "Skill instructions", text: renderSkillInstructions(selectedSkills, { includeRoot: Boolean(workspace) }) },
     { id: "playbooks", label: "Playbooks", text: installedPlaybookInstructions(text, bot.playbooks) },
-  ], integrations.agents, { rules: cfg.everyBotRules });
+  ], integrations.agents, { rules: cfg.everyBotRules, guidesPath });
 
   // Claim /learn only after setup succeeded, so a failed first responder does not consume it.
   if (skillAuthoring) skillAuthoringClaim.claimed = true;

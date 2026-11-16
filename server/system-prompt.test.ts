@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import * as promptExports from "./system-prompt.ts";
 
 import { soulSystemPrompt } from "./bot-folder.ts";
 import { BUILT_IN_BROWSER_SYSTEM_PROMPT } from "./browser-engine.ts";
@@ -37,6 +38,79 @@ import {
 } from "./system-prompt.ts";
 import { loginPlace } from "../shared/logins.ts";
 import { REPLY_HABITS_PROMPT } from "./reply-habits.ts";
+
+describe("indexed task manuals", () => {
+  const manualParts = [
+    { id: "credential", label: "Credentials", text: CREDENTIAL_PROMPT + promptExports.THREADS_PROMPT + WIDGET_PROMPT },
+    { id: "routine", label: "Routines", text: TRIGGER_PROMPT },
+    { id: "profile", label: "Profile", text: PROFILE_PROMPT },
+    { id: "learn", label: "Skills", text: LEARN_PROMPT },
+    { id: "team-memory-manual", label: "Team memory", text: promptExports.TEAM_MEMORY_PROMPT },
+    { id: "shell", label: "Shell", text: longCommandsPrompt("vm-private") },
+  ];
+  const indexed = (parts = manualParts) => buildSystemPrompt("Identity", "My instructions", parts, undefined, { guidesPath: "/static/guides" });
+
+  it("preserves the default text, sections and cache halves when undefined", () => {
+    expect(buildSystemPrompt("Identity", "My instructions", manualParts, undefined, { guidesPath: undefined }))
+      .toEqual(buildSystemPrompt("Identity", "My instructions", manualParts));
+  });
+
+  it("offloads only pure known manuals and adds a compact index pointer", () => {
+    const built = indexed();
+    for (const part of manualParts) expect(built.sections.map((section) => section.id)).not.toContain(part.id);
+    const pointer = built.sections.find((section) => section.id === "prompt-guides")!;
+    expect(pointer.text).toContain("/static/guides/INDEX.md");
+    expect(pointer.text).not.toContain("credentials.md");
+    expect(pointer.text.length).toBeLessThan(250);
+    expect(built.text).not.toContain("vm_exec takes");
+    expect(built.text).not.toContain("five-field cron");
+  });
+
+  it("retains mixed secrets, facts, custom prose and active execution instructions", () => {
+    const parts = [
+      { id: "credential", label: "Credentials", text: CREDENTIAL_PROMPT + savedSecretsPrompt([{ name: "stripe" }]) + WIDGET_PROMPT },
+      { id: "team-memory", label: "Knowledge", text: "Known fact." + promptExports.TEAM_MEMORY_PROMPT },
+      { id: "profile", label: "Custom", text: PROFILE_PROMPT + " Custom instructions." },
+      { id: "routine-execution", label: "Run", text: ROUTINE_EXECUTION_PROMPT },
+      { id: "webhook", label: "Event", text: WEBHOOK_PROMPT },
+      { id: "bot-api", label: "API", text: promptExports.BOT_API_PROMPT },
+      { id: "bot-api-owner", label: "Owner API", text: promptExports.BOT_API_OWNER_PROMPT },
+      { id: "automation-reply", label: "Report", text: AUTOMATION_REPLY_PROMPT },
+      { id: "skill-instructions", label: "Active skill", text: LEARN_PROMPT },
+      { id: "assignment", label: "Active task", text: PROFILE_PROMPT },
+      { id: "active-routines", label: "Active", text: TRIGGER_PROMPT },
+      { id: "user-profile", label: "Authored", text: PROFILE_PROMPT },
+      { id: "memory", label: "Notes", text: LEARN_PROMPT },
+    ];
+    const built = indexed(parts);
+    for (const part of parts) expect(built.sections.find((section) => section.id === part.id)?.text).toBe(part.text);
+    expect(built.text).toContain("My instructions");
+  });
+
+  it("keeps the upstream action, privacy, authority and pending-result policies inline", () => {
+    const built = indexed();
+    for (const excerpt of [
+      "then continue the requested work without asking for another confirmation",
+      "Only a pending result (a Cloud conversation its owner did not drive) waits for the owner: then end the turn.",
+      "Never claim success before an applied result, and report failures honestly.",
+      "Full Access does not grant another bot broader permissions.",
+      "never ask the user to paste credentials into chat",
+      "Include source provenance.",
+      "use your authorized tools rather than computer control to click through this app",
+      "delete only at the person's explicit request",
+      "A routine or an outside event cannot set a wait",
+      "Never ask for passwords, one-time codes or card numbers in chat.",
+    ]) expect(built.text).toContain(excerpt);
+  });
+
+  it("offloads both exact shell variants but never discards appended text", () => {
+    for (const kind of [null, "vm-private", "vm-shared"] as const) {
+      const part = { id: "shell", label: "Shell", text: longCommandsPrompt(kind) };
+      expect(indexed([part]).sections.some((section) => section.id === "shell")).toBe(false);
+      expect(indexed([{ ...part, text: part.text + " custom" }]).text).toContain(part.text + " custom");
+    }
+  });
+});
 
 describe("the stable half", () => {
   it("leaves out a conversation's folder, so a new thread can read the bot's cached prompt", () => {

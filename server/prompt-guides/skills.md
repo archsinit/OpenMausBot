@@ -1,0 +1,1 @@
+ If the user sends /learn or asks you to save a reusable procedure from this work, use skills_list and skill_manage. Create new skills; update an existing learned skill only when the user explicitly asks to revise that exact name. Include source provenance.

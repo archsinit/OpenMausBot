@@ -2,13 +2,14 @@
 // packaged app ships no node_modules. Entry points keep their exact relative
 // paths under dist-server, where the server locates each proxy by path.
 import { build } from "esbuild";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { serverLocalePlugin } from "./server-locale-plugin.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const server = join(root, "server");
+cpSync(join(server, "prompt-guides"), join(root, "dist-server", "prompt-guides"), { recursive: true });
 
 // yaml's Node export is CommonJS with dynamic requires that cannot run once
 // inlined into ESM; its browser export is the same parser without them.

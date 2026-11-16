@@ -1,6 +1,68 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
+import { readPromptGuide } from "./prompt-guides.ts";
 
-import { chiefOfStaffSystemPrompt, chiefTidies, EVERYONE_ON_THE_MAP } from "./chief-of-staff.ts";
+import { chiefOfStaffPrompt, chiefOfStaffSystemPrompt, chiefTidies, EVERYONE_ON_THE_MAP } from "./chief-of-staff.ts";
+
+describe("Chief coordination guides", () => {
+  const bots = [
+    { id: "chief", name: "Atlas", section: "Work", chiefOfStaff: true, managedSections: ["Personal"] },
+    { id: "writer", name: "Quill", title: "Writer", description: "Drafts concise copy", section: "Work" },
+    { id: "personal", name: "Scout", title: "Planner", section: "Personal" },
+  ];
+
+  it("keeps full output byte-identical to upstream 49968d7f1", () => {
+    expect(createHash("sha256").update(chiefOfStaffSystemPrompt("chief", bots, true, undefined, ["Work", "Personal"])).digest("hex"))
+      .toBe("e136268e7c2f9177217754eaa7eaead28c52d9bdc6676c8f6551c4e372735df5");
+    expect(createHash("sha256").update(chiefOfStaffSystemPrompt("chief", bots, false)).digest("hex"))
+      .toBe("92bdcc8c544a9cafec471d2a70afbe9bedc367b383f9f1f6470382591d2833f3");
+    expect(chiefOfStaffSystemPrompt("chief", bots, true, undefined, undefined, { guides: false }))
+      .toBe(chiefOfStaffSystemPrompt("chief", bots, true));
+  });
+
+  it("omits exactly the verbatim guide procedures, retaining every other byte", () => {
+    const full = chiefOfStaffSystemPrompt("chief", bots, true);
+    const [preference, start, returned] = readPromptGuide("coordination-chief.md").split("\n");
+    for (const text of [preference, start, returned]) expect(full).toContain(text);
+    const guided = chiefOfStaffSystemPrompt("chief", bots, true, undefined, undefined, { guides: true });
+    expect(guided).toBe(full.replace(preference! + "\n", "").replace(start! + " ", "").replace(returned! + " ", ""));
+    for (const rule of [
+      "gives you no authority over it", "Normal permission and approval rules still apply.",
+      "Never invent a teammate's progress or result.", "only claim completion after the teammate's result has actually arrived",
+      "Consultations are advice, not proof that work or tests ran.", "A refusal from coordinate_bots means nothing was sent",
+      "Threads the person started are theirs: never close them.", "Existing thread models and other bots' execution permissions stay unchanged.",
+    ]) expect(guided).toContain(rule);
+  });
+
+  it("retains live identities, departments, access limits and capped rosters through the primary API", () => {
+    const crowd = Array.from({ length: 65 }, (_, i) => ({
+      id: "bot-" + i, name: "Shared name", title: "Role " + i,
+      section: i < 50 ? "Work" : "Other", description: "Description " + i,
+    }));
+    for (const chief of [
+      bots[0]!,
+      { ...bots[0]!, defaultBot: { person: "ada@example.test" } },
+      { ...bots[0]!, chiefOfStaff: false, defaultBot: {} },
+    ]) {
+      const team = [chief, ...crowd];
+      const full = chiefOfStaffPrompt("chief", team, true, undefined, ["Work", "Personal"]);
+      const guided = chiefOfStaffPrompt("chief", team, true, undefined, ["Work", "Personal"], { guides: true });
+      expect(guided.roster).toBe(full.roster);
+      expect(guided.roster).toContain("…and");
+      expect(guided.rules.split("\n")[0]).toBe(full.rules.split("\n")[0]);
+      for (const line of full.rules.split("\n").filter(line => /does not grant|no authority/.test(line))) {
+        expect(guided.rules).toContain(line);
+      }
+      expect(chiefOfStaffSystemPrompt("chief", team, true, undefined, ["Work", "Personal"], { guides: true }))
+        .toBe(guided.rules + "\n" + guided.roster);
+    }
+  });
+
+  it("does not change the no-delegation limitation in guide mode", () => {
+    expect(chiefOfStaffSystemPrompt("chief", bots, false, undefined, undefined, { guides: true }))
+      .toBe(chiefOfStaffSystemPrompt("chief", bots, false));
+  });
+});
 
 describe("chiefTidies", () => {
   const chief = { id: "chief", name: "Chief", section: "Work", chiefOfStaff: true };
