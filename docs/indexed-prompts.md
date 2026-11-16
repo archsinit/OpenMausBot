@@ -20,18 +20,26 @@ Indexed mode requires a known native file reader (Pi, Claude or Codex), a permit
 
 Matched empty-history `Hi` captures use the same Pi 1.5.2 model, frozen fixture state and provider serializer, with synthetic credentials and no provider transport. Counts are Unicode characters in complete provider JSON, excluding only the two human characters—not token estimates or app-preview sizes.
 
-| Component | Full indexed build | Deferred-tool build | Brief candidate |
+| Component | Full indexed build | Deferred-tool build | Brief installed build |
 | --- | ---: | ---: | ---: |
 | Native instructions | 2,431 | 371 | 371 |
 | Tool declarations | 71,375 | 2,008 | 2,008 |
-| App prefix | 20,626 | 10,467 | 4,470 |
+| App prefix | 20,626 | 10,467 | 4,476 |
 | JSON framing/escaping/controls | 551 | 482 | 468 |
-| **Complete initial overhead** | **94,983** | **13,328** | **7,317** |
+| **Complete initial overhead** | **94,983** | **13,328** | **7,323** |
 | Initially declared tools | 64 | 5 | 5 |
 
-The brief candidate is **45.10% smaller** than the prior deferred-tool build and **92.30% smaller** than the full indexed baseline, without removing features. The actual populated prior live request had 98 initial tools and 25,753 reported input tokens; that is a different environment, not the denominator in this matched comparison. No populated-user after token count is claimed. Authored context, history and tools actually loaded during work can increase future requests.
+The installed brief build is **45.06% smaller** than the prior deferred-tool build and **92.29% smaller** than the full indexed baseline, without removing features. The actual populated prior live request had 98 initial tools and 25,753 reported input tokens; that is a different environment, not the denominator in this matched comparison. No populated-user after token count is claimed. Authored context, history and tools actually loaded during work can increase future requests.
 
-The brief candidate was captured twice after all payload hooks, equal except cache key. Installed-path results will be recorded after deployment. The old approximately 5.8k-character reduced-feature build is not this branch.
+Both final installed captures are equal except cache key. The staged candidate measured 7,317; its guide path is six characters shorter than the canonical installed path. The old approximately 5.8k-character reduced-feature build is not this branch.
+
+## Current brief-guide deployment
+
+Implementation `f05041c7a805c11126e3a5f2bb6c5eeefd4c1778` was committed and pushed before deployment. Installed as `0.1.165`; package SHA-256 `aea88b84a60c7b747e236dc6aa5b3df5614435013c1407dd285631189ddd6c77` is recorded with the implementation in `FORK-BUILD.json`.
+
+Package and private workspace backup: `~/.local/state/openmausbot-fork-backups/20261116T235428Z/`. Service and HTTPS health passed; all 33 brief guide assets are readable. Message rows stayed **114 → 114**, with existing conversation fields and model selections unchanged. Repeated installed captures used only a disposable frozen fixture with blocked provider transport; no live conversation or provider call was used for verification.
+
+A reviewer identified an ambiguous download-execution restriction; the core now explicitly preserves user-authorized tasks. Regression assertions cover it; follow-up review found no unresolved P1/P2 within the reviewed scope. Original SDK activation/callback/denial qualification is unchanged because this round modifies no tool adapter or execution code.
 
 ## Previous context-layer deployment
 
