@@ -5,6 +5,7 @@ import type { EngineLimitsReport } from "../../shared/limit-reset.ts";
 import type { DayAggregate } from "./day-ledger.ts";
 import { SLOW_TURN_MS } from "./day-ledger.ts";
 import { PHASES, type Phase, type PhaseStats } from "./phases.ts";
+import { processHealthLines, trimmedProcessHealth, type ProcessHealth } from "./process-health.ts";
 import type { ProcessReport } from "./process-sampler.ts";
 import type { LiveTurnView, WindowStats } from "./turn-timings.ts";
 import type { TurnTiming } from "./turn-record.ts";
@@ -24,6 +25,8 @@ export interface PerfSources {
   live: LiveTurnView[];
   limits: EngineLimitsReport | null | undefined;
   process: ProcessReport | null;
+  /** How close the server is to its process and memory limits (process-health.ts); null where nothing records it. */
+  processes?: ProcessHealth | null;
 }
 
 /** Engines refusing work, or within 10 points of their limit: driver kind, window, use and reset time only. */
@@ -47,12 +50,15 @@ export function perfHealth(sources: PerfSources) {
     live: sources.live.slice(0, LIVE_SHOWN),
     holds: limitHolds(sources.limits),
     process: sources.process,
+    processes: sources.processes ?? null,
   };
   const size = () => JSON.stringify(body).length;
   if (size() > PERF_HEALTH_MAX_BYTES && body.process) body.process = { ...body.process, buckets: body.process.buckets.slice(0, 6) };
   if (size() > PERF_HEALTH_MAX_BYTES) body.h24.tools = body.h24.tools.slice(0, 4);
   if (size() > PERF_HEALTH_MAX_BYTES) body.live = body.live.slice(0, 2);
+  if (size() > PERF_HEALTH_MAX_BYTES && body.processes) body.processes = trimmedProcessHealth(body.processes);
   if (size() > PERF_HEALTH_MAX_BYTES) body.process = null;
+  if (size() > PERF_HEALTH_MAX_BYTES) body.processes = null;
   return body;
 }
 export type PerfHealth = ReturnType<typeof perfHealth>;
@@ -109,6 +115,7 @@ export function perfLines(sources: PerfSources, recent: readonly TurnTiming[], r
     lines.push(`  Browsers running: ${proc.browsers}${proc.unseen60mS !== null ? `; CPU no sample accounts for: ${proc.unseen60mS}s` : ""}`);
     lines.push(`Event loop: busy ${proc.loop.eluPct ?? "?"}% (max ${proc.loop.eluMaxPct ?? "?"}%), timer late p95 ${duration(proc.loop.driftP95Ms)}, max ${duration(proc.loop.driftMaxMs)}`);
   } else lines.push("Processes: not sampled yet");
+  if (sources.processes) lines.push(...processHealthLines(sources.processes));
   lines.push(recentTitle);
   lines.push(...(recent.length ? recent.map((turn) => `  ${turnLine(turn)}`) : ["  (none)"]));
   return lines;
