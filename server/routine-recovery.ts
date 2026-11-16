@@ -8,6 +8,7 @@ import type { ServerText } from "../shared/server-text.ts";
 import { isCountedSkip, type RoutineRetryCause } from "../shared/routines.ts";
 import { engineFailureKind } from "./drivers/engine-errors.ts";
 import { classifyError } from "./drivers/retry.ts";
+import { outOfProcesses } from "./process-shortage.ts";
 import { nextOccurrence } from "./routine-schedules.ts";
 import type { Routine, RoutineRun } from "./routines.ts";
 import { codedLine, fittedLine, type RoutineLine, type RoutineLineKey } from "./routine-lines.ts";
@@ -86,7 +87,8 @@ const FIRST_START: Record<RoutineRetryCause, string> = {
 /** Any failure gets one automatic retry, except a stall the turn watchdog stopped (its Chief hears instead), a
  * stop someone pressed or typed, a refusal, and a spent cap. Routine runs and teammate threads both judge by this. */
 export function classifyRoutineFailure(failure: string, facts: RoutineFailureFacts = {}): RoutineFailureClass {
-  if (facts.cause === "busy") return { kind: "busy" };
+  // The server had no room to start the run's engine: the run waits and starts again, as for a busy bot.
+  if (facts.cause === "busy" || outOfProcesses(failure)) return { kind: "busy" };
   if (facts.cause === "stalled" || facts.cause === "cap") return { kind: "final" };
   if (facts.stopReason && NOT_RETRIED_STOPS.has(facts.stopReason)) return { kind: "final" };
   if (classifyContinuable(facts.stopReason, failure) === "cap") return { kind: "final" };
