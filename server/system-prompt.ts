@@ -43,8 +43,11 @@ export function heavyPrompt(sections: readonly PromptSection[]): boolean {
 // at the computer, or not there) and what its words switched on.
 // Two per-turn sections stay stable on purpose: "setup" sits right after the standing instructions it overrides,
 // and "webhook" keeps its untrusted-data rule in the system prompt, out of reach of the payload it guards.
+// Three more ride the volatile half so the stable one is the same bytes across runs and bots: the bot's name and role
+// ("persona", the very first bytes), the bridge rule (on for some runs of a bot and not others) and an automation run's
+// reply rule ("automation-reply"), which otherwise makes every routine run write a new cached prefix.
 const VOLATILE_SECTIONS = new Set(["memory", "mentions", "outstanding", "teammate-questions", "long-waits", "recent", "availability", "active-routines",
-  "plan", "assignment", "routine-execution", "skill-instructions", "playbooks", "device-place", "files"]);
+  "plan", "assignment", "routine-execution", "automation-reply", "skill-instructions", "playbooks", "device-place", "files", "persona", "tool-bridge"]);
 
 /** Its id is what puts it in the volatile half. */
 export function teamAvailabilityPart(team: readonly RosterMember[]): PromptPart {

@@ -372,7 +372,7 @@ describe("teammate availability stays out of the cached prompt half", () => {
     const bots = team(quill);
     const peers = reachablePeers(bots, bots[2]!);
     const chiefTeam = reachablePeers(bots, bots[0]!);
-    const build = (coordination: string, members: RosterMember[]) => buildSystemPrompt("persona", "", [
+    const build = (coordination: string, members: RosterMember[]) => buildSystemPrompt("", "", [
       { id: "coordination", label: "Team", text: ` ${coordination}` },
       teamAvailabilityPart(members),
     ]);

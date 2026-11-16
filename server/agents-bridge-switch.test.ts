@@ -867,11 +867,15 @@ describe("the prompt of a bridged turn", () => {
     expect(AGENTS_TOOL_BRIDGE_PROMPT).not.toMatch(/\n/);
   });
 
-  it("sits in the stable half, so a warm engine is not relaunched by it turn after turn", () => {
+  it("rides the volatile half, so a bot's bridged and unbridged runs share one cached prefix", () => {
     const first = buildSystemPrompt("You are Kiwi.", "Be brief.", parts, bridged);
+    const unbridged = buildSystemPrompt("You are Kiwi.", "Be brief.", parts, { env: { OMB_AGENTS_TOOL_BRIDGE: "0" } });
     const later = buildSystemPrompt("You are Kiwi.", "Be brief.", parts.map((part) => part.id === "memory" ? { ...part, text: "\nMEMORY: the deploy script moved to tools/." } : part), bridged);
-    expect(first.stable).toContain(AGENTS_TOOL_BRIDGE_PROMPT);
-    expect(first.volatile).not.toContain(FIND_TOOL);
+    expect(first.volatile).toContain(AGENTS_TOOL_BRIDGE_PROMPT);
+    expect(first.stable).not.toContain(FIND_TOOL);
+    expect(first.stable).toBe(unbridged.stable);
+    // ahead of every other volatile section but the bot's name, as it sits right after the soul in the whole prompt
+    expect(first.volatile.startsWith(`You are Kiwi.${AGENTS_TOOL_BRIDGE_PROMPT}`)).toBe(true);
     expect(later.stable).toBe(first.stable);
     expect(later.volatile).not.toBe(first.volatile);
     // and it is the same text for every bot and every turn that has it
