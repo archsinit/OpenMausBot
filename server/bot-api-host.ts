@@ -81,6 +81,7 @@ function callerWords(error: unknown): string {
 
 const COULD_NOT_ANSWER = "The bot could not answer. Open this thread in the app to see why.";
 const BUSY = "The bot is busy. Try again soon.";
+const CAPPED = "This bot has reached a usage cap its owner set, so it takes no new calls for now.";
 const CANNOT_CONFINE = "This bot's AI can't take Bot API calls. Choose another AI for this bot.";
 
 function detailOf(error: unknown): string {
@@ -172,6 +173,8 @@ export function createBotApiHost(deps: BotApiHostDeps) {
     } catch (error) {
       markRunning(botId, threadId, false);
       if (opened) deps.discard?.(botId, threadId);
+      const capped = z.object({ code: z.literal("spend_cap"), message: z.string(), resetsAt: z.number().optional() }).safeParse(error);
+      if (capped.success) throw Object.assign(new Error(capped.data.resetsAt === undefined ? CAPPED : `${CAPPED} Try again after ${new Date(capped.data.resetsAt).toISOString()}.`), { status: 429, forCaller: true, detail: capped.data.message, retryAt: capped.data.resetsAt });
       const busy = z.object({ code: z.enum(["thread_busy", "thread_limit"]) }).safeParse(error).success;
       fail(busy ? 409 : 502, busy ? BUSY : COULD_NOT_ANSWER, error instanceof Error ? error.message : String(error));
     }
@@ -264,6 +267,8 @@ export function createBotApiHost(deps: BotApiHostDeps) {
         json(res, answer.status, answer.body);
       } catch (error) {
         manager.record(botId, { outcome: "rejected", statusCode: statusOf(error), reason: detailOf(error), preview: call.message });
+        const retryAt = z.object({ retryAt: z.number() }).safeParse(error).data?.retryAt;
+        if (retryAt !== undefined) res.setHeader("retry-after", String(Math.max(1, Math.ceil((retryAt - Date.now()) / 1000))));
         json(res, statusOf(error), { error: callerWords(error) });
       }
       return true;
