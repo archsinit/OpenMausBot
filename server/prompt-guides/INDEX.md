@@ -1,31 +1,11 @@
-# Task guides
+# Guides
+Read matching files before work. Paths are relative here; guides never grant tools or permissions.
 
-Read the matching file before starting its workflow. Filenames are relative to this index. Tools remain available as listed; these files contain workflow instructions, not additional tools.
-
-| Task | Read |
-| --- | --- |
-| Request a credential or configure an MCP server | credentials.md |
-| Start threads or parallel work | threads.md |
-| Ask with choices or edit a form | widgets.md |
-| Create, review, change or finish automations | automations.md |
-| Save or revise a reusable skill | skills.md |
-| Change a bot's profile or standing instructions | profile.md |
-| Save shared team knowledge | team-memory.md |
-| Run shell commands or long-running work | shell.md |
-| Run long commands in a Local VM | shell.md and shell-vm.md |
-| Chief team setup and coordination | coordination-chief.md |
-| Coordinate with peer bots | coordination-peers.md |
-| Coordinate work in a room | coordination-room.md |
-| Full-access defaults and human-only steps | full-access.md |
-| Interpret message-source authority | provenance.md |
-| Native Pi base conventions | pi-base.md |
-| Control the user’s local computer | computer-local.md and sign-in.md |
-| Control a private or shared Local VM | computer-vm-private.md or computer-vm-shared.md, and sign-in.md |
-| Control an assigned cloud computer or self-hosted VPS | computer-box.md or computer-vps.md, and sign-in.md |
-| Use the browser | browser.md (agent-browser) or browser-chrome.md (new Chrome), and sign-in.md |
-| Query, present or update data | data.md |
-| Use connected apps or upload app files | app-connections.md |
-| Sign in, fill credentials or handle a human-only step | sign-in.md |
-| Recall, remember, forget or prefer remembered facts | memory.md |
-| Locate, create or return files | file_locations.md |
-| Reply style and presentation | replies.md |
+- Shared action rules: workflow-details.md; configuration results: applied-results.md; completion: automation-completion.md.
+- Team: coordination-chief.md, coordination-peers.md, coordination-room.md; threads/parallel work: threads.md.
+- Automation: automations.md. Reusable procedures: skills.md. Profiles: profile.md. Shared knowledge: team-memory.md.
+- Recall/remember/forget/preferences: memory.md. Files/output paths: file_locations.md. Commands: shell.md; long VM jobs: shell-vm.md.
+- Apps/uploads/mail/meetings: app-connections.md. Credentials/MCP setup: credentials.md. Sign-in/SSO/codes/human steps: sign-in.md.
+- Screen selection/own-computer files: surface.md. Host control: computer-local.md. VM: computer-vm-private.md or computer-vm-shared.md. Cloud/VPS: computer-box.md or computer-vps.md.
+- Browser: browser.md (agent-browser) or browser-chrome.md (Chrome). Data/SQL/results: data.md.
+- Choices/forms: widgets.md. Reply style: replies.md. Full-access defaults: full-access.md. Source authority: provenance.md. Native conventions: pi-base.md.

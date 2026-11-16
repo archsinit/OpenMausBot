@@ -4,13 +4,13 @@ Branch `indexed-prompt-guides` starts from upstream `main` at `49968d7f12f381ac3
 
 ## Scope
 
-This is the upstream app with workflow prose moved into files, not a reduced-feature app. Browser/desktop/phone automation, Data, specialized helpers and all other upstream features remain. Tool execution handlers, schema constraints, approvals, settings and permissions are unchanged. Pi declarations now load on demand; only recognized stock tool prose is compacted. The stock Pi base is concise, while operator SYSTEM files and other authored resources retain precedence.
+This is the upstream app with concise workflow instructions in indexed files, not a reduced-feature app. Browser/desktop/phone automation, Data, specialized helpers and all other upstream features remain. Tool execution handlers, schema constraints, approvals, settings and permissions are unchanged. Pi declarations now load on demand; only recognized stock tool prose is compacted. The stock Pi base is concise, while operator SYSTEM files and other authored resources retain precedence.
 
-`server/prompt-guides/INDEX.md` maps workflows to twenty-nine catalog resources including the index: credentials/MCP configuration, threads, widgets, automations, skills, profiles, shared team memory, shell/VM commands, and Chief/peer/room coordination. The initial prompt points to the index; the model reads the matching instructions before starting that workflow. Safety policies, current routing facts and unknown/new upstream prose remain inline. See [the update-maintenance contract](context-maintenance.md) for the isolated integration seams and conservative fallbacks.
+`server/prompt-guides/INDEX.md` maps workflows to thirty-three catalog resources including the index: credentials/MCP configuration, threads, widgets, automations, skills, profiles, shared team memory, shell/VM commands, and Chief/peer/room coordination. The initial prompt points to the index; the model reads the matching instructions before starting that workflow. Safety policies, current routing facts and unknown/new upstream prose remain inline. See [the update-maintenance contract](context-maintenance.md) for the isolated integration seams and conservative fallbacks.
 
-The guides retain upstream workflow prose; indexed mode keeps concise safety/routing summaries inline. Original inline exports and default function outputs are covered by byte-fingerprint tests. Mandatory policy excerpts stay inline, including secure credential entry, applied/pending/failed result handling, authority boundaries and waits. Authored soul, rules, profile, memory, section context, actual rosters/IDs, available secret names, room bulletins, requester constraints and active event/assignment instructions remain in context.
+All model-facing guides are rewritten for brevity, not merely copied. They total 19,789 characters versus 58,638 before, including four additional topics; every guide and the index is below 1,400 characters. One concise core replaces repeated safeguards. Original prose lives separately in `prompt-baselines.ts` for compatibility recognition/default fallbacks, not in the rewritten guide files. Default outputs retain byte-fingerprint tests; unknown upstream text is preserved. Secure credential entry, applied/pending/failed results and authority boundaries remain mandatory. Authored soul, rules, profile, memory, section context, actual rosters/IDs, available secret names, room bulletins, requester constraints and active event/assignment instructions remain in context.
 
-Indexed mode requires a known native file reader (Pi, Claude or Codex), a permitted reader in the bot's tool scope, and a complete readable catalog. Fileless/unknown engines, confined turns and excluded readers keep the original inline manuals. No permissions or sandbox mounts are added. Static manual files are application runtime assets, like source modules: they must ship with the server.
+Indexed mode requires a known native file reader (Pi, Claude or Codex), a permitted reader in the bot's tool scope, and a complete readable catalog. Fileless/unknown engines, confined turns and excluded readers keep the original inline manuals. No permissions or sandbox mounts are added. Ship the complete guide catalog. Missing, empty or unreadable guides disable indexed mode rather than silently omitting instructions.
 
 ## Packaging
 
@@ -20,20 +20,20 @@ Indexed mode requires a known native file reader (Pi, Claude or Codex), a permit
 
 Matched empty-history `Hi` captures use the same Pi 1.5.2 model, frozen fixture state and provider serializer, with synthetic credentials and no provider transport. Counts are Unicode characters in complete provider JSON, excluding only the two human characters—not token estimates or app-preview sizes.
 
-| Component | Previous indexed build | New installed build |
-| --- | ---: | ---: |
-| Native instructions | 2,431 | 371 |
-| Tool declarations | 71,375 | 2,008 |
-| App prefix | 20,626 | 10,467 |
-| JSON framing/escaping/controls | 551 | 482 |
-| **Complete initial overhead** | **94,983** | **13,328** |
-| Initially declared tools | 64 | 5 |
+| Component | Full indexed build | Deferred-tool build | Brief candidate |
+| --- | ---: | ---: | ---: |
+| Native instructions | 2,431 | 371 | 371 |
+| Tool declarations | 71,375 | 2,008 | 2,008 |
+| App prefix | 20,626 | 10,467 | 4,470 |
+| JSON framing/escaping/controls | 551 | 482 | 468 |
+| **Complete initial overhead** | **94,983** | **13,328** | **7,317** |
+| Initially declared tools | 64 | 5 | 5 |
 
-**85.97% smaller**, without removing features. The actual populated prior live request had 98 initial tools and 25,753 reported input tokens; that is a different environment, not the denominator in this matched comparison. No populated-user after token count is claimed. Authored context, history and tools actually loaded during work can increase future requests.
+The brief candidate is **45.10% smaller** than the prior deferred-tool build and **92.30% smaller** than the full indexed baseline, without removing features. The actual populated prior live request had 98 initial tools and 25,753 reported input tokens; that is a different environment, not the denominator in this matched comparison. No populated-user after token count is claimed. Authored context, history and tools actually loaded during work can increase future requests.
 
-The installed build was captured twice after all payload hooks, equal except cache key. Its staged candidate measured 13,331; the installed guide path is three characters shorter. The old approximately 5.8k-character reduced-feature build is not this branch.
+The brief candidate was captured twice after all payload hooks, equal except cache key. Installed-path results will be recorded after deployment. The old approximately 5.8k-character reduced-feature build is not this branch.
 
-## Current context-layer deployment
+## Previous context-layer deployment
 
 Committed and pushed context implementation `22ecfe63a`, followed by the verified app-owned native-base asset in `17aaef77c9d3de9aafb9788237d8da9591144ee4`, before deployment. Installed as upstream version `0.1.165`; `FORK-BUILD.json` records the branch, implementation and package SHA-256 `a737fb0f4d78e01865ed2b7a280ca91f3701a4c10b3dea6a38b77c51c808c5a2`.
 
@@ -47,7 +47,7 @@ The previous installation and private workspace were backed up under `~/.local/s
 
 ## Verification
 
-- **26 suites / 532 tests passed**: verbatim prose/default-output fingerprints, scope/catalog fallbacks, live-fact preservation, direct/room dispatch with an isolated fake engine, original inline room combinations, widgets/pages, coordination, task cwd, tool selection and repository ratchets.
+- **31 suites / 631 tests passed**: legacy default-output fingerprints, concise-guide procedure contracts and length budgets, scope/catalog fallbacks, live-fact preservation, direct/room dispatch with an isolated fake engine, original inline room combinations, widgets/pages, coordination, task cwd, tool selection and repository ratchets.
 - Frontend/server TypeScript and changed-source lint passed; production server build passed.
 - Packaged server smoke passed without reachable `node_modules`, including CLI, MCP, backup worker, desktop entry, container launcher and enterprise layer.
 - A separate offline packaged nested `agents-proxy.js` process returned its 49-tool catalog; coordination, widgets, HTML, publishing and automations were checked. No tool was executed by that probe.

@@ -17,7 +17,8 @@ export function promptGuidePath(input: { driverKind: string; toolScope?: unknown
   try {
     for (const name of PROMPT_GUIDE_FILES) {
       const path = join(root, name);
-      if (!statSync(path).isFile()) return undefined;
+      const stat = statSync(path);
+      if (!stat.isFile() || stat.size === 0) return undefined;
       accessSync(path, constants.R_OK);
     }
     return root;

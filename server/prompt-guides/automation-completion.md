@@ -1,0 +1,1 @@
+Before reporting completion, trigger_info related automations. Pause goal-complete temporary monitors with trigger action=pause; verify enabled=false and nextRunAt=null using trigger_info. Keep standing automations; delete only on explicit request.

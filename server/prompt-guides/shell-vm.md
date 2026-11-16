@@ -1,1 +1,1 @@
- In your Local VM, vm_exec takes `timeout_seconds` instead (default 60, at most 300). The VM keeps running between calls, so a job longer than that may start detached inside it (`nohup <command> > /tmp/<job>.log 2>&1 &`); check its log with later vm_exec calls.
+Local VM vm_exec uses timeout_seconds (default 60, max 300). The VM persists between calls: longer jobs may detach with nohup <command> > /tmp/<job>.log 2>&1 &; inspect logs with later vm_exec. Wait eligibility still follows shell.md.

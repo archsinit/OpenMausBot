@@ -6,12 +6,16 @@ This branch keeps upstream features, settings, APIs, tool implementations, valid
 
 | Area | Isolated implementation | Integration |
 | --- | --- | --- |
-| Indexed static prose and compact safety/routing facts | `server/indexed-context.ts`, `server/prompt-guides/` | One indexed-only pass in `buildSystemPrompt`; original default exports stay intact |
+| Brief shared core and guide selection | `server/concise-context-core.ts`, `server/indexed-context.ts`, `server/prompt-guides/` | One indexed-only pass in `buildSystemPrompt`; original default exports stay intact |
+| Compatibility recognition | `server/prompt-baselines.ts` | Frozen original text, separate from the brief model-facing guides |
 | Memory/file guidance | `server/workspace-context.ts` | Optional guided mode in the two workspace prompt functions; five caller flags |
-| Collaboration procedures | Existing coordination guides and exact-paragraph compaction | Optional guided mode; original identity/authority facts and complete rosters remain |
+| Screen selection and own-computer routing | `server/surface-context.ts` | One guided-only pass; unknown notes, selected targets and actual bot IDs remain |
+| Collaboration procedures | Brief coordination guides and exact-paragraph compaction | Optional guided mode; original identity/authority facts and complete rosters remain |
 | Pi tool declarations | `server/drivers/pi-tool-discovery.ts` | Register original MCP/ask-user definitions through a small adapter and finish discovery |
 | Native tool-description prose | `server/drivers/pi-native-prose.ts` | Final provider-payload hook, exact recognized stock schemas only |
 | Native Pi base instructions | `server/drivers/pi-system-prompt.ts` | Documented `--system-prompt` option with a verified app-owned asset, never cwd-sensitive prose; operator SYSTEM files take precedence |
+
+Relative file references must resolve against the native cwd; memory may refer to Files.shared only when its actual private root matches that supplied file root. Preview and cross-tenant roots stay explicit.
 
 The guide catalog is copied by the existing server bundler. npm, Electron and Docker already copy that server tree. No new user setting, permission grant or filesystem mount is introduced.
 
@@ -19,8 +23,8 @@ The guide catalog is copied by the existing server bundler. npm, Electron and Do
 
 - Only recognized application prose is compacted. Changed/unknown paragraphs and trailing runtime facts pass through unchanged. Memory/file templates use fingerprints after replacing only their dynamic path JSON; an unknown template stays fully inline.
 - Person-authored soul, rules, profile, factual memory, topic indexes, team/room data, secret-name availability, active assignments/events and authorization boundaries are not candidates for wholesale removal.
-- Default/full prompt outputs retain upstream byte fingerprints. Verbatim guide/constant parity tests flag stale resources; do not blindly refresh those expectations.
-- Missing readers, excluded reader scopes and confined turns keep inline workflow instructions. Static guide files are required application assets; a deployment must ship the complete catalog.
+- Default/full prompt outputs retain upstream byte fingerprints via internal recognition baselines. Model-facing guides are separately rewritten and checked for required steps, constraints and a 1,400-character-per-file budget. Do not blindly refresh either contract.
+- Missing readers, excluded scopes, confinement or an incomplete/empty catalog keep the legacy inline fallback. A deployment must ship the complete brief catalog. Unknown/new upstream instructions can remain longer until reviewed; user-authored facts are never rewritten to fit a budget.
 - Pi defers declarations only when the required extension APIs exist. Older APIs retain eager registration. Unsupported scope enforcement fails closed, not open. Other engines keep their original tool-exposure behavior.
 - Unknown/custom native tool prose and schema constraints are preserved. Operator `SYSTEM.md`, project context, skills, extensions and appended policies are not disabled.
 
@@ -33,8 +37,8 @@ Loaded declarations remain available during the run; using more capabilities can
 ## Updating upstream
 
 1. Merge upstream into this branch, not the old feature-removal branch. Review conflicts only at the seams above; do not copy retirement fences or alter capability registries.
-2. Run prompt/default-output fingerprints, guide-resource parity, unknown-prose passthrough, memory/fact preservation, reader fallback, scope, discovery completeness and approval tests. A larger fallback prompt is safer than silently dropping new upstream policy.
-3. Review new upstream instructions before updating guide resources or fingerprints. Retain mandatory safety inline; offload procedures, not new permission rules or actual user data.
+2. Run prompt/default-output fingerprints, brief-guide semantic/length contracts, unknown-prose passthrough, memory/fact preservation, reader fallback, scope, discovery completeness and approval tests. A larger fallback prompt is safer than silently dropping new upstream policy.
+3. Review new upstream instructions before updating compatibility baselines, brief guides or fingerprints. Retain mandatory safety inline; offload procedures, not new permission rules or actual user data.
 4. Build the server and run the isolated packaged smoke. Check both root and nested MCP entry points can load the complete resource tree without repository dependencies.
 5. Qualify the installed Pi version offline: first declarations, original-schema activation/callback, ambiguous/exact discovery, custom/host approvals, and scope denial. Runtime SDK qualification currently covers Pi 1.5.2; mocks alone do not qualify a future SDK.
 6. Capture the complete provider-built JSON in matched disposable fixtures using synthetic credentials and blocked provider transport. Place the exiting observer **last**, after payload-transform hooks. Count native instructions, nested tool declarations, app prefix and framing, not just the app preview. Keep raw payloads and user data outside Git.

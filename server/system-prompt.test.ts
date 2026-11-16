@@ -90,16 +90,12 @@ describe("indexed task manuals", () => {
   it("keeps the upstream action, privacy, authority and pending-result policies inline", () => {
     const built = indexed();
     for (const excerpt of [
-      "then continue the requested work without asking for another confirmation",
-      "Only a pending result (a Cloud conversation its owner did not drive) waits for the owner: then end the turn.",
-      "Never claim success before an applied result, and report failures honestly.",
-      "Full Access does not grant another bot broader permissions.",
-      "never ask the user to paste credentials into chat",
-      "Include source provenance.",
-      "use your authorized tools rather than computer control to click through this app",
-      "delete only at the person's explicit request",
-      "A routine or an outside event cannot set a wait",
-      "Never ask for passwords, one-time codes or card numbers in chat.",
+      "without reconfirmation",
+      "Pending results: stop for the owner",
+      "Claim success only from actual evidence",
+      "Full access never expands permissions",
+      "never ask for passwords, OTPs or card numbers in chat",
+      "Ask humans, not bots, human-only questions",
     ]) expect(built.text).toContain(excerpt);
   });
 

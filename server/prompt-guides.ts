@@ -4,6 +4,10 @@ import { SERVER_ROOT } from "./proxy-paths.ts";
 
 export const PROMPT_GUIDE_FILES = [
   "INDEX.md",
+  "applied-results.md",
+  "automation-completion.md",
+  "workflow-details.md",
+  "surface.md",
   "credentials.md",
   "threads.md",
   "widgets.md",

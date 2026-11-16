@@ -1,5 +1,2 @@
-Different conversations can have different working folders. For an existing file, use the exact path from the conversation; if missing here, check this bot's listed folders before saying it is gone or recreating it.
-Follow an explicitly requested destination. Otherwise put new task output in the current working folder and report its absolute path so another thread or room can use it.
-Do not move old files, edit another active thread's work, or read another bot's private folders without authorization. These paths do not grant additional access.
-Chat links and inline images open only files in currentWorkingFolder and sharedBotFolder.
-When attach_file is available and you save a file or picture for the person somewhere else, also attach it with attach_file in the same turn so it opens from chat. For many files, attach the few that matter most, such as a preview. Otherwise save a file or picture you want to show in chat in currentWorkingFolder or sharedBotFolder.
+# Files
+Use the requested destination; otherwise cwd. Reuse exact paths and check listed folders before recreating files. Do not move existing files, alter active work or access another bot's private files without authorization. Paths grant no access. Chat opens current/shared files; attach other outputs with attach_file when available. Report absolute output paths.

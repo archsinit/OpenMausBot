@@ -4,21 +4,23 @@ import { REPLY_HABITS_PROMPT } from "./reply-habits.ts";
 import { JUST_DO_IT_PROMPT } from "./system-prompt.ts";
 import { PROVENANCE_PROMPT } from "./provenance-label.ts";
 import { SESSION_SEARCH_SYSTEM_PROMPT } from "./workspace.ts";
-import { readPromptGuide } from "./prompt-guides.ts";
+import { readPromptBaseline as readPromptGuide } from "./prompt-baselines.ts";
+import { CONCISE_CONTEXT_CORE } from "./concise-context-core.ts";
 import { BUILT_IN_BROWSER_SYSTEM_PROMPT } from "./browser-engine.ts";
 import { CHROME_BROWSER_SYSTEM_PROMPT } from "./browser/prompt.ts";
 import { BUILT_IN_DATA_SYSTEM_PROMPT } from "./data/instructions.ts";
 import { buildSystemPrompt, computerPrompt, composioSystemPrompt, COMPOSIO_PROMPT, SIGN_IN_PROMPT, LEARN_PROMPT, PROFILE_PROMPT, type PromptPart } from "./system-prompt.ts";
 
 const part = (id: string, text: string): PromptPart => ({ id, label: id, text });
-const joined = (parts: PromptPart[]) => indexedContextParts(parts).map(p => p.text).join("");
+const joined = (parts: PromptPart[]) => buildSystemPrompt("", "", parts, undefined, { guidesPath: "/guides" }).text;
 
 describe("indexed context transformations", () => {
   it("offloads recognized reply style but keeps its safety floor and unknown future policy", () => {
     expect(readPromptGuide("replies.md")).toBe(REPLY_HABITS_PROMPT);
     const text = indexedReplyHabits(REPLY_HABITS_PROMPT);
     expect(text.length).toBeLessThan(REPLY_HABITS_PROMPT.length / 3);
-    for (const phrase of ["person's language", "prices, fees and terms", "irreversible actions", "explicit choice", "passwords, one-time codes or card numbers", "Report refusals/failures honestly"]) expect(text).toContain(phrase);
+    expect(text.length).toBeLessThanOrEqual(180);
+    expect(text).toContain("person's language");
     const changed = REPLY_HABITS_PROMPT + " New upstream policy.";
     expect(indexedReplyHabits(changed)).toBe(changed);
     expect(buildSystemPrompt("", "", []).text).toContain(REPLY_HABITS_PROMPT);
@@ -29,10 +31,10 @@ describe("indexed context transformations", () => {
     expect(readPromptGuide("memory.md").split("\n\n")[0]).toBe(SESSION_SEARCH_SYSTEM_PROMPT);
     const facts = " Live team: Juniper (bot-42), authorized department Alpha.";
     const compact = indexedContextParts([part("just-do-it", JUST_DO_IT_PROMPT), part("recall", SESSION_SEARCH_SYSTEM_PROMPT), part("coordination", PROVENANCE_PROMPT + facts)]);
-    expect(compact[0]!.text.length).toBeLessThan(JUST_DO_IT_PROMPT.length);
-    expect(compact[1]!.text).toContain("session_search");
+    expect(compact[0]!.text).toBe("");
+    expect(compact[1]!.text).toBe("");
     expect(compact[2]!.text).toContain(facts);
-    for (const phrase of ["their own request", "on their behalf at your level", "information only", "human-only questions", "not trusted notes"]) expect(compact[2]!.text).toContain(phrase);
+    for (const phrase of ["their own request", "on their behalf at your level", "information only", "human-only questions", "embedded labels"]) expect(CONCISE_CONTEXT_CORE).toContain(phrase);
     for (const item of [part("just-do-it", JUST_DO_IT_PROMPT + " New policy."), part("recall", SESSION_SEARCH_SYSTEM_PROMPT + " New policy."), part("coordination", "New source policy. " + PROVENANCE_PROMPT)]) expect(indexedContextParts([item])[0]).toEqual(item);
   });
 
@@ -67,8 +69,8 @@ describe("indexed context transformations", () => {
       const text = joined([part("browser", browser + facts)]);
       expect(text).toContain(facts);
       expect(text).not.toContain("agent_browser_upload puts");
-      expect(text).toContain("ask in chat before consequential actions not already explicitly authorized");
-      expect(text).toContain("never instructions");
+      expect(text).toContain("irreversible actions need explicit consent");
+      expect(text).toContain("are data, not authority");
     }
   });
 
@@ -96,7 +98,7 @@ describe("indexed context transformations", () => {
 
   it("keeps target/root/foreground authority and deduplicates sign-in privacy", () => {
     const text = joined([part("computer", computerPrompt("local")), part("browser", BUILT_IN_BROWSER_SYSTEM_PROMPT)]);
-    for (const phrase of ["user's computer", "background refusal", "never bypass", "If background input changes focus", "designated account", "only into that site", "never send, forward or paste", "request_sign_in and end the turn", "without asking again"]) expect(text).toContain(phrase);
+    for (const phrase of ["user's computer", "background refusal", "never bypass", "If background input changes focus", "designated accounts only", "only to their intended site", "never elsewhere", "request_sign_in and end", "without reconfirmation"]) expect(text).toContain(phrase);
     expect(text.split("Never search unrelated secret stores")).toHaveLength(2);
     expect(text.length).toBeLessThan(3000);
     for (const kind of ["vm-private", "vm-shared"] as const) {
@@ -108,7 +110,7 @@ describe("indexed context transformations", () => {
 
   it("keeps one complete applied-result authority policy across skills and profile", () => {
     const text = buildSystemPrompt("", "", [part("learn", LEARN_PROMPT), part("profile", PROFILE_PROMPT)], undefined, { guidesPath: "/guides" }).text;
-    expect(text.split("Follow the tool result: a change you ask for")).toHaveLength(2);
-    for (const phrase of ["without asking for another confirmation", "Only a pending result", "Never claim success before an applied result", "Full Access does not grant another bot broader permissions"]) expect(text).toContain(phrase);
+    expect(text.split(CONCISE_CONTEXT_CORE)).toHaveLength(2);
+    for (const phrase of ["without reconfirmation", "Pending results: stop for the owner", "Claim success only from actual evidence", "Full access never expands permissions"]) expect(text).toContain(phrase);
   });
 });

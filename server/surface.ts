@@ -4,6 +4,7 @@ import { canUseMcpServer } from "../shared/tool-scope.ts";
 import { placeRowText, type PlaceRow, type PlaceSource } from "../shared/place-view.ts";
 import { PLAIN_WORDS } from "./local-computer-guidance.ts";
 import { theirComputer, type LentPlatform } from "./lent-computers.ts";
+import { compactSurfaceContext } from "./surface-context.ts";
 export type { Surface, PlaceSource };
 
 /** The bot's "Works on" setting; undefined = Auto. */
@@ -281,7 +282,7 @@ function ownComputerSentence(lent: ReadonlyArray<{ name: string; platform: LentP
  * `ownComputer`: on a Cloud home, the person's lent computers (newest first) when this turn has the shared-computer tools. */
 export function surfacePrompt(
   mounted: MountedSurfaces,
-  opts: { pinned?: Surface | null; note?: string; canSelect?: boolean; cloudHome?: boolean; botOpened?: boolean;
+  opts: { pinned?: Surface | null; note?: string; canSelect?: boolean; cloudHome?: boolean; botOpened?: boolean; guides?: boolean;
     ownComputer?: ReadonlyArray<{ name: string; platform: LentPlatform | null }>;
     /** This computer can be picked for this bot here: its name, and the platform this server runs on. */
     thisComputer?: { bot: string; botId?: string; platform: NodeJS.Platform } } = {},
@@ -328,5 +329,6 @@ export function surfacePrompt(
   if (opts.thisComputer && !opts.cloudHome && !reportBack && mounted.computer !== "local") {
     text += ownFilesSentence(opts.thisComputer, mounted.computer, Boolean(opts.canSelect));
   }
-  return text + (opts.note ?? "");
+  const full = text + (opts.note ?? "");
+  return opts.guides ? compactSurfaceContext(full, mounted, opts) : full;
 }

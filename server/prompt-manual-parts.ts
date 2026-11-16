@@ -1,5 +1,5 @@
 import { CREDENTIAL_PROMPT, LEARN_PROMPT, PROFILE_PROMPT, TEAM_MEMORY_PROMPT, THREADS_PROMPT, TRIGGER_PROMPT, WIDGET_PROMPT, type PromptPart } from "./system-prompt.ts";
-import { readPromptGuide } from "./prompt-guides.ts";
+import { readPromptBaseline } from "./prompt-baselines.ts";
 
 export function credentialParts(enabled: boolean, secrets: string, threadsAndWidgets = false): PromptPart[] {
   return [
@@ -36,7 +36,7 @@ export function roomRequesterRule(name: string | undefined): string {
 export function roomWorkflowInstructions(input: { indexed: boolean; agents: boolean; secrets: string; threads: boolean; coordinate: boolean; requester: string; skills: boolean }): Array<string | false> {
   return [
     input.agents && ((input.indexed ? "" : CREDENTIAL_PROMPT) + input.secrets + (!input.indexed && input.threads ? THREADS_PROMPT : "")).trim(),
-    input.agents && input.coordinate && (input.indexed ? "" : readPromptGuide("coordination-room.md")) + input.requester,
+    input.agents && input.coordinate && (input.indexed ? "" : readPromptBaseline("coordination-room.md")) + input.requester,
     !input.indexed && input.agents && TRIGGER_PROMPT.trim(),
     !input.indexed && input.agents && PROFILE_PROMPT.trim(),
     !input.indexed && input.agents && input.skills && LEARN_PROMPT.trim(),

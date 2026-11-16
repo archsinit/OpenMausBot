@@ -1,0 +1,1 @@
+Skill/profile/model changes (including Chief changes to teammates) apply immediately at every access level with Undo: continue without reconfirming. Only pending results wait for the owner: end the turn. Do not claim success/remembering before an applied result; report failures. Full Access never expands another bot's permissions.

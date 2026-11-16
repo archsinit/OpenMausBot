@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { SERVER_ROOT } from "./proxy-paths.ts";
 import { guideRoot, PROMPT_GUIDE_FILES, readPromptGuide } from "./prompt-guides.ts";
 import * as prompts from "./system-prompt.ts";
+import { readPromptBaseline } from "./prompt-baselines.ts";
 
 const sha256 = (text: string): string => createHash("sha256").update(text, "utf8").digest("hex");
 const UPSTREAM_49968D7F1 = [
@@ -54,12 +55,12 @@ describe("static prompt guides", () => {
 
   it.each(UPSTREAM_49968D7F1)("preserves upstream 49968d7f1 %s byte for byte", (name, filename, exportHash, resourceHash) => {
     expect(sha256(prompts[name])).toBe(exportHash);
-    expect(sha256(readPromptGuide(filename))).toBe(resourceHash);
+    expect(sha256(readPromptBaseline(filename))).toBe(resourceHash);
   });
 
   it("preserves shell outputs for every computer and the actual timeout constant", () => {
-    const base = readPromptGuide("shell.md");
-    const vm = readPromptGuide("shell-vm.md");
+    const base = readPromptBaseline("shell.md");
+    const vm = readPromptBaseline("shell-vm.md");
     expect(sha256(base)).toBe(UPSTREAM_49968D7F1_SHELL);
     expect(sha256(vm)).toBe(UPSTREAM_49968D7F1_VM);
     expect(base).toContain(`${prompts.BASH_MAX_TIMEOUT_MS}, which is ${prompts.BASH_MAX_TIMEOUT_MS / 60_000} minutes`);

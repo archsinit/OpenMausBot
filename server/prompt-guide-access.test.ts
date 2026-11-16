@@ -30,6 +30,8 @@ describe("prompt guide availability", () => {
       expect(promptGuidePath({ driverKind: "piAgent", root })).toBeUndefined();
       for (const name of PROMPT_GUIDE_FILES) writeFileSync(join(root, name), "Guide");
       expect(promptGuidePath({ driverKind: "piAgent", root })).toBe(root);
+      writeFileSync(join(root, "widgets.md"), "");
+      expect(promptGuidePath({ driverKind: "piAgent", root })).toBeUndefined();
       rmSync(join(root, "widgets.md")); mkdirSync(join(root, "widgets.md"));
       expect(promptGuidePath({ driverKind: "piAgent", root })).toBeUndefined();
     } finally { rmSync(root, { recursive: true, force: true }); }

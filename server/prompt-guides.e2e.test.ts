@@ -48,7 +48,7 @@ describe.skipIf(process.platform === "win32")("indexed guides in actual direct/r
     const preview = await api("GET", `/api/bots/${botId}/system-prompt`);
     expect(preview.status).toBe(200);
     const text = preview.body.sections.map((part: { text: string }) => part.text).join("");
-    for (const value of ["Keep the authored global rule verbatim.", "Keep the authored standing constraint verbatim.", "The person's preferred output is CSV.", "email drafts only, never automatic sends", "never ask the user to paste credentials into chat", "Full Access does not grant another bot broader permissions"]) expect(text).toContain(value);
+    for (const value of ["Keep the authored global rule verbatim.", "Keep the authored standing constraint verbatim.", "The person's preferred output is CSV.", "email drafts only, never automatic sends", "never ask for passwords, OTPs or card numbers in chat", "Full access never expands permissions"]) expect(text).toContain(value);
     expect(text).not.toContain(TRIGGER_PROMPT.trim());
     expect(text).not.toContain(CREDENTIAL_PROMPT.trim());
     const part = preview.body.sections.find((one: { id: string }) => one.id === "prompt-guides");
