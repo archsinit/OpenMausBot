@@ -874,8 +874,8 @@ describe("the prompt of a bridged turn", () => {
     expect(first.volatile).toContain(AGENTS_TOOL_BRIDGE_PROMPT);
     expect(first.stable).not.toContain(FIND_TOOL);
     expect(first.stable).toBe(unbridged.stable);
-    // ahead of every other volatile section but the bot's name, as it sits right after the soul in the whole prompt
-    expect(first.volatile.startsWith(`You are Kiwi.${AGENTS_TOOL_BRIDGE_PROMPT}`)).toBe(true);
+    // ahead of every other volatile section, as it sits right after the soul in the whole prompt
+    expect(first.volatile.startsWith(AGENTS_TOOL_BRIDGE_PROMPT)).toBe(true);
     expect(later.stable).toBe(first.stable);
     expect(later.volatile).not.toBe(first.volatile);
     // and it is the same text for every bot and every turn that has it

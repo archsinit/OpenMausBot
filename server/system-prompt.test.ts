@@ -123,9 +123,7 @@ describe("buildSystemPrompt", () => {
     expect(built.text).toContain("likes tea");
     expect(built.text).toContain("@Fig");
 
-    // the bot's name is the volatile half's first line, so the stable half is the same bytes for every bot set up alike
-    expect(built.stable).toBe(` Search past sessions.${REPLY_HABITS_PROMPT}`);
-    expect(built.volatile.startsWith("You are Kiwi.")).toBe(true);
+    expect(built.stable).toBe(`You are Kiwi. Search past sessions.${REPLY_HABITS_PROMPT}`);
     // A German person once read "Now the edits." between a bot's German lines: every line they see is in their language.
     expect(REPLY_HABITS_PROMPT).toContain("in the language they use with you, including a short note between steps and a message you pass on for them");
     expect(built.volatile).toContain("likes tea");
@@ -144,9 +142,9 @@ describe("buildSystemPrompt", () => {
     ]);
     expect(built.volatile).toContain("Use the deploy skill.");
     expect(built.volatile).toContain(ROUTINE_EXECUTION_PROMPT);
-    // a routine run reads the bot's own cached prefix
+    // a routine run that reports elsewhere reads the bot's own cached prefix
     expect(built.volatile).toContain(AUTOMATION_REPLY_PROMPT);
-    expect(built.stable).toBe(` Set yourself up.${WEBHOOK_PROMPT}${REPLY_HABITS_PROMPT}`);
+    expect(built.stable).toBe(`You are Kiwi. Set yourself up.${WEBHOOK_PROMPT}${REPLY_HABITS_PROMPT}`);
   });
 
   it("keeps the phone part stable and where the person is volatile, so a turn from the phone keeps the cached prefix", () => {
@@ -154,16 +152,15 @@ describe("buildSystemPrompt", () => {
       { id: "device", label: "Phone", text: " The phone." },
       { id: "device-place", label: "Where the person is", text: place },
     ]);
-    expect(at(" On the phone.").stable).toBe(` The phone.${REPLY_HABITS_PROMPT}`);
+    expect(at(" On the phone.").stable).toBe(`You are Kiwi. The phone.${REPLY_HABITS_PROMPT}`);
     expect(at(" At the computer.").stable).toBe(at(" On the phone.").stable);
-    expect(at(" On the phone.").volatile).toBe("You are Kiwi. On the phone.");
+    expect(at(" On the phone.").volatile).toBe(" On the phone.");
   });
 
-  it("has only the bot's name in the volatile half when nothing mid-conversation is present", () => {
+  it("has an empty volatile half when nothing mid-conversation is present", () => {
     const built = buildSystemPrompt("You are Kiwi.", "", [{ id: "recall", label: "Recall", text: " Search." }]);
-    expect(built.volatile).toBe("You are Kiwi.");
-    expect(`${built.volatile}${built.stable}`).toBe(built.text);
-    expect(buildSystemPrompt("You are Pip.", "", [{ id: "recall", label: "Recall", text: " Search." }]).stable).toBe(built.stable);
+    expect(built.volatile).toBe("");
+    expect(built.stable).toBe(built.text);
   });
 
   it("is the persona and how every bot replies when there is no soul and no parts", () => {

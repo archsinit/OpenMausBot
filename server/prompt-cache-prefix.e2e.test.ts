@@ -27,9 +27,7 @@ it("launches two threads of one bot with the same system prompt, each with its o
     const { task: second } = await api("POST", `/api/bots/${bot.id}/tasks`, { title: "Second", select: false });
     const first = await turn(bot.id, bot.threadId);
     const other = await turn(bot.id, second.threadId);
-    // the bot's name rides the first message too, so a bot set up like another shares its system prompt
-    expect(first.launched).not.toContain("Garden helper");
-    expect(first.message).toContain("You are Garden helper");
+    expect(first.launched).toContain("You are Garden helper");
     expect(other.launched).toBe(first.launched);
     expect(first.launched).not.toContain(bot.threadId);
     expect(first.message).toContain(folder(bot.id, bot.threadId));

@@ -25,7 +25,7 @@ import { hostTimeout } from "./testing/host-timeout.ts";
 import { childEnv } from "./testing/omb-env.ts";
 
 type McpServer = { command: string; args: string[]; env: Record<string, string> };
-type Launched = { pid: number; systemPrompt: string; mcpConfig: { mcpServers: Record<string, McpServer> } };
+type Launched = { pid: number; systemPrompt: string; systemPromptFile: string; mcpConfig: { mcpServers: Record<string, McpServer> } };
 type Answer = {
   id: number;
   result?: { tools?: BridgeTool[]; content?: Array<{ text: string }>; isError?: boolean };
@@ -115,7 +115,7 @@ it("defers the agents tools instead of bridging them while Claude Code's tool se
       const agents = turn.mcpConfig.mcpServers.agents!;
       expect(agents.env.OMB_AGENTS_TOOL_BRIDGE, `switch ${switched}`).toBe("0");
       expect(agents.env[DEFER_TOOLS_ENV], `switch ${switched}`).toBe("1");
-      expect(turn.systemPrompt).not.toContain(AGENTS_TOOL_BRIDGE_PROMPT);
+      expect(turn.systemPrompt).not.toContain(AGENTS_TOOL_BRIDGE_PROMPT.trim());
       await withServer(agents, async (ask) => {
         const listed = (await ask("tools/list")).result!.tools! as Array<BridgeTool & { _meta?: Record<string, unknown> }>;
         expect(listed.some((tool) => tool._meta?.[ALWAYS_LOAD_META] === false)).toBe(true);
@@ -161,11 +161,14 @@ it("keeps a turn on the whole catalog until the switch is on, then mounts the br
     expect(after.pid).not.toBe(before.pid);
     const bridged = after.mcpConfig.mcpServers.agents!;
     expect(bridged.env.OMB_AGENTS_TOOL_BRIDGE).toBe("1");
-    expect(after.systemPrompt).toContain(AGENTS_TOOL_BRIDGE_PROMPT);
+    // it rides the first message's note, which is trimmed: the rule's leading space goes
+    const rule = AGENTS_TOOL_BRIDGE_PROMPT.trim();
+    expect(after.systemPrompt).toContain(rule);
+    expect(after.systemPromptFile).not.toContain(rule);
     // the rest of the prompt still names its tools as it did; the one rule covers them
     for (const prompt of [before.systemPrompt, after.systemPrompt]) expect(prompt).toContain("set it up with trigger action=create in this turn");
     // said once
-    expect(after.systemPrompt.split(AGENTS_TOOL_BRIDGE_PROMPT)).toHaveLength(2);
+    expect(after.systemPrompt.split(rule)).toHaveLength(2);
     // a fixture bot is not a Chief of Staff, so create_bot is not one of its tools
     expect(bridged.env.OMB_CHIEF_OF_STAFF).toBe("0");
 
@@ -223,7 +226,7 @@ it("keeps a turn on the whole catalog until the switch is on, then mounts the br
       expect(textOf(await call(ask, "list_triggers", {}))).toMatch(/^This bot has no triggers\. Current time: /);
     });
     // the prompt this turn was given is still true of that mount: it speaks of the bridge tools only if they are listed
-    expect(after.systemPrompt).toContain(" If find_tool and use_tool are in your tool list, ");
+    expect(after.systemPrompt).toContain("If find_tool and use_tool are in your tool list, ");
     await control(["interrupt", "--bot", bot.id]);
     await control(["wait", "--bot", bot.id, "--timeout", "30"]);
 
@@ -235,7 +238,7 @@ it("keeps a turn on the whole catalog until the switch is on, then mounts the br
     // A room refuses widgets, pages and a computer pick, so its turn is not listed them.
     expect(room.mcpConfig.mcpServers.agents!.env).toMatchObject({ OMB_ROOM: "1", OMB_COMPUTER_SELECTION: "0" });
     expect(after.mcpConfig.mcpServers.agents!.env.OMB_ROOM).toBe("0");
-    expect(room.systemPrompt).toContain(AGENTS_TOOL_BRIDGE_PROMPT);
+    expect(room.systemPrompt).toContain(rule);
     await control(["interrupt", "--channel", channel.id]);
     await control(["wait", "--channel", channel.id, "--timeout", "30"]);
   });

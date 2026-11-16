@@ -1267,8 +1267,6 @@ beforeAll(async () => {
       USERPROFILE: home,
       OMB_PORT: String(PORT),
       OMB_WEBHOOK_PORT: String(WEBHOOK_PORT),
-      // No adb server is ever found, so this machine's own phone never mounts the USB phone server (optional-mounts.ts).
-      ANDROID_ADB_SERVER_PORT: "1",
       OMB_EXTRA_PATH: fakeDockerDir,
       OMB_BOAT_API: `http://127.0.0.1:${boatStubPort}`,
       OMB_COMPOSIO_API: `http://127.0.0.1:${boatStubPort}/api/v3.1`,
@@ -9623,15 +9621,15 @@ describe("harness HTTP API", () => {
     }
   });
 
-  it("mounts the USB phone server from the first turn whose words ask for the phone, then on every turn of that conversation", async () => {
+  it("mounts the USB phone server on every turn, whatever its words: they pick only the phone skill's instructions", async () => {
     const bot = (await api("POST", "/api/bots", { name: "Phone words" })).body.bot;
     try {
       expect((await api("PATCH", `/api/bots/${bot.id}`, { modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).status).toBe(200);
-      for (const [text, mounted, instructed] of [["hello", false, false], ["open the Uber app on my Android", true, true], ["thanks", true, false]] as const) {
+      for (const [text, instructed] of [["hello", false], ["open the Uber app on my Android", true], ["thanks", false]] as const) {
         rmSync(fakeClaudeDump, { force: true });
         expect((await api("POST", `/api/bots/${bot.id}/messages`, { text })).status).toBe(202);
         const seen = await readJsonFileWhenReady<{ systemPrompt: string; mcpConfig: { mcpServers: Record<string, unknown> } }>(fakeClaudeDump, 15_000);
-        expect(Boolean(seen.mcpConfig.mcpServers.phone), text).toBe(mounted);
+        expect(seen.mcpConfig.mcpServers.phone, text).toBeDefined();
         expect(seen.systemPrompt.includes('<openmaus-skill id="phone-harness"'), text).toBe(instructed);
         expect((await api("POST", `/api/bots/${bot.id}/interrupt`)).status).toBe(200);
         await expect.poll(async () => (await api("GET", "/api/bots?messages=0")).body.bots
