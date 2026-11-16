@@ -16,18 +16,18 @@ Version: `0.1.161-archsinit.3`. Follows [feature retirement](lean-removal.md); n
 
 Counts are **Unicode characters**, not tokens. Count the complete serialized provider JSON, subtracting only the two human characters `Hi`: native instructions, tool declarations, injected application content, clock, escaping and request controls all remain included. Tool declarations are inside Codex `input[].tools`, not merely top-level `tools`.
 
-Matched empty-history fixtures freeze IDs, cwd, time, model, profile and memory. Pi remains `1.5.2`, model `openai-codex/gpt-6.1-sol`, medium reasoning. The final staged package measures:
+Matched empty-history fixtures freeze IDs, cwd, time, model, profile and memory. Pi remains `1.5.2`, model `openai-codex/gpt-6.1-sol`, medium reasoning. The installed package measures:
 
-| Component | Before (.2) | After (.3 candidate) |
+| Component | Before (.2) | After (.3 installed) |
 |---|---:|---:|
 | Native Pi instructions | 2,431 | 289 |
 | Tool declarations | 58,012 | 1,960 |
-| Complete app prefix | 23,972 | 3,153 |
+| Complete app prefix | 23,972 | 3,144 |
 | Remaining JSON framing/escaping/controls | 563 | 450 |
-| **Complete overhead excluding human text** | **84,978** | **5,852** |
+| **Complete overhead excluding human text** | **84,978** | **5,843** |
 | Initial tools | 52 | 5 |
 
-**93.11% smaller**, 79,126 characters saved. Still 852 characters above an exact 5,000-character target; no claim that the whole request is below 5,000. The installed guide path differs from the staged path, so deployment receives a separate measurement below.
+**93.12% smaller**, 79,135 characters saved. Still 843 characters above an exact 5,000-character target; no claim that the whole request is below 5,000. The staged package measured 5,852; its guide path was nine characters longer than the installed path.
 
 The user's actual pre-change fresh `Hi` was separately inspected: **85,654 characters / 53 tools**. That populated-user capture is not interchangeable with the matched fixture. No populated-user after request is claimed. Real authored facts, operator instructions and existing history can legitimately increase future requests.
 
@@ -39,12 +39,12 @@ Captures use synthetic credentials and loopback-only networking, and stop before
 
 - **31 focused suites / 694 tests passed**, including direct and room dispatch, authored-context preservation, memory atomicity/concurrency, default/custom cwd resolution, reader/scope fallback, lazy tools, approval/scope checks, widgets, HTML/page frames, mail, mobile linking and retirement guards.
 - Frontend, server and phone-protocol typechecks; changed-source lint; production server/UI builds; packaged server with no reachable `node_modules`; package artifact tests passed.
-- Actual offline Pi 1.5.2 discovery/original-callback workflow exercised separately from capture-then-exit measurement.
+- Actual offline Pi 1.5.2 final-source loopback workflow: initial five-tool loadout, discovery activating the original `apps_publish_html` schema/callback, and denial preventing activation/execution. Separate from capture-then-exit measurement.
 - Independent source review found no confirmed P1/P2 issue.
 - Broad Electron run: 2,109 passed, 17 failed, 7 skipped. All 17 failures reproduce on the unchanged pre-phase commit `4042858` (legacy automation/native-language expectations and missing Electron binary). Not represented as a green full suite. Full upstream suite, native OS installers and Docker image builds were not run.
 
 ## Deployment
 
-Pending at this implementation commit. Deployment must back up the package and private workspace, verify idle state and package hash, install with readable permissions, check health/retirement guards, and repeat the matched final-provider capture at the installed path.
+Committed and pushed implementation `f98f8902b984f5ec0486080fbd1d5bcb76c444aa` before deployment. Installed `0.1.161-archsinit.3` on `maus-desktop`; service active and health/version checks passed. Package SHA-256: `f8c2df4bcc227013331f55ce824d5c17dc3e5675e1abb893579c6bc7fd4fdbce` (also recorded in installed `FORK-BUILD.json`).\n\nPrivate package/workspace backup: `~/.local/state/openmausbot-fork-backups/20261116T131624Z/`. Live message rows stayed **83 → 83**, and the existing Pi/model/medium-reasoning selection stayed unchanged. Retirement endpoints still return 410; retired settings remain absent. The live app-only preview contains the installed guide index, and all eight guide files are readable. Two installed full-provider captures are identical except cache key and yield the table above. No live test messages were sent.
 
 Existing chat/native history is not rewritten or deleted. Start a fresh context to measure the new initial loadout; continuing an older conversation can retain its historical prompt content.
