@@ -16,6 +16,21 @@ export const PROMPT_GUIDE_FILES = [
   "coordination-chief.md",
   "coordination-peers.md",
   "coordination-room.md",
+  "computer-local.md",
+  "computer-vm-private.md",
+  "computer-vm-shared.md",
+  "computer-box.md",
+  "computer-vps.md",
+  "browser.md",
+  "browser-chrome.md",
+  "data.md",
+  "app-connections.md",
+  "sign-in.md",
+  "memory.md",
+  "file_locations.md",
+  "replies.md",
+  "full-access.md",
+  "provenance.md",
 ] as const;
 
 export function guideRoot(root = SERVER_ROOT): string {

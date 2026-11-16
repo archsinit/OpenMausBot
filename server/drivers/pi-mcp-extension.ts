@@ -9,6 +9,8 @@ import { ASK_USER_TOOL, formatQuestionAnswers, MAX_OPTIONS, MAX_QUESTIONS, parse
 import { CALL_TOOL, directoryCallTarget, isDirectoryTool } from "../mcp-directory.ts";
 import { REMOTE_MCP_STARTUP_MS } from "../mcp-http.ts";
 import { AGENTS_TOOL_TIMEOUT_SECONDS } from "./agents-tool-limit.ts";
+import { compactNativeToolProse } from "./pi-native-prose.ts";
+import { createToolDiscovery, filterToolDeclarations } from "./pi-tool-discovery.ts";
 
 interface McpServerDef {
   command: string;
@@ -56,13 +58,14 @@ interface PiToolContext {
   };
 }
 
-interface PiToolDefinition {
+export interface PiToolDefinition {
   name: string;
   label: string;
   description: string;
   parameters: TSchema;
   /** Pi 1.0+: declared to the model and never callable from other tools, as Pi documents for tools that ask the user. */
   exposure?: "model-only";
+  defaultActive?: boolean;
   execute(
     toolCallId: string,
     params: unknown,
@@ -72,10 +75,11 @@ interface PiToolDefinition {
   ): Promise<{ content: PiToolContent[]; details: Record<string, never> }>;
 }
 
-/** The slice of Pi 0.84's ExtensionAPI this standalone file uses; the user's installed Pi supplies it. */
-interface PiExtensionApi {
+/** The standalone extension uses the installed Pi API; optional methods support older versions. */
+export interface PiExtensionApi {
   registerTool(definition: PiToolDefinition): void;
   on(event: string, handler: (event?: Record<string, unknown>, context?: { abort?(): void }) => unknown): void;
+  getAllTools?(): Array<{ name: string }>;
   getActiveTools?(): string[];
   setActiveTools?(names: string[]): void;
 }
@@ -594,10 +598,13 @@ export default async function (pi: PiExtensionApi): Promise<void> {
   const clients: StdioMcp[] = [];
   const serverEntries = Object.entries(config.mcpServers ?? {}).filter(([name]) => scope === undefined || canUseMcpServer(scope, name));
 
-  if (scope !== undefined) {
-    const allowed = (name: string) => directoryTools.has(name)
+  const allowed = (name: string): boolean => !enforcementFailed && (scope === undefined || discovery.isLoader(name)
+    || (directoryTools.has(name)
       ? canUseMcpServer(scope, directoryTools.get(name)!)
-      : allowsTool(scope, identities.get(name) ?? { kind: "native", name });
+      : allowsTool(scope, identities.get(name) ?? { kind: "native", name })));
+  const discovery = createToolDiscovery(pi, allowed);
+
+  if (scope !== undefined) {
     const intersect = () => {
       if (enforcementFailed) throw new Error("Pi tool selection enforcement is unavailable");
       try {
@@ -629,25 +636,17 @@ export default async function (pi: PiExtensionApi): Promise<void> {
       const declared = (name: string) => selected.has(name) && allowed(name);
       const payload = event?.payload;
       if (!payload || typeof payload !== "object") return payload;
-      const body = payload as { tools?: unknown[] };
-      if (Array.isArray(body.tools)) body.tools = body.tools.flatMap((value) => {
-        if (!value || typeof value !== "object") return [];
-        const tool = value as { name?: string; function?: { name?: string }; functionDeclarations?: Array<{ name?: string }> };
-        if (Array.isArray(tool.functionDeclarations)) {
-          const functionDeclarations = tool.functionDeclarations.filter((declaration) => typeof declaration.name === "string" && declared(declaration.name));
-          return functionDeclarations.length ? [{ ...tool, functionDeclarations }] : [];
-        }
-        const name = tool.function?.name ?? tool.name;
-        return typeof name === "string" && declared(name) ? [tool] : [];
-      });
-      return payload;
+      return compactNativeToolProse(filterToolDeclarations(payload, declared));
     });
   }
+
+  if (scope === undefined) pi.on("before_provider_request", (event) => compactNativeToolProse(event?.payload));
 
   if (config.askUser === true) {
     const identity: ToolIdentity = { kind: "native", name: ASK_USER_TOOL };
     if (scope === undefined || allowsTool(scope, identity)) {
-      pi.registerTool(askUserTool(() => scope === undefined || (!enforcementFailed && allowsTool(scope, identity))));
+      discovery.register(askUserTool(() => scope === undefined || (!enforcementFailed && allowsTool(scope, identity))), "native");
+      identities.set(ASK_USER_TOOL, identity);
       // MCP tools are named server_tool; keep one from taking this name.
       used.add(ASK_USER_TOOL);
     }
@@ -688,7 +687,7 @@ export default async function (pi: PiExtensionApi): Promise<void> {
       const name = allocateToolName(serverName, toolName, used);
       try {
         const parameters = toTypebox(tool.inputSchema);
-        pi.registerTool({
+        discovery.register({
           name,
           label: `${serverName}:${toolName}`,
           description: typeof tool.description === "string" ? tool.description : `${toolName} (MCP tool from ${serverName})`,
@@ -723,7 +722,7 @@ export default async function (pi: PiExtensionApi): Promise<void> {
             }
             return { content: res.content, details: {} };
           },
-        });
+        }, serverName);
         used.add(name);
         identities.set(name, identity);
         if (directoryTool) directoryTools.set(name, serverName);
@@ -737,6 +736,8 @@ export default async function (pi: PiExtensionApi): Promise<void> {
     if (registered > 0) clients.push(client);
     else client.dispose();
   }
+
+  discovery.finish(used.has("search_tools") ? allocateToolName("omb", "search_tools", used) : "search_tools");
 
   pi.on("session_shutdown", () => {
     for (const c of clients) c.dispose();

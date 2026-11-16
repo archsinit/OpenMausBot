@@ -7,6 +7,7 @@ import { beforeAll, afterAll, describe, expect, it } from "vitest";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
 import { CREDENTIAL_PROMPT, TRIGGER_PROMPT } from "./system-prompt.ts";
+import { PROMPT_GUIDE_FILES } from "./prompt-guides.ts";
 
 const serverDir = dirname(fileURLToPath(import.meta.url));
 const botId = "guide-fixture", threadId = "guide-thread";
@@ -53,7 +54,7 @@ describe.skipIf(process.platform === "win32")("indexed guides in actual direct/r
     const part = preview.body.sections.find((one: { id: string }) => one.id === "prompt-guides");
     const path = JSON.parse(part.text.match(/Task guides: read (".*?") and/)[1]);
     expect(existsSync(path)).toBe(true);
-    for (const file of ["coordination-chief.md", "coordination-peers.md", "coordination-room.md", "automations.md", "credentials.md", "threads.md", "widgets.md", "skills.md", "profile.md", "team-memory.md", "shell.md", "shell-vm.md"]) expect(existsSync(join(dirname(path), file))).toBe(true);
+    for (const file of PROMPT_GUIDE_FILES) expect(existsSync(join(dirname(path), file))).toBe(true);
     expect((await api("POST", `/api/bots/${botId}/messages`, { text: "Hi", threadId })).status).toBe(202);
     await expect.poll(() => existsSync(dump), { timeout: 25_000 }).toBe(true);
     const sent = readDump();

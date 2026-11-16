@@ -344,10 +344,55 @@ describe("Pi MCP extension registration", () => {
     await f.handlers.get("session_start")?.({});
     f.api.setActiveTools = () => {};
     f.restore(["read", "bash"]);
-    const payload = { tools: ["read", "bash"].map((name) => ({ type: "function", function: { name } })) };
+    const payload = { tools: ["read", "bash"].map((name) => ({ type: "function", function: { name } })),
+      input: [{ tools: [{ name: "read" }, { name: "bash" }] }] };
     // Pi catches extension exceptions and can keep sending the old payload: return deny-all, never throw.
     await f.handlers.get("before_provider_request")?.({ payload });
     expect(payload.tools).toEqual([]);
+    expect(payload.input[0].tools).toEqual([]);
+  });
+
+  it("lazily activates original MCP tools without bypassing approvals or question validation", async () => {
+    const receipt = join(tempDir(), "execution.txt");
+    const script = fakeMcpScript(`
+      import { createInterface } from "node:readline";
+      import { writeFileSync } from "node:fs";
+      createInterface({input:process.stdin}).on("line", line => {
+        const m = JSON.parse(line); if (m.id === undefined) return;
+        let result = {};
+        if (m.method === "tools/list") result = {tools:[{name:"send",description:"Send mail",inputSchema:{type:"object",properties:{to:{type:"string"}},required:["to"]}}]};
+        if (m.method === "tools/call") { writeFileSync(process.env.RECEIPT, JSON.stringify(m.params)); result = {content:[{type:"text",text:"sent"}]}; }
+        process.stdout.write(JSON.stringify({jsonrpc:"2.0",id:m.id,result}) + "\\n");
+      });
+    `);
+    scopeConfig({ allow: ["native:read", "native:ask_user", "mcp:mail:send"] }, { askUser: true,
+      mcpServers: { mail: { command: process.execPath, args: [script], env: { RECEIPT: receipt }, scope: "custom" } } });
+    const f = scopedApi(["read", "bash", "search_tools"]);
+    await extension({ ...f.api, getAllTools: () => f.tools });
+    try {
+      await f.handlers.get("session_start")?.({});
+      expect(f.current()).toEqual(["read", "search_tools"]);
+      expect(f.tools.find(tool => tool.name === "ask_user")?.defaultActive).toBe(false);
+      const loader = f.tools.find(tool => tool.name === "search_tools")!;
+      const ui = { confirm: vi.fn(async () => false) };
+      await loader.execute("find", { query: "mail" }, undefined, undefined, { ui });
+      expect(f.current()).toContain("mail_send");
+      expect(ui.confirm).not.toHaveBeenCalled();
+      expect(existsSync(receipt)).toBe(false);
+      const mail = f.tools.find(tool => tool.name === "mail_send")!;
+      await mail.execute("denied", { to: "fixture.invalid" }, undefined, undefined, { ui });
+      expect(existsSync(receipt)).toBe(false);
+      ui.confirm.mockResolvedValue(true);
+      await mail.execute("approved", { to: "fixture.invalid" }, undefined, undefined, { ui });
+      expect(JSON.parse(readFileSync(receipt, "utf8"))).toEqual({ name: "send", arguments: { to: "fixture.invalid" } });
+      await loader.execute("questions", { query: "questions" }, undefined, undefined, { ui });
+      expect(f.current()).toContain("ask_user");
+      await expect(f.tools.find(tool => tool.name === "ask_user")!.execute("bad", { questions: [] }, undefined, undefined, { ui })).rejects.toThrow(/malformed/);
+      const payload = { input: [{ tools: [{ name: "mail_send" }, { name: "bash" }] }] };
+      const result = await f.handlers.get("before_provider_request")?.({ payload });
+      expect(result).toEqual({ input: [{ tools: [{ name: "mail_send" }] }] });
+      expect(result).not.toHaveProperty("payload");
+    } finally { await f.handlers.get("session_shutdown")?.(); }
   });
 
   it("filters raw MCP identities and still asks before custom execution", async () => {

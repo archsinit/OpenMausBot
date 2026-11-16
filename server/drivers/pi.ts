@@ -52,10 +52,10 @@ import { noticeFailure } from "../chat-notices.ts";
 
 import { decodePiFrame, PiRpcChunks, piLineReader, readPiPromptImages } from "./pi-rpc.ts";
 import { PiRunUsage, type PiUsage, type TurnUsage } from "./pi-usage.ts";
+import { PI_RPC_ARGS as PI_ARGS, piSystemPromptArgs } from "./pi-system-prompt.ts";
 export { decodePiFrame, PiRpcChunks, piLineReader } from "./pi-rpc.ts";
 
 const DRIVER_KIND = "piAgent";
-const PI_ARGS = ["--mode", "rpc", "--no-session"];
 const PI_MODEL_UPDATE_ARGS = ["update", "--models", "--no-approve"];
 /** omp's RPC transport caps a frame at 1 MiB and chunks bigger ones only after the client
  *  negotiates protocol 2. Vanilla pi has no handshake frame to wait for. */
@@ -476,7 +476,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         } catch {}
         throw err;
       }
-      const childArgs = [...PI_ARGS, "-e", SPAWNED_PROXIES.piMcpExtension];
+      const childArgs = [...PI_ARGS, ...piSystemPromptArgs(turn.cwd, piEnvironment({ ...process.env, ...input.environment })), "-e", SPAWNED_PROXIES.piMcpExtension];
 
       // spawnCli can throw synchronously, before settle() could remove the credential file.
       const child = (() => {

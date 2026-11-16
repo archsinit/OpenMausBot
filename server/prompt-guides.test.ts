@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 import { join } from "node:path";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
 import { SERVER_ROOT } from "./proxy-paths.ts";
 import { guideRoot, PROMPT_GUIDE_FILES, readPromptGuide } from "./prompt-guides.ts";
@@ -24,6 +26,20 @@ describe("static prompt guides", () => {
     expect(guideRoot()).toBe(join(SERVER_ROOT, "prompt-guides"));
     for (const file of ["../system-prompt.ts", "/etc/passwd", "unknown.md"]) {
       expect(() => readPromptGuide(file)).toThrow("Unknown prompt guide");
+    }
+  });
+
+  it("finds known bundled entrypoints without an unbounded ancestor search", () => {
+    const root = mkdtempSync(join(tmpdir(), "omb-guides-"));
+    try {
+      const guides = join(root, "prompt-guides");
+      mkdirSync(guides);
+      writeFileSync(join(guides, "INDEX.md"), "# Test guides");
+      expect(guideRoot(join(root, "enterprise", "server"))).toBe(guides);
+      expect(guideRoot(join(root, "server", "drivers", "nested", "entry"))).not.toBe(guides);
+      expect(guideRoot(join(root, "hooks"))).toBe(guides);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
     }
   });
 

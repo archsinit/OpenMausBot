@@ -9,6 +9,7 @@ import { vaultNameKey } from "../shared/vault.ts";
 import { isConversational, type ReplyStyle } from "../shared/reply-style.ts";
 import { REPLY_HABITS_PROMPT } from "./reply-habits.ts";
 import { readPromptGuide, promptGuidesPointer } from "./prompt-guides.ts";
+import { indexedContextParts, indexedReplyHabits } from "./indexed-context.ts";
 
 export type PromptPart = { id: string; label: string; text: string };
 export type PromptSection = PromptPart & { bytes: number };
@@ -99,7 +100,7 @@ export function buildSystemPrompt(
     { id: "tool-bridge", label: "Tool search", text: agentsToolBridged(agents) ? AGENTS_TOOL_BRIDGE_PROMPT : "" },
     { id: "reply-style", label: "Reply style", text: replyStylePrompt(opts?.replyStyle) },
     ...(opts?.guidesPath ? indexedPromptParts(parts, opts.guidesPath) : parts),
-    { id: "reply-habits", label: "How to reply", text: REPLY_HABITS_PROMPT },
+    { id: "reply-habits", label: "How to reply", text: opts?.guidesPath ? indexedReplyHabits(REPLY_HABITS_PROMPT) : REPLY_HABITS_PROMPT },
   ];
   const sections = ordered
     .filter((part) => part.text.length > 0)
@@ -129,7 +130,7 @@ function indexedPromptParts(parts: PromptPart[], guidesPath: string): PromptPart
     ],
   };
   const policies = new Set<string>();
-  const retained = parts.flatMap((part) => {
+  const retained = indexedContextParts(parts).flatMap((part) => {
     const candidates = manuals[part.id];
     if (!candidates || !part.text) return [part];
     let remaining = part.text;
@@ -143,9 +144,11 @@ function indexedPromptParts(parts: PromptPart[], guidesPath: string): PromptPart
     for (const policy of matched) if (policy) policies.add(policy);
     return [];
   });
+  const policyText = [...policies].map(policy => policy.replace(APPLIED_RESULT_PROMPT, "")).join("");
+  const appliedPolicy = [...policies].some(policy => policy.includes(APPLIED_RESULT_PROMPT)) ? APPLIED_RESULT_PROMPT : "";
   return [
     { id: "prompt-guides", label: "Task guides", text: promptGuidesPointer(guidesPath) },
-    { id: "prompt-guide-policies", label: "Workflow policies", text: [...policies].join("") },
+    { id: "prompt-guide-policies", label: "Workflow policies", text: policyText + appliedPolicy },
     ...retained,
   ];
 }
