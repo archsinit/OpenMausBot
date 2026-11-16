@@ -1,6 +1,6 @@
 # Indexed workflow instructions
 
-Branch `indexed-prompt-guides` starts from upstream `main` at `49968d7f12f381ac38f33d9318208c04c7afef17` (0.1.165). It does not include the feature-removal or lazy-tool changes from the other fork branch. No live installation has been changed.
+Branch `indexed-prompt-guides` starts from upstream `main` at `49968d7f12f381ac38f33d9318208c04c7afef17` (0.1.165). It does not include the feature-removal or lazy-tool changes from the other fork branch. Deployment details are recorded below.
 
 ## Scope
 
@@ -15,6 +15,12 @@ Indexed mode requires a known native file reader (Pi, Claude or Codex), a permit
 ## Packaging
 
 `build:server` copies the catalog to `dist-server/prompt-guides/`. Existing npm, Electron and Docker distribution rules copy that server tree. Resource lookup also handles bundled nested entry points such as `drivers/agents-proxy.js`.
+
+## Deployment
+
+Installed on `maus-desktop` as `0.1.165`, implementation commit `e49a4a8e4`. Package SHA-256: `b8707c39b909b7643dd208e81db5c35b3e944ba12c3eb7f22c5a39ba945ad981`; installed `FORK-BUILD.json` identifies this branch.
+
+The previous installation and private workspace were backed up under `~/.local/state/openmausbot-fork-backups/20261116T184149Z/`. Existing message rows stayed **107 → 107**, their stored conversation fields were verified unchanged, and model selections were preserved. Service health and HTTPS access passed; all thirteen guide resources are readable and the live preview includes the index. DuckDB, resvg and 1Password dependencies were installed; isolated in-memory SQL, PNG rendering and SDK import checks passed. The full upstream feature surface is restored. No test messages were sent to live conversations.
 
 ## Verification
 
