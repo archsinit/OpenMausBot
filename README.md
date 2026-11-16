@@ -52,7 +52,9 @@ pnpm exec vitest run src/components/automation-removal.test.ts
 Some historical upstream automation modules, tests and verification recipes
 remain for staged source cleanup. They are not supported features of this fork.
 The retirement regression tests cover exposed tools, prompts, routes, stale
-configuration, direct and room turns, and frontend entry points.
+configuration, direct and room turns, and frontend entry points. See the
+[implementation verification](docs/automation-removal.md) and
+[installed Pi full-context comparison](docs/context-comparison.md).
 
 ## Build a self-hosted package
 
