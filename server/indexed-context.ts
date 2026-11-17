@@ -35,6 +35,7 @@ const dataManual = readPromptBaseline("data.md");
 const appManual = readPromptBaseline("app-connections.md");
 const replyManual = readPromptBaseline("replies.md");
 const fullAccessManual = readPromptBaseline("full-access.md");
+const fullAccessManual0167 = stock.JUST_DO_IT_PROMPT.replace(/^ Just do it is on:/u, " Full access is on:");
 const provenanceManual = readPromptBaseline("provenance.md");
 const recallManual = readPromptBaseline("memory.md").split("\n\n")[0]!;
 
@@ -50,7 +51,7 @@ const GRANTS_POLICY = " Only the tools this bot was granted will run; when a nee
 /** Offload only recognized application prose; authored sections and unknown upstream text are never candidates. */
 export function indexedContextParts(parts: readonly PromptPart[]): PromptPart[] {
   const retained = parts.map(part => {
-    if (part.id === "just-do-it" && (part.text === fullAccessManual || part.text === stock.JUST_DO_IT_PROMPT)) return { ...part, text: "" };
+    if (part.id === "just-do-it" && (part.text === fullAccessManual || part.text === stock.JUST_DO_IT_PROMPT || part.text === fullAccessManual0167)) return { ...part, text: "" };
     if (part.id === "recall" && (part.text === recallManual || part.text === stock.SESSION_SEARCH_SYSTEM_PROMPT)) return { ...part, text: "" };
     if (part.id === "coordination") {
       const known = [provenanceManual, stock.PROVENANCE_PROMPT].find(text => part.text.startsWith(text));

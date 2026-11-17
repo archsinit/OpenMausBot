@@ -7,7 +7,7 @@ This branch keeps upstream features, settings, APIs, tool implementations, valid
 | Area | Isolated implementation | Integration |
 | --- | --- | --- |
 | Brief shared core and guide selection | `server/concise-context-core.ts`, `server/indexed-context.ts`, `server/prompt-guides/` | One indexed-only pass in `buildSystemPrompt`; original default exports stay intact |
-| Compatibility recognition | `server/prompt-baselines.ts`, `server/prompt-stock-0166.ts` | Frozen original/reviewed stock text, separate from the brief model-facing guides |
+| Compatibility recognition | `server/prompt-baselines.ts`, `server/prompt-stock-0166.ts`, exact reviewed aliases in `server/indexed-context.ts` | Frozen original/reviewed stock text and the 167 Full access label alias, separate from the brief model-facing guides |
 | Memory/file guidance | `server/workspace-context.ts` | Guided options in file/memory prompts; preserve upstream memory rules/volatile notes split across preview, direct and room assembly |
 | Screen selection and own-computer routing | `server/surface-context.ts` | One guided-only pass; unknown notes, selected targets and actual bot IDs remain |
 | Collaboration procedures | Brief coordination guides and exact-paragraph compaction | Optional guided mode; original identity/authority facts and complete rosters remain |
@@ -43,6 +43,10 @@ Loaded declarations remain available during the run; using more capabilities can
 5. Qualify the installed Pi version offline: first declarations, original-schema activation/callback, ambiguous/exact discovery, custom/host approvals, and scope denial. Runtime SDK qualification currently covers Pi 1.5.2; mocks alone do not qualify a future SDK.
 6. Capture the complete provider-built JSON in matched disposable fixtures using synthetic credentials and blocked provider transport. Place the exiting observer **last**, after payload-transform hooks. Count native instructions, nested tool declarations, app prefix and framing, not just the app preview. Keep raw payloads and user data outside Git.
 7. Commit before deployment; back up package/workspace, verify idle state, health, history/model preservation and installed guide readability, then repeat the capture at the installed path.
+
+## Release-specific repairs
+
+The 0.1.167 trial includes bounded upstream correctness/security repairs, separately described in `docs/upstream-0.1.167-trial.md`. These are not context-size optimizations: retain runtime grant revocation and team-file ownership/quota enforcement, with isolated regressions. Do not remove permission checks to match upstream byte-for-byte.
 
 ## Limits
 

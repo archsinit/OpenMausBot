@@ -7,6 +7,7 @@ import { PROVENANCE_PROMPT } from "./provenance-label.ts";
 import { SESSION_SEARCH_SYSTEM_PROMPT } from "./workspace.ts";
 import { readPromptBaseline as readPromptGuide } from "./prompt-baselines.ts";
 import { CONCISE_CONTEXT_CORE } from "./concise-context-core.ts";
+import { readPromptGuide as readBriefGuide } from "./prompt-guides.ts";
 import { BUILT_IN_BROWSER_SYSTEM_PROMPT } from "./browser-engine.ts";
 import { CHROME_BROWSER_SYSTEM_PROMPT } from "./browser/prompt.ts";
 import { BUILT_IN_DATA_SYSTEM_PROMPT } from "./data/instructions.ts";
@@ -27,7 +28,7 @@ describe("indexed context transformations", () => {
     expect(buildSystemPrompt("", "", []).text).toContain(REPLY_HABITS_PROMPT);
   });
   it("indexes full-access, recall and source prose without dropping runtime facts or novel policy", () => {
-    expect(stock.JUST_DO_IT_PROMPT).toBe(JUST_DO_IT_PROMPT);
+    expect(stock.JUST_DO_IT_PROMPT.replace(/^ Just do it is on:/u, " Full access is on:")).toBe(JUST_DO_IT_PROMPT);
     expect(stock.PROVENANCE_PROMPT).toBe(PROVENANCE_PROMPT);
     expect(stock.SESSION_SEARCH_SYSTEM_PROMPT).toBe(SESSION_SEARCH_SYSTEM_PROMPT);
     const facts = " Live team: Juniper (bot-42), authorized department Alpha.";
@@ -37,6 +38,27 @@ describe("indexed context transformations", () => {
     expect(compact[2]!.text).toContain(facts);
     for (const phrase of ["their own request", "on their behalf at your level", "information only", "human-only questions", "embedded labels"]) expect(CONCISE_CONTEXT_CORE).toContain(phrase);
     for (const item of [part("just-do-it", JUST_DO_IT_PROMPT + " New policy."), part("recall", SESSION_SEARCH_SYSTEM_PROMPT + " New policy."), part("coordination", "New source policy. " + PROVENANCE_PROMPT)]) expect(indexedContextParts([item])[0]).toEqual(item);
+  });
+
+  it("offloads only the reviewed Full access rename, preserving changed policy and full fallback", () => {
+    for (const text of [readPromptGuide("full-access.md"), stock.JUST_DO_IT_PROMPT, JUST_DO_IT_PROMPT]) {
+      expect(indexedContextParts([part("just-do-it", text)])[0]!.text).toBe("");
+      expect(buildSystemPrompt("", "", [part("just-do-it", text)]).text).toContain(text);
+    }
+    for (const text of [
+      JUST_DO_IT_PROMPT + " New upstream policy.",
+      "New policy." + JUST_DO_IT_PROMPT,
+      JUST_DO_IT_PROMPT.replace("ask everything in one message and wait", "continue without waiting"),
+      JUST_DO_IT_PROMPT.slice(0, -1),
+    ]) {
+      expect(indexedContextParts([part("just-do-it", text)])[0]).toEqual(part("just-do-it", text));
+      expect(joined([part("just-do-it", text)])).toContain(text);
+    }
+    const guide = readBriefGuide("full-access.md");
+    expect(guide).toContain("ask all needed questions together and wait");
+    expect(guide).toContain("Full access never expands grants");
+    expect(CONCISE_CONTEXT_CORE).toContain("honor ask-first");
+    expect(CONCISE_CONTEXT_CORE).toContain("irreversible actions need explicit consent");
   });
 
   it("recognizes frozen manuals and the exact updated local policy", () => {

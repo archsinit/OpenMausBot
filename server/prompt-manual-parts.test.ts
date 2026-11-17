@@ -1,9 +1,25 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { credentialParts, roomManualParts, roomRequesterRule, roomWorkflowInstructions, sharedMemoryParts } from "./prompt-manual-parts.ts";
 import { CREDENTIAL_PROMPT, LEARN_RULES_PROMPT, PROFILE_PROMPT, TEAM_MEMORY_PROMPT, THREADS_PROMPT, TRIGGER_PROMPT, WIDGET_PROMPT } from "./system-prompt.ts";
 import { readPromptBaseline } from "./prompt-baselines.ts";
 
 describe("manual and runtime fact separation", () => {
+  it("wires direct and room file facts alongside guided locations, and scoped vault references in every prompt", () => {
+    const source = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
+    const files = source.split("\n").filter(line => line.includes('id: "files", label: "File locations"'));
+    expect(files).toHaveLength(2);
+    for (const line of files) {
+      expect(line).toContain("guides: Boolean(guidesPath)");
+      expect(line).toContain('nativeCwd: instance.driverKind === "piAgent"');
+      expect(line).toContain('}) + teamFilesHost.promptLine(bot.id) : ""');
+    }
+    expect(source).toContain("credentialParts(agentsMounted, agentsMounted ? botLogins.secretsPrompt(bot.id, TEAM_READER)");
+    expect(source).toContain("credentialParts(Boolean(integrations.agents), integrations.agents ? botLogins.secretsPrompt(bot.id, vaultReaders.turn(threadId))");
+    expect(source).toContain("secrets: integrations.agents ? botLogins.secretsPrompt(bot.id, vaultReaders.turn(threadId))");
+    expect(source).not.toContain("savedSecretsPrompt(botLogins.secretNamesFor");
+  });
+
   it("keeps the original credential and shared-memory text without mixing live facts into manuals", () => {
     const secret = " Saved secret names: example.", facts = "The project is Juniper.";
     for (const enabled of [true, false]) {
