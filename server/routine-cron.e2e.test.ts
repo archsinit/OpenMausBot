@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
 import { nextCronRuns } from "../shared/routine-schedule.ts";
+import { guideRoot, promptGuidesPointer, readPromptGuide } from "./prompt-guides.ts";
 
 it("takes cron through the real routine tools, applying the bot's own routine at once, preserving its zone and rejecting invalid API input", async () => {
   const fixture = await launchVerificationServer(process.env, undefined, undefined, undefined, undefined, { scripted: true });
@@ -27,10 +28,16 @@ it("takes cron through the real routine tools, applying the bot's own routine at
     const { bot } = await cli("new-bot", "--name", "Cron fixture");
     const threadId = bot.activeTaskId;
     const messages = async () => (await api("GET", `/api/threads/${threadId}/messages?limit=100`)).messages as any[];
+    const guidePointer = promptGuidesPointer(guideRoot()).trim();
+    expect(readPromptGuide("INDEX.md")).toContain("automations.md");
+    const automations = readPromptGuide("automations.md");
+    expect(automations).toContain("Calendar rules need exact five-field cron plus IANA timezone");
+    expect(automations).toContain("Never approximate with AI date checks; clarify unsupported/ambiguous rules");
+    expect(automations).toContain("Omit run_on or use maus for current model/computer (including VPS); box only if requested");
     const proposal = async (tool: string, args: unknown, text: string, expectError = false) => {
       const previousTurns = providerEvidence().length;
       writeFileSync(planPath, JSON.stringify({ [bot.id]: {
-        expectSystemIncludes: ["five-field cron expression", "Never replace a calendar rule with daily AI date checking", "including its VPS"],
+        expectSystemIncludes: [guidePointer],
         steps: [{ tool: "list_triggers", arguments: {} }, { tool, arguments: args, expectError }],
         reply: expectError ? "That invalid schedule was refused." : "The routine change is applied.",
       } }));
@@ -38,6 +45,7 @@ it("takes cron through the real routine tools, applying the bot's own routine at
       await expect.poll(() => providerEvidence().length, { timeout: 20_000 }).toBe(previousTurns + 1);
       await cli("wait", "--bot", bot.id, "--task", threadId, "--timeout", "20");
       const turn = providerEvidence().at(-1);
+      expect(turn.system).toContain(guidePointer);
       const toolResponse = turn.evidence.find((entry: any) => entry.step?.tool === tool).response;
       expect(toolResponse.error).toBeUndefined();
       expect(Boolean(toolResponse.result.isError)).toBe(expectError);

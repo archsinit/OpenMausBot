@@ -1,4 +1,5 @@
 import { readPromptBaseline } from "./prompt-baselines.ts";
+import { REVIEWED_STOCK_0166 as stock } from "./prompt-stock-0166.ts";
 import type { PromptPart } from "./system-prompt.ts";
 
 const COMPUTER_FACTS = {
@@ -28,6 +29,7 @@ const browserManuals = ["browser.md", "browser-chrome.md"].map(file => ({
 }));
 const EMPTY_MAILBOX = " No mailbox is connected. For mail on a normal host (not Gmail), call request_credential with credential_id email and the address if you know it: one card asks the person for it, then end the turn. Never ask for the password in chat or write your own mail client.";
 const MEETINGS_UNAVAILABLE = " You can't join meetings to take notes here, so you have no meeting tools. When the person asks you to join a meeting or sends a meeting link, tell them in one line: Meeting notes run on a cloud computer, and none is set up here. Add a Boat key in Settings → Desktops & browser, or use MausBot Cloud.";
+const MEETINGS_UNAVAILABLE_0166 = " You have no meeting tools here, so you can't join meetings to take notes. When the person asks you to join one or sends a meeting link, tell them in one line: Meeting notes run on a cloud computer, and none is set up here. Add a Boat key in Settings → Desktops & browser, or use MausBot Cloud.";
 const dataManual = readPromptBaseline("data.md");
 const appManual = readPromptBaseline("app-connections.md");
 const replyManual = readPromptBaseline("replies.md");
@@ -36,7 +38,7 @@ const provenanceManual = readPromptBaseline("provenance.md");
 const recallManual = readPromptBaseline("memory.md").split("\n\n")[0]!;
 
 export function indexedReplyHabits(text: string): string {
-  if (text !== replyManual) return text;
+  if (text !== replyManual && text !== stock.REPLY_HABITS_PROMPT) return text;
   return "\nAnswer first, briefly, in the person's language. Honor preferences; state assumptions/sources. No routine recaps or offers. Ask one missing thing at a time.\n";
 }
 
@@ -47,9 +49,12 @@ const GRANTS_POLICY = " Only the tools this bot was granted will run; when a nee
 /** Offload only recognized application prose; authored sections and unknown upstream text are never candidates. */
 export function indexedContextParts(parts: readonly PromptPart[]): PromptPart[] {
   const retained = parts.map(part => {
-    if (part.id === "just-do-it" && part.text === fullAccessManual) return { ...part, text: "" };
-    if (part.id === "recall" && part.text === recallManual) return { ...part, text: "" };
-    if (part.id === "coordination" && part.text.startsWith(provenanceManual)) return { ...part, text: part.text.slice(provenanceManual.length) };
+    if (part.id === "just-do-it" && (part.text === fullAccessManual || part.text === stock.JUST_DO_IT_PROMPT)) return { ...part, text: "" };
+    if (part.id === "recall" && (part.text === recallManual || part.text === stock.SESSION_SEARCH_SYSTEM_PROMPT)) return { ...part, text: "" };
+    if (part.id === "coordination") {
+      const known = [provenanceManual, stock.PROVENANCE_PROMPT].find(text => part.text.startsWith(text));
+      if (known) return { ...part, text: part.text.slice(known.length) };
+    }
     if (part.id === "computer") {
       const manual = computerManuals.find(candidate => candidate.text === part.text || candidate.currentText === part.text);
       if (manual) {
@@ -63,8 +68,8 @@ export function indexedContextParts(parts: readonly PromptPart[]): PromptPart[] 
       }
     }
     if (part.id === "email" && part.text === EMPTY_MAILBOX) return { ...part, text: " No mailbox connected. Read app-connections.md; never write your own mail client." };
-    if (part.id === "meetings" && part.text === MEETINGS_UNAVAILABLE) return { ...part, text: " No meeting tools/cloud computer here. Setup: app-connections.md." };
-    if (part.id === "data" && part.text === dataManual) {
+    if (part.id === "meetings" && (part.text === MEETINGS_UNAVAILABLE || part.text === MEETINGS_UNAVAILABLE_0166)) return { ...part, text: " No meeting tools/cloud computer here. Setup: app-connections.md." };
+    if (part.id === "data" && (part.text === dataManual || part.text === stock.BUILT_IN_DATA_SYSTEM_PROMPT)) {
       return { ...part, text: " DuckDB Data tools available; use them, not UI automation. Read data.md." };
     }
     if (part.id === "composio") {

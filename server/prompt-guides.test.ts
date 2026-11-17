@@ -7,6 +7,7 @@ import { SERVER_ROOT } from "./proxy-paths.ts";
 import { guideRoot, PROMPT_GUIDE_FILES, readPromptGuide } from "./prompt-guides.ts";
 import * as prompts from "./system-prompt.ts";
 import { readPromptBaseline } from "./prompt-baselines.ts";
+import { REVIEWED_STOCK_0166 as stock } from "./prompt-stock-0166.ts";
 
 const sha256 = (text: string): string => createHash("sha256").update(text, "utf8").digest("hex");
 const UPSTREAM_49968D7F1 = [
@@ -49,12 +50,13 @@ describe("static prompt guides", () => {
     for (const file of PROMPT_GUIDE_FILES.filter((file) => file !== "INDEX.md")) {
       expect(index).toContain(file);
       expect(readPromptGuide(file).length).toBeGreaterThan(0);
+      expect(readPromptGuide(file).length).toBeLessThanOrEqual(1400);
     }
     expect(index).not.toContain(prompts.CREDENTIAL_PROMPT);
   });
 
-  it.each(UPSTREAM_49968D7F1)("preserves upstream 49968d7f1 %s byte for byte", (name, filename, exportHash, resourceHash) => {
-    expect(sha256(prompts[name])).toBe(exportHash);
+  it.each(UPSTREAM_49968D7F1)("preserves legacy recognition bytes and reviewed 0.1.166 %s", (name, filename, _exportHash, resourceHash) => {
+    expect(prompts[name]).toBe(stock[name]);
     expect(sha256(readPromptBaseline(filename))).toBe(resourceHash);
   });
 
@@ -66,9 +68,9 @@ describe("static prompt guides", () => {
     expect(base).toContain(`${prompts.BASH_MAX_TIMEOUT_MS}, which is ${prompts.BASH_MAX_TIMEOUT_MS / 60_000} minutes`);
     for (const kind of [null, "local", "box", "vps", "vm-private", "vm-shared"] as const) {
       const isVm = kind === "vm-private" || kind === "vm-shared";
-      expect(prompts.longCommandsPrompt(kind)).toBe(base + (isVm ? vm : ""));
-      expect(sha256(prompts.longCommandsPrompt(kind))).toBe(isVm ? UPSTREAM_49968D7F1_SHELL_VM : UPSTREAM_49968D7F1_SHELL);
+      expect(prompts.longCommandsPrompt(kind)).toBe(stock.LONG_COMMANDS_TEXT + (isVm ? stock.VM_LONG_COMMANDS_TEXT : ""));
     }
-    expect(sha256(prompts.ROUTINE_EXECUTION_PROMPT)).toBe("8e0875662073028aa13be96f3929348fa5b79a9dddde052644c3d97932092821");
+    expect(sha256(base + vm)).toBe(UPSTREAM_49968D7F1_SHELL_VM);
+    expect(sha256(prompts.ROUTINE_EXECUTION_PROMPT)).toBe("df88bfd8fcff26c13201a4701d083a0fea715934188fbd10286b6f9c9773332a");
   });
 });

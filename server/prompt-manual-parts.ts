@@ -1,4 +1,4 @@
-import { CREDENTIAL_PROMPT, LEARN_PROMPT, PROFILE_PROMPT, TEAM_MEMORY_PROMPT, THREADS_PROMPT, TRIGGER_PROMPT, WIDGET_PROMPT, type PromptPart } from "./system-prompt.ts";
+import { CREDENTIAL_PROMPT, LEARN_RULES_PROMPT, PROFILE_PROMPT, TEAM_MEMORY_PROMPT, THREADS_PROMPT, TRIGGER_PROMPT, WIDGET_PROMPT, type PromptPart } from "./system-prompt.ts";
 import { readPromptBaseline } from "./prompt-baselines.ts";
 
 export function credentialParts(enabled: boolean, secrets: string, threadsAndWidgets = false): PromptPart[] {
@@ -25,7 +25,7 @@ export function roomManualParts(indexed: boolean, agents: boolean, threads: bool
     { id: "threads", label: "Thread instructions", text: indexed && agents && threads ? THREADS_PROMPT : "" },
     { id: "routine", label: "Automation instructions", text: indexed && agents ? TRIGGER_PROMPT : "" },
     { id: "profile", label: "Profile instructions", text: indexed && agents ? PROFILE_PROMPT : "" },
-    { id: "learn", label: "Skill instructions", text: indexed && agents && skills ? LEARN_PROMPT : "" },
+    { id: "learn", label: "Skill instructions", text: indexed && agents && skills ? LEARN_RULES_PROMPT : "" },
   ];
 }
 
@@ -39,6 +39,6 @@ export function roomWorkflowInstructions(input: { indexed: boolean; agents: bool
     input.agents && input.coordinate && (input.indexed ? "" : readPromptBaseline("coordination-room.md")) + input.requester,
     !input.indexed && input.agents && TRIGGER_PROMPT.trim(),
     !input.indexed && input.agents && PROFILE_PROMPT.trim(),
-    !input.indexed && input.agents && input.skills && LEARN_PROMPT.trim(),
+    !input.indexed && input.agents && input.skills && LEARN_RULES_PROMPT.trim(),
   ];
 }

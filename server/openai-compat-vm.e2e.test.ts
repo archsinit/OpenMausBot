@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { writeFileAtomic } from "./atomic.ts";
 import { freePortBlock } from "./testing/ports.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
+import { isTitleCall } from "./testing/title-call.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 let child: ChildProcess;
@@ -106,6 +107,7 @@ beforeAll(async () => {
     let raw = "";
     for await (const chunk of req) raw += chunk;
     const request = JSON.parse(raw || "{}") as ChatRequest;
+    if (isTitleCall(request)) { res.statusCode = 500; return res.end(); }
     requests.push(request);
     const toolResult = request.messages?.some(message => message.role === "tool");
     res.writeHead(200, { "content-type": "text/event-stream" });
@@ -248,15 +250,43 @@ describe("openai-compat Local VM tools", () => {
     // The place rules change turn to turn, so they ride the person's message as its context note, not the system message.
     const system = requests[0]!.messages.map(message => text(message.content)).join("\n");
     expect(toolNames(requests[0])).toContain("agents_select_computer");
-    expect(system).toContain("A file or folder on the person's own computer");
-    expect(system).toContain("This bot works on its Private desktop, not on this computer. To use files on this computer, switch it to This computer: say so in one line, call select_computer with surface \"local\"");
+    expect(system).toMatch(/your own isolated Cua (?:Linux sandbox reserved for this bot|sandbox: a Linux desktop in a container reserved for this bot)/);
+    expect(system).toContain("Only /home/cua/workspace is durable");
+    expect(system).toMatch(/Their own computer's folders are not mounted|No folder of the person's own computer is mounted here/);
+    expect(system).toContain("authorized remote connections, including SSH, are allowed for that same VM");
+    expect(system).toContain("Host file tools do not directly access VM paths");
+    if (system.includes("Task guides: read")) {
+      expect(system).toContain("Own-computer files are not on remote/shared targets");
+      expect(system).toContain("This computer is not mounted; authorized remote access, including SSH, is also allowed");
+      const localTarget = system.match(/Local target: (\{[^\n]+?\})\. Read surface\.md/);
+      expect(localTarget).not.toBeNull();
+      expect(JSON.parse(localTarget![1]!)).toEqual({ bot: "Ada", botId: bot.id, platform: process.platform, canSelect: true });
+      const guidePointer = system.match(/Task guides: read ("[^"\n]+INDEX\.md") and the matching guide/);
+      expect(guidePointer).not.toBeNull();
+      const indexPath = JSON.parse(guidePointer![1]!) as string;
+      expect(readFileSync(indexPath, "utf8")).toContain("surface.md");
+      const surface = readFileSync(join(dirname(indexPath), "surface.md"), "utf8");
+      expect(surface).toContain("Own-computer files are not VM/cloud/shared files");
+      expect(surface).toContain("Use an authorized remote connection or select This computer");
+      expect(surface).toContain("never silently replace a VM with the host");
+      expect(surface).toContain("if refused, direct the person to Bot's screen");
+      expect(surface).toContain('Only an explicit request to keep that target authorizes app_settings set, id bots.settings, value {botId, computer:"local"}');
+      expect(surface).toContain("authorized SSH or other remote access is also allowed. Never substitute another target");
+    } else {
+      expect(system).toContain("A file or folder on the person's own computer");
+      expect(system).toContain('This bot works on its Private desktop, not on this computer. For mounted access to files on this computer, switch it to This computer: say so in one line, call select_computer with surface "local", then end your turn');
+      expect(system).toContain("Alternatively, use an available authorized remote connection, including SSH, to this same computer; do not bypass refusals or permissions");
+      expect(system).toContain(`When the person asks you to keep using this computer, also keep it there: app_settings set, id "bots.settings", value {"botId":"${bot.id}","computer":"local"}`);
+      expect(system).toContain("open Bot's screen in this chat and choose This computer under “Where Ada works”");
+    }
     expect(system).not.toContain("Settings → Computers");
     const answer = JSON.parse(text(requests[1]!.messages.find(message => message.role === "tool")?.content)) as { ok: boolean; result: string };
     expect(answer.ok).toBe(false);
     const result = answer.result;
     expect(result).toContain("exit code 1");
     expect(result).toContain("mkdir: cannot create directory");
-    expect(result).toContain("--- note ---\nThat path is on this computer, and vm_exec runs only inside this bot's Private desktop. This bot works on its Private desktop, not on this computer. To use files on this computer, switch it to This computer: say so in one line, call select_computer with surface \"local\", then end your turn");
+    expect(result).toContain("--- note ---\nThat path is on this computer, and vm_exec runs only inside this bot's Private desktop. This bot works on its Private desktop, not on this computer. For mounted access to files on this computer, switch it to This computer: say so in one line, call select_computer with surface \"local\", then end your turn");
+    expect(result).toContain("authorized remote connection, including SSH, to this same computer; do not bypass refusals or permissions");
     expect(result).toContain(`When the person asks you to keep using this computer, also keep it there: app_settings set, id "bots.settings", value {"botId":"${bot.id}","computer":"local"}`);
     expect(result).toContain("open Bot's screen in this chat and choose This computer under “Where Ada works”");
     vmState({ containers: [] });

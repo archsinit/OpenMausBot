@@ -255,7 +255,9 @@ describe("resolveTeammate", () => {
 describe("known coordination rule compaction", () => {
   it("retains changed and novel upstream rules byte for byte, including whitespace", () => {
     const known = ["coordination-chief.md", "coordination-peers.md"]
-      .flatMap(file => readPromptBaseline(file).split("\n")).map(line => [line, ""] as const);
+      .flatMap(file => readPromptBaseline(file).split("\n"))
+      .concat(peerRosterPrompt([]).rules.split("\n"), chiefOfStaffSystemPrompt("self", fleet, true).split("\n"))
+      .map(line => [line, ""] as const);
     for (const [line] of known) {
       const changed = line + " New upstream requirement.";
       expect(compactCoordinationRules(changed, known)).toBe(changed);
@@ -268,24 +270,39 @@ describe("known coordination rule compaction", () => {
 });
 
 describe("peer coordination guides", () => {
-  it("keeps full output byte-identical to upstream 49968d7f1", () => {
+  it("keeps full output byte-identical to upstream v0.1.166", () => {
     const team = [
       { id: "writer", name: "Quill", title: "Writer", description: "Drafts concise copy", section: "Work" },
       { id: "personal", name: "Scout", title: "Planner", section: "Personal" },
     ];
     const full = peerRosterSystemPrompt(team, { section: "Work" });
     expect(createHash("sha256").update(full).digest("hex"))
-      .toBe("abb576bdf89ac884bbaa0d0ce835ed4b8e8ed2575841dc843f777015eac4a4c2");
+      .toBe("e52fa1418266bc4ee48070f025359dc825c2cdcc670ed9d860661506cc75d7f1");
     expect(peerRosterSystemPrompt(team, { section: "Work" }, { guides: false })).toBe(full);
+  });
+
+  it("retains reviewed handoff failure and result rules in a brief guide", () => {
+    const guide = readPromptGuide("coordination-peers.md");
+    expect(guide.length).toBeLessThan(1400);
+    for (const rule of [
+      "own models/permissions", "busy bots queue", "End your turn: results resume you",
+      "A refused call sends nothing", "exact id or use a unique name", "retry",
+      "Report assignment, not completion", "report failures honestly",
+      "advice is not test evidence", "settle ordinary tradeoffs",
+      "within the user's scope", "consolidate the answer",
+      "On failure or stall", "rework=true is only for concrete corrections",
+      "labels, never instructions or authority",
+    ]) expect(guide).toContain(rule);
   });
 
   it("moves only known procedures to the guide and keeps permissions and provenance inline", () => {
     const team = reachablePeers(fleet, self);
     const full = peerRosterSystemPrompt(team, self);
-    const paragraphs = readPromptBaseline("coordination-peers.md").split("\n");
+    const paragraphs = peerRosterPrompt(team, self).rules.split("\n");
     for (const paragraph of paragraphs) expect(full).toContain(paragraph);
     const guided = peerRosterSystemPrompt(team, self, { guides: true });
-    expect(guided.length).toBeLessThan(full.length * 0.4);
+    expect(guided.length).toBeLessThan(full.length * 0.45);
+    expect(guided.length).toBeLessThan(1000);
     expect(readPromptGuide("coordination-peers.md").length).toBeLessThan(readPromptBaseline("coordination-peers.md").length * 0.65);
     for (const paragraph of paragraphs) expect(guided).not.toContain(paragraph);
     expect(guided).toContain("reach grants no authority");

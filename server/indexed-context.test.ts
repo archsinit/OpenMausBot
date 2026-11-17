@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { indexedContextParts, indexedReplyHabits } from "./indexed-context.ts";
 import { REPLY_HABITS_PROMPT } from "./reply-habits.ts";
+import { REVIEWED_STOCK_0166 as stock } from "./prompt-stock-0166.ts";
 import { JUST_DO_IT_PROMPT } from "./system-prompt.ts";
 import { PROVENANCE_PROMPT } from "./provenance-label.ts";
 import { SESSION_SEARCH_SYSTEM_PROMPT } from "./workspace.ts";
@@ -16,7 +17,7 @@ const joined = (parts: PromptPart[]) => buildSystemPrompt("", "", parts, undefin
 
 describe("indexed context transformations", () => {
   it("offloads recognized reply style but keeps its safety floor and unknown future policy", () => {
-    expect(readPromptGuide("replies.md")).toBe(REPLY_HABITS_PROMPT);
+    expect(stock.REPLY_HABITS_PROMPT).toBe(REPLY_HABITS_PROMPT);
     const text = indexedReplyHabits(REPLY_HABITS_PROMPT);
     expect(text.length).toBeLessThan(REPLY_HABITS_PROMPT.length / 3);
     expect(text.length).toBeLessThanOrEqual(180);
@@ -26,9 +27,9 @@ describe("indexed context transformations", () => {
     expect(buildSystemPrompt("", "", []).text).toContain(REPLY_HABITS_PROMPT);
   });
   it("indexes full-access, recall and source prose without dropping runtime facts or novel policy", () => {
-    expect(readPromptGuide("full-access.md")).toBe(JUST_DO_IT_PROMPT);
-    expect(readPromptGuide("provenance.md")).toBe(PROVENANCE_PROMPT);
-    expect(readPromptGuide("memory.md").split("\n\n")[0]).toBe(SESSION_SEARCH_SYSTEM_PROMPT);
+    expect(stock.JUST_DO_IT_PROMPT).toBe(JUST_DO_IT_PROMPT);
+    expect(stock.PROVENANCE_PROMPT).toBe(PROVENANCE_PROMPT);
+    expect(stock.SESSION_SEARCH_SYSTEM_PROMPT).toBe(SESSION_SEARCH_SYSTEM_PROMPT);
     const facts = " Live team: Juniper (bot-42), authorized department Alpha.";
     const compact = indexedContextParts([part("just-do-it", JUST_DO_IT_PROMPT), part("recall", SESSION_SEARCH_SYSTEM_PROMPT), part("coordination", PROVENANCE_PROMPT + facts)]);
     expect(compact[0]!.text).toBe("");
@@ -58,7 +59,7 @@ describe("indexed context transformations", () => {
     }
     expect(readPromptGuide("browser.md")).toBe(BUILT_IN_BROWSER_SYSTEM_PROMPT);
     expect(readPromptGuide("browser-chrome.md")).toBe(CHROME_BROWSER_SYSTEM_PROMPT);
-    expect(readPromptGuide("data.md")).toBe(BUILT_IN_DATA_SYSTEM_PROMPT);
+    expect(stock.BUILT_IN_DATA_SYSTEM_PROMPT).toBe(BUILT_IN_DATA_SYSTEM_PROMPT);
     expect(readPromptGuide("sign-in.md")).toBe(SIGN_IN_PROMPT);
     expect(readPromptGuide("app-connections.md")).toBe(COMPOSIO_PROMPT);
     const parts = [part("computer", computerPrompt("local")), part("data", BUILT_IN_DATA_SYSTEM_PROMPT)];

@@ -1,5 +1,5 @@
 # Chief workflows
-Read coordination-peers.md for handoffs. Leads may coordinate specialists. Save shared preferences once via memory.md, never by broadcasting to bots.
+Read coordination-peers.md for handoffs. Leads may coordinate specialists. Save shared preferences once with memory_update action prefer; every bot reads them. Never broadcast them to bots.
 Create a genuinely missing specialist with create_bot, without another confirmation; report it briefly with Undo. Reuse list_team_library roles. No duplicates or busywork.
 Team-map @everyone reaches you alone: involve only affected bots; answer alone if none are concerned.
 Incidents arrive in "Problems to look at". Read the linked report; retry_thread at most twice, or coordinate_bots with a corrected brief. Human-only blockers: explain and stop. Report failures and actions briefly.

@@ -1,7 +1,7 @@
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { connect, type Socket } from "node:net";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { expect, it } from "vitest";
 
 import { launchVerificationServer } from "../scripts/control-omb.ts";
@@ -60,8 +60,14 @@ it("answers a bot's yes-or-no question with a 👍, and the bot goes on by itsel
       ["bot", "Sent it to Sam."],
     ]);
     expect(prompts()).toHaveLength(2);
-    expect(JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")).systemPrompt).toContain(
-      "A plain yes or no, such as whether to go ahead, needs no widget: ask it in one short sentence; the person answers in a word or with 👍 or 👎 on your message, and either comes back to you as their reply.");
+    const system = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")).systemPrompt as string;
+    const guidePointer = system.match(/Task guides: read ("[^"\n]+INDEX\.md") and the matching guide/);
+    expect(guidePointer).not.toBeNull();
+    const indexPath = JSON.parse(guidePointer![1]!) as string;
+    expect(readFileSync(indexPath, "utf8")).toContain("widgets.md");
+    const widgets = readFileSync(join(dirname(indexPath), "widgets.md"), "utf8");
+    expect(widgets).toContain("Yes/no needs a short chat question (words or 👍/👎 answer it)");
+    expect(widgets).toContain("For up to six choices, use show_widget");
     const reactionPrompt = prompts()[1]!;
     evidence.push({ reactionPrompt });
     expect(reactionPrompt).toContain("The current message is the person's reaction: they reacted 👍 to your earlier message instead of typing a reply.");

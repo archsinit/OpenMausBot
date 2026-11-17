@@ -3,6 +3,9 @@ import { dirname, isAbsolute, join, relative } from "node:path";
 
 type Locations = Readonly<Record<string, string>>;
 const MEMORY_SIGNATURES = new Set<string>([
+  "cd3fb144906b8053b99b1cf9e54adfccf51116cbe31fc683728b4b8c521e5f73",
+  "7c316e734f2650dac802bf68493503fe95d08006ae305777596bec27f4b975da",
+  "832c83d8dff5d93ce6f4aee4b673b67fe332e3ed20a0ad7415efb362a74773b4",
   "9ad496f82f95df7a9e4d566d18660be84a500415cd52e951a3e331be4fae023b",
   "741a07a9c77d396f6703f23ccf472cdedb00a9e32e697a70e8b584c7ba1fae05",
   "bc756d9d6ffcc8d75404adeb0fe3ac3f8f65ec01bbed8fc6246960fe96791e68",

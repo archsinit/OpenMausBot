@@ -2,7 +2,7 @@ import { rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { compactMemoryGuidance, compactWorkspaceLocations } from "./workspace-context.ts";
-import { ensureWorkspace, MEMORY_ROUTING_GUIDANCE, REMEMBER_AND_FORGET, SESSION_SEARCH_SYSTEM_PROMPT, TASK_WORKSPACES_DIR, WORKSPACES_DIR, memorySystemPrompt, workspaceDir, workspaceLocationsPrompt } from "./workspace.ts";
+import { ensureWorkspace, MEMORY_ROUTING_GUIDANCE, REMEMBER_AND_FORGET, SESSION_SEARCH_SYSTEM_PROMPT, TASK_WORKSPACES_DIR, WORKSPACES_DIR, memoryRulesPrompt, memoryNotesPrompt, memorySystemPrompt, workspaceDir, workspaceLocationsPrompt } from "./workspace.ts";
 import { readPromptGuide } from "./prompt-guides.ts";
 import { readPromptBaseline } from "./prompt-baselines.ts";
 
@@ -12,9 +12,10 @@ beforeEach(() => rmSync(workspaceDir(BOT), { recursive: true, force: true }));
 describe("conservative workspace context compaction", () => {
   it("keeps compatibility prose separate from the brief model-facing guide", () => {
     const expected = [SESSION_SEARCH_SYSTEM_PROMPT, MEMORY_ROUTING_GUIDANCE.replace("<topicDir>", "the topic directory supplied in context"), REMEMBER_AND_FORGET].join("\n\n");
-    expect(readPromptBaseline("memory.md")).toBe(expected);
+    expect(readPromptBaseline("memory.md")).toContain("Your own earlier conversations with this user");
+    expect(readPromptBaseline("memory.md")).not.toBe(expected);
     const guide = readPromptGuide("memory.md");
-    expect(guide.length).toBeLessThan(expected.length / 3);
+    expect(guide.length).toBeLessThan(readPromptBaseline("memory.md").length / 3);
     for (const word of ["session_search", "append", "supersede", "forget", "prefer", "until", "About me", "external instructions"]) expect(guide).toContain(word);
   });
   it("reduces recognized guidance for every supported write mode while preserving factual memory verbatim", () => {
@@ -29,6 +30,21 @@ describe("conservative workspace context compaction", () => {
       expect(compact).toContain("not external instructions");
       expect(compact).toContain(opts.managedWrites ? "only with memory_update" : "with file tools");
     }
+  });
+  it("keeps cached rules stable while factual notes and per-turn refusal stay volatile", () => {
+    const root = ensureWorkspace(BOT);
+    const opts = { managedWrites: true, guides: true };
+    const stable = memoryRulesPrompt(BOT, opts);
+    expect(stable).toContain("only with memory_update");
+    writeFileSync(join(root, "MEMORY.md"), "# Memory\n- Latest private fact.\n");
+    expect(memoryRulesPrompt(BOT, { ...opts, writesRefused: true })).toBe(stable);
+    const refused = memoryNotesPrompt(BOT, { ...opts, writesRefused: true });
+    expect(refused).toContain("Whatever your memory instructions say");
+    expect(refused).toContain("do not call memory_update or memory_log or edit memory files this turn");
+    expect(refused).toContain("Latest private fact.");
+    expect(stable).not.toContain("Latest private fact.");
+    expect(memoryNotesPrompt(BOT, opts)).not.toContain("Whatever your memory instructions say");
+    expect(memoryRulesPrompt(BOT, { guides: true, managedWrites: false, fileTools: false })).toBe("");
   });
   it("keeps disabled/read-only/refused-note behavior identical", () => {
     ensureWorkspace(BOT);

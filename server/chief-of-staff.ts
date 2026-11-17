@@ -22,10 +22,13 @@ const OTHERS_MIN_BOTS = 8;
 const SPECIALISTS = "When a job needs a specialist you do not have (an ongoing area of work, a different skill set, or work to run in parallel), add one with create_bot without asking first, then tell the person in one line; they can undo it. When their goal matches a ready-made team, list_team_library has its roles to create the same way. Never add a bot just to look busy, or one that duplicates a teammate.";
 
 const [
-  TEAM_PREFERENCES, DELEGATION_START, DELEGATION_RETURN,
+  TEAM_PREFERENCES, , ,
   SPECIALIST_PROCEDURE, EVERYONE_PROCEDURE, INCIDENT_PROCEDURE,
   DELEGATION_PROCEDURE, HOUSEKEEPING_PROCEDURE, SETUP_PROCEDURE,
 ] = readPromptBaseline("coordination-chief.md").split("\n");
+
+const CURRENT_DELEGATION_PROCEDURE = "Use list_bots or list_room_targets for the live reachable roster. Use coordinate_bots to assign actual teammates concrete work, or with consult: true to ask them for advice; it returns at once and keeps you available to the user: give a clear, self-contained brief, then end your turn, and you resume automatically when their results return, success or failure. Say that work is assigned, not completed; only claim completion after the teammate's result has actually arrived, and if a teammate fails or stalls, tell the user plainly and decide the next step yourself. Leads can coordinate their own specialists. Do not poll or wait, send acknowledgements as new work, or substitute native helpers for named bots. On return, verify the requested outcome, resolve decisions within the user's scope, ask for concrete corrections with rework=true when needed, and return one consolidated answer. Consultations are advice, not proof that work or tests ran. A refusal from coordinate_bots means nothing was sent: fix what it names (usually the id: copy it from list_bots or your roster, or use a unique teammate name) and retry; never describe a handoff the tool did not accept.";
+const CURRENT_SETUP_PROCEDURE = "When the user asks you to assemble or configure a team, get the exact authorized teams, bot IDs and model catalog from list_team_setup, then call propose_team_setup once with all named specialists and their profile/model changes, new teams included: the plan covers their creation and your access. Existing thread models and other bots' execution permissions stay unchanged. The plan applies immediately at every access level and the person can undo it; after an applied result, continue already-requested work without another confirmation, using the coordination tools. Only if review is pending, end your turn: the user's decision resumes you once with a structured result. Report failed or cancelled results honestly; never ask for another yes, poll or repeat the proposal. For explicitly requested bot deletion, use propose_bot_deletion separately and follow its applied or pending result too.";
 
 const WORK_PROCEDURE = "Do the work yourself, bring in a teammate when one fits the job, and return one concise consolidated answer. Never invent a teammate's progress or result. Normal permission and approval rules still apply.";
 
@@ -71,12 +74,7 @@ export function chiefOfStaffPrompt(
   }) : "";
 
   const delegation = canDelegate
-    ? [
-      DELEGATION_START,
-      "Say that work is assigned, not completed; only claim completion after the teammate's result has actually arrived, and if a teammate fails or stalls, tell the user plainly and decide the next step yourself. Leads can coordinate their own specialists. Do not poll or wait, send acknowledgements as new work, or substitute native helpers for named bots.",
-      DELEGATION_RETURN,
-      "Consultations are advice, not proof that work or tests ran. A refusal from coordinate_bots means nothing was sent: fix what it names (usually the id — copy it from list_bots or your roster; a unique teammate name also works) and retry, and never describe a handoff the tool did not accept.",
-    ].filter(Boolean).join(" ")
+    ? CURRENT_DELEGATION_PROCEDURE
     : "Your current engine cannot contact teammates. Be honest about that limitation and ask the user to choose a delegation-compatible engine before promising coordinated work.";
 
   const isChief = !chief?.defaultBot || chief.chiefOfStaff === true;
@@ -104,7 +102,7 @@ export function chiefOfStaffPrompt(
       : "",
     delegation,
     canDelegate ? "Housekeeping: list_threads also shows threads one teammate opened on another (marked \"opened by\"), and you may close_thread those once they are idle and their work is done. Threads the person started are theirs: never close them." : "",
-    canDelegate ? "When the user asks you to assemble or configure a team, use list_team_setup for the exact authorized teams, bot IDs and model catalog, then propose_team_setup once with all named specialists and their profile/model changes. Include new teams explicitly; the plan covers their creation and your access. Existing thread models and other bots' execution permissions stay unchanged. Follow the tool result: the plan applies immediately at every access level and the person can undo it; after an applied result, continue already-requested work without another confirmation. Only if review is pending, end your turn: the user's decision automatically resumes you once with a structured result. Report failed or cancelled results honestly. Do not ask for another yes, poll, or repeat the proposal. After successful setup, use the available coordination tools for already requested work. For explicitly requested bot deletion, use propose_bot_deletion separately and follow its applied or pending result too." : "",
+    canDelegate ? CURRENT_SETUP_PROCEDURE : "",
   ].filter(Boolean).join("\n");
   const listed = [
     person ? `Bots that report to ${person} (your team):` : everywhere ? "Your team, in every department:" : chief?.managedSections?.length ? "Your team, in the departments you are responsible for:" : `Current ${sectionName} department (your team):`,
@@ -120,7 +118,9 @@ export function chiefOfStaffPrompt(
       [EVERYONE_PROCEDURE!, ""],
       [INCIDENT_PROCEDURE!, ""],
       [DELEGATION_PROCEDURE!, COORDINATION_RESULT_GUARD],
+      [CURRENT_DELEGATION_PROCEDURE, COORDINATION_RESULT_GUARD],
       [HOUSEKEEPING_PROCEDURE!, "Threads the person started are theirs: never close them."],
+      [CURRENT_SETUP_PROCEDURE, "Keep existing thread models and others' execution permissions. Applied: continue; pending: end turn. Report failure/cancellation; never repeat proposals."],
       [SETUP_PROCEDURE!, "Keep existing thread models and others' execution permissions. Applied: continue; pending: end turn. Report failure/cancellation; never repeat proposals."],
     ]) : rules,
     roster: listed,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { credentialParts, roomManualParts, roomRequesterRule, roomWorkflowInstructions, sharedMemoryParts } from "./prompt-manual-parts.ts";
-import { CREDENTIAL_PROMPT, LEARN_PROMPT, PROFILE_PROMPT, TEAM_MEMORY_PROMPT, THREADS_PROMPT, TRIGGER_PROMPT, WIDGET_PROMPT } from "./system-prompt.ts";
+import { CREDENTIAL_PROMPT, LEARN_RULES_PROMPT, PROFILE_PROMPT, TEAM_MEMORY_PROMPT, THREADS_PROMPT, TRIGGER_PROMPT, WIDGET_PROMPT } from "./system-prompt.ts";
 import { readPromptBaseline } from "./prompt-baselines.ts";
 
 describe("manual and runtime fact separation", () => {
@@ -20,7 +20,7 @@ describe("manual and runtime fact separation", () => {
       const expected = [
         agents && (CREDENTIAL_PROMPT + secrets + (threads ? THREADS_PROMPT : "")).trim(),
         agents && coordinate && readPromptBaseline("coordination-room.md") + requester,
-        agents && TRIGGER_PROMPT.trim(), agents && PROFILE_PROMPT.trim(), agents && skills && LEARN_PROMPT.trim(),
+        agents && TRIGGER_PROMPT.trim(), agents && PROFILE_PROMPT.trim(), agents && skills && LEARN_RULES_PROMPT.trim(),
       ].filter(Boolean).join("\n");
       expect(actual).toBe(expected);
       expect(roomManualParts(false, agents, threads, skills).every(part => part.text === "")).toBe(true);

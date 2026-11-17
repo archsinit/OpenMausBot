@@ -1,9 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { surfacePrompt, type Surface } from "./surface.ts";
+import { computerSelectionPrompt, surfacePrompt, type Surface } from "./surface.ts";
 import { compactSurfaceContext } from "./surface-context.ts";
 
 const own = { bot: 'Case "A"', botId: "bot-42", platform: "linux" as const };
 describe("brief screen context", () => {
+  it("keeps public selection defaults and briefs the stable rules independently", () => {
+    for (const cloudHome of [false, true]) {
+      const full = computerSelectionPrompt({ cloudHome });
+      expect(computerSelectionPrompt({ cloudHome, guides: false })).toBe(full);
+      const brief = computerSelectionPrompt({ cloudHome, guides: true });
+      expect(brief.length).toBeLessThan(full.length);
+      for (const guard of ["never substitute", "Pending switches end", "never ordinary chat/inspection", "surface.md"]) expect(brief).toContain(guard);
+      const turn = surfacePrompt({ computer: null, browser: false }, { canSelect: true, selectionRules: false, guides: true, cloudHome });
+      expect(turn).toContain("by your rules for choosing a computer");
+      expect(turn).not.toContain("If no suitable computer is running");
+      const changed = full.replace("need to see the actual available targets", "need a new approval before selecting");
+      expect(compactSurfaceContext(changed, { computer: null, browser: false }, { canSelect: true, cloudHome })).toBe(changed);
+    }
+  });
   it("offloads recognized selection workflows but preserves selected-target facts and unknown notes", () => {
     for (const computer of [null, "vm", "cloud", "browser"] as Array<Surface | null>) for (const canSelect of [true, false]) {
       const mounted = { computer, browser: false };
@@ -31,7 +45,7 @@ describe("brief screen context", () => {
     const text = "New surface permissions and owner facts.";
     expect(compactSurfaceContext(text, { computer: null, browser: false }, { canSelect: true, thisComputer: own })).toBe(text);
     const full = surfacePrompt({ computer: null, browser: false }, { canSelect: true });
-    const changed = full.replace("For OpenMausBot screen tools, use select_computer", "New guard: choose via select_computer");
+    const changed = full.replace("For a screen task, use select_computer", "New guard: choose via select_computer");
     const compact = compactSurfaceContext(changed, { computer: null, browser: false }, { canSelect: true });
     expect(compact).toContain("New guard: choose via select_computer");
   });

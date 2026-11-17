@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CONCISE_CONTEXT_CORE, indexedPromptParts } from "./concise-context-core.ts";
-import { buildSystemPrompt, botPersona, CREDENTIAL_PROMPT, LEARN_PROMPT, PROFILE_PROMPT, TRIGGER_PROMPT, THREADS_PROMPT, WIDGET_PROMPT, longCommandsPrompt } from "./system-prompt.ts";
+import { buildSystemPrompt, botPersona, CREDENTIAL_PROMPT, LEARN_PROMPT, LEARN_RULES_PROMPT, PROFILE_PROMPT, TRIGGER_PROMPT, THREADS_PROMPT, WIDGET_PROMPT, longCommandsPrompt } from "./system-prompt.ts";
 import { indexedReplyHabits } from "./indexed-context.ts";
 import { readPromptBaseline } from "./prompt-baselines.ts";
 
@@ -19,7 +19,7 @@ describe("shared indexed core", () => {
   it("offloads only complete recognized manuals, never partial or changed policy", () => {
     for (const [id, text] of [
       ["credential", CREDENTIAL_PROMPT + THREADS_PROMPT + WIDGET_PROMPT],
-      ["learn", LEARN_PROMPT], ["profile", PROFILE_PROMPT], ["routine", TRIGGER_PROMPT],
+      ["learn", LEARN_PROMPT], ["learn", LEARN_RULES_PROMPT], ["profile", PROFILE_PROMPT], ["routine", TRIGGER_PROMPT],
       ["shell", longCommandsPrompt(null)], ["shell", longCommandsPrompt("vm-private")],
     ]) {
       const original = { id: id!, label: id!, text: text! };
