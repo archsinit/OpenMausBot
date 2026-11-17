@@ -47,4 +47,12 @@ Independent review found no material remaining blocker in the bounded merge/repa
 
 Final npm archive SHA-256: `bcd4b708563e6e5d30c8fa616828badba8e6671249760a26076cec4580d36af4`. Package manifest verifies all 33 guides and the `.ts` runtime Pi extension. Private logs/receipts are under `/tmp/omb167-verification/`, `/tmp/omb-up167-pi-offline/` and `/tmp/omb-up167-schema-pi-ZKm5A0/`; raw payloads and user backups stay outside Git.
 
-Deployment receipts pending. Main must remain unchanged throughout this trial. For rollback after normal use, first back up the CURRENT workspace; never restore an older snapshot over newer conversations.
+## Deployment deferred: active production turn
+
+Implementation `49fc691e964b1479e526e1332e0a660c9ffe4b09` was committed and pushed to the trial branch before attempting deployment. Fork main remains `e60945380a66b3354c8d498aeb8005fce52788c0`.
+
+The idle gate refused deployment: one bot and one task were still working across two bounded waits totaling about eight minutes. The service was never stopped or swapped; **production remains healthy 0.1.166, implementation a92659ae8**, same PID 450316, zero restarts at the latest check. Local/static and public HTTPS health passed. No new successful production backup or installed-167 measurement/history/model receipt exists yet. An earlier staging read-permission preflight error was corrected before any service operation. Both unused stage trees and their empty backup directories were removed by exact path.
+
+Ready artifacts on maus-desktop: `/tmp/omb-context-audit-20260527/upstream167.tgz`, `/tmp/omb167-candidate/`, and `/tmp/omb-context-audit-20260527/deploy-upstream167-remote.sh`. Local deployment source: `/home/piweb/workspace/projects/openmausbot-context-audit/deploy-upstream167-remote.sh`. It pins the archive and implementation, refuses changed production/native dependencies, checks idle, backs up package/workspace, verifies health/history/bot effort/thread/default model settings and guides, and rolls back immediate deployment failures. No unattended deployment or merge job is scheduled.
+
+Resume by reading the script, recapturing the fresh current-production baseline if needed, and running deployment only when idle. Then capture installed provider requests twice, compare equality ignoring only cache key, verify service/HTTPS health/history/models, and record the backup and installed receipts. Main must remain unchanged throughout the trial. For rollback after normal use, first back up the CURRENT workspace; never restore an older snapshot over newer conversations.
