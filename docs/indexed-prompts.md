@@ -37,6 +37,12 @@ The installed brief build is **45.06% smaller** than the prior deferred-tool bui
 
 Both final installed captures are equal except cache key. The staged candidate measured 7,317; its guide path is six characters shorter than the canonical installed path. The old approximately 5.8k-character reduced-feature build is not this branch.
 
+## Automation-policy update: deployment deferred
+
+Implementation `a08b7e030d44ceaad41e97357cbcc2b2f5318dee` is pushed to both `main` and `indexed-prompt-guides`. Its isolated packaged candidate passed 31 suites / 633 tests, typechecks, lint and packaged smoke. Complete fresh-request overhead measured 7,588 characters with five initial tools at the staged path. No live/provider action was used for verification.
+
+Deployment was refused by the idle-turn guard because an agent turn was active. The running package/workspace were not changed or interrupted; the unused staging directory was removed. Installed implementation remains `f05041c7a`, with its verified 7,323-character result below. The policy update still requires a deployment after the active turn finishes. Prepared package SHA-256: `c1465ecfa087da114c4b2103a07cc75c5e8de398a21a84e947c5fea87d7fdfa0`.
+
 ## Previous brief-guide deployment
 
 Implementation `f05041c7a805c11126e3a5f2bb6c5eeefd4c1778` was committed and pushed before deployment. Installed as `0.1.165`; package SHA-256 `aea88b84a60c7b747e236dc6aa5b3df5614435013c1407dd285631189ddd6c77` is recorded with the implementation in `FORK-BUILD.json`.
