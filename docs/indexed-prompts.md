@@ -8,9 +8,13 @@ This is the upstream app with concise workflow instructions in indexed files, no
 
 `server/prompt-guides/INDEX.md` maps workflows to thirty-three catalog resources including the index: credentials/MCP configuration, threads, widgets, automations, skills, profiles, shared team memory, shell/VM commands, and Chief/peer/room coordination. The initial prompt points to the index; the model reads the matching instructions before starting that workflow. Safety policies, current routing facts and unknown/new upstream prose remain inline. See [the update-maintenance contract](context-maintenance.md) for the isolated integration seams and conservative fallbacks.
 
-All model-facing guides are rewritten for brevity, not merely copied. They total 19,789 characters versus 58,638 before, including four additional topics; every guide and the index is below 1,400 characters. One concise core replaces repeated safeguards. Original prose lives separately in `prompt-baselines.ts` for compatibility recognition/default fallbacks, not in the rewritten guide files. Default outputs retain byte-fingerprint tests; unknown upstream text is preserved. Secure credential entry, applied/pending/failed results and authority boundaries remain mandatory. Authored soul, rules, profile, memory, section context, actual rosters/IDs, available secret names, room bulletins, requester constraints and active event/assignment instructions remain in context.
+All model-facing guides are rewritten for brevity, not merely copied. They total 20,594 characters versus 58,638 before, including four additional topics; every guide and the index is below 1,400 characters. One concise core replaces repeated safeguards. Original prose lives separately in `prompt-baselines.ts` for compatibility recognition/default fallbacks, not in the rewritten guide files. Default outputs retain byte-fingerprint tests; unknown upstream text is preserved. Secure credential entry, applied/pending/failed results and authority boundaries remain mandatory. Authored soul, rules, profile, memory, section context, actual rosters/IDs, available secret names, room bulletins, requester constraints and active event/assignment instructions remain in context.
 
 Indexed mode requires a known native file reader (Pi, Claude or Codex), a permitted reader in the bot's tool scope, and a complete readable catalog. Fileless/unknown engines, confined turns and excluded readers keep the original inline manuals. No permissions or sandbox mounts are added. Ship the complete guide catalog. Missing, empty or unreadable guides disable indexed mode rather than silently omitting instructions.
+
+## Automation method choice
+
+Agents may choose available, authorized Playwright, SSH, provider-native tools, shell-launched browsers or built-in tools. There is no mandatory built-in-browser or connected-app-first route. Screen-panel selection changes only OpenMausBot’s mounted tools; independent authorized connections to the intended target do not require an app target switch. Cloud network reachability is checked from actual results, not inferred from private/Tailscale addresses. Target/account identity, permission/refusal boundaries, credentials and verification safeguards still apply. This grants no new backend permissions and guarantees neither installed tooling nor connectivity.
 
 ## Packaging
 
@@ -33,7 +37,7 @@ The installed brief build is **45.06% smaller** than the prior deferred-tool bui
 
 Both final installed captures are equal except cache key. The staged candidate measured 7,317; its guide path is six characters shorter than the canonical installed path. The old approximately 5.8k-character reduced-feature build is not this branch.
 
-## Current brief-guide deployment
+## Previous brief-guide deployment
 
 Implementation `f05041c7a805c11126e3a5f2bb6c5eeefd4c1778` was committed and pushed before deployment. Installed as `0.1.165`; package SHA-256 `aea88b84a60c7b747e236dc6aa5b3df5614435013c1407dd285631189ddd6c77` is recorded with the implementation in `FORK-BUILD.json`.
 
@@ -55,7 +59,7 @@ The previous installation and private workspace were backed up under `~/.local/s
 
 ## Verification
 
-- **31 suites / 631 tests passed**: legacy default-output fingerprints, concise-guide procedure contracts and length budgets, scope/catalog fallbacks, live-fact preservation, direct/room dispatch with an isolated fake engine, original inline room combinations, widgets/pages, coordination, task cwd, tool selection and repository ratchets.
+- **31 suites / 633 tests passed**: legacy default-output fingerprints, concise-guide procedure contracts and length budgets, scope/catalog fallbacks, live-fact preservation, direct/room dispatch with an isolated fake engine, original inline room combinations, widgets/pages, coordination, task cwd, tool selection and repository ratchets.
 - Frontend/server TypeScript and changed-source lint passed; production server build passed.
 - Packaged server smoke passed without reachable `node_modules`, including CLI, MCP, backup worker, desktop entry, container launcher and enterprise layer.
 - A separate offline packaged nested `agents-proxy.js` process returned its 49-tool catalog; coordination, widgets, HTML, publishing and automations were checked. No tool was executed by that probe.

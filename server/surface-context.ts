@@ -21,14 +21,20 @@ export function compactSurfaceContext(text: string, mounted: { computer: Surface
   let compact = text;
   if (opts.canSelect) {
     const selection = opts.cloudHome ? SELECT.replace("select an available Local VM without asking", "select an available cloud computer without asking").replace(" Never silently replace an explicitly requested VM with the host desktop.", "") : SELECT;
-    compact = compact.replace(selection, " Screen work: discover/select the requested target with select_computer; never substitute another place. Pending switches end the turn and automatically resume the task. Read surface.md before screen work.")
+    const currentSelection = selection.replace("For a screen task", "For OpenMausBot screen tools");
+    const selectionSummary = " For app screen tools: discover/select the requested target with select_computer; never substitute another place. Pending switches end the turn and automatically resume the task. Read surface.md before using these tools.";
+    compact = compact.replace(currentSelection, selectionSummary).replace(selection, selectionSummary)
       .replace(PROVISION, " Reuse configured resources; provision only for an actual screen task, never ordinary chat/inspection.")
-      .replace(EMPTY, " No screen tools are mounted; select a target before acting or claiming screen results.");
+      .replace(EMPTY.replace("select_computer is the way to connect them before screen work, not a reason to claim you already performed it.", "select_computer connects these built-in tools before using them, not a reason to claim you already performed work."), " No app screen tools are mounted; select a target before using them or claiming their results.")
+      .replace(EMPTY, " No app screen tools are mounted; select a target before using them or claiming their results.");
   }
   if (opts.thisComputer && !opts.cloudHome && !(opts.botOpened && !opts.canSelect) && mounted.computer !== "local") {
     const own = opts.thisComputer;
     const facts = { bot: own.bot, ...(own.botId ? { botId: own.botId } : {}), platform: own.platform, canSelect: Boolean(opts.canSelect) };
-    compact = compact.replace(ownFiles(own, mounted.computer, Boolean(opts.canSelect)), " Own-computer files are not on remote/shared targets. This computer is not mounted. Local target: " + JSON.stringify(facts) + ". Read surface.md before switching or changing the persistent target.");
+    const original = ownFiles(own, mounted.computer, Boolean(opts.canSelect));
+    const updated = original.replace(`which ${mounted.computer ? LABELS[mounted.computer] : ""} cannot reach`, `which ${mounted.computer ? LABELS[mounted.computer] : ""} cannot directly reach`).replace("To use files on this computer", "For mounted access to files on this computer") + " Alternatively, use an available authorized remote connection, including SSH, to this same computer; do not bypass refusals or permissions.";
+    const summary = " Own-computer files are not on remote/shared targets. This computer is not mounted; authorized remote access, including SSH, is also allowed. Local target: " + JSON.stringify(facts) + ". Read surface.md before switching or changing the persistent target.";
+    compact = compact.replace(updated, summary).replace(original, summary);
   }
   return compact;
 }

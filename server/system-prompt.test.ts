@@ -267,7 +267,7 @@ describe("computerPrompt", () => {
     const prompt = computerPrompt("local");
     expect(prompt).toContain("background delivery");
     expect(prompt).toContain("do not bring OpenMausBot");
-    expect(prompt).toContain("dedicated browser tools");
+    expect(prompt).toContain("dedicated browser tools, Playwright, SSH or other available automation");
     expect(prompt).toContain("keeping the user's intended browser profile/account");
     expect(prompt).toContain("Do not silently retry a background refusal");
     expect(prompt).toContain("including through shell scripts, AppleScript/System Events");
@@ -455,17 +455,20 @@ describe("composioSystemPrompt", () => {
 });
 
 describe("cloudHomePrompt", () => {
-  it("says the Cloud is off their network, whatever memory says, and sends ssh through the lent computer", () => {
-    const lent = cloudHomePrompt(true, [], [{ name: "ASH-PC", platform: "win32" }]);
-    expect(lent).toContain("This Cloud is not on their network");
-    expect(lent).toContain("100.x.x.x, *.ts.net");
-    expect(lent).toContain("even when your memory or notes give the address");
-    expect(lent).toContain("run the command (ssh too) on their PC (ASH-PC) with shared_computer's run_command, and never from a shell here");
-    expect(lent).toContain("without their SSH agent");
-    const none = cloudHomePrompt(false, [], [{ name: "ASH-PC", platform: "win32" }]);
-    expect(none).toContain("This Cloud is not on their network");
-    expect(none).toContain("say so in one sentence");
-    expect(none).not.toMatch(/run_command|shared_computer/u);
+  it("allows direct SSH according to runtime connectivity and authorization, with optional lent commands", () => {
+    for (const shared of [true, false]) {
+      const text = cloudHomePrompt(shared, [], [{ name: "ASH-PC", platform: "win32" }]);
+      expect(text).toContain("Direct SSH is allowed when reachable and authorized");
+      expect(text).toContain("100.x.x.x, *.ts.net");
+      expect(text).toContain("never ask for credentials in chat");
+      expect(text).not.toContain("never from a shell here");
+      expect(text).not.toContain("This Cloud is not on their network");
+      if (shared) {
+        expect(text).toContain("Alternatively, when authorized");
+        expect(text).toContain("their PC (ASH-PC) with shared_computer's run_command");
+        expect(text).toContain("without their SSH agent");
+      } else expect(text).not.toMatch(/run_command|shared_computer/u);
+    }
   });
   it("names every computer's status with the tools on, and says nothing about them without", () => {
     const known = [{ name: "ASH-MBP", platform: "darwin" as const, online: true, lent: true, lastSeenAt: 1 }, { name: "OFFICE-PC", platform: "win32" as const, online: false, lent: true, lastSeenAt: Date.UTC(2026, 9, 1, 8, 0) }];
@@ -491,7 +494,8 @@ describe("cloudHomePrompt", () => {
     expect(cloudHomePrompt(true)).not.toContain("Settings →");
     expect(cloudHomePrompt(true)).toContain("use its say field when it has one");
     expect(cloudHomePrompt(false)).not.toMatch(/shared_computer|list_shared_computers/);
-    expect(cloudHomePrompt(false)).toContain("You cannot see or use their own computer, its screen or its files from here.");
+    expect(cloudHomePrompt(false)).toContain("No OpenMausBot sharing route to their own computer, its screen or its files is available this turn");
+    expect(cloudHomePrompt(false)).toContain("Other authorized connections, including SSH, may work");
   });
 
   it("says lent folders keep working from the Cloud's copy while the computer is away, and what to tell the person", () => {
@@ -508,7 +512,7 @@ describe("cloudHomePrompt", () => {
     expect(pc).toContain("If they ask for something on their PC (ASH-PC), check list_shared_computers");
     expect(pc).toContain("otherwise ask them to open OpenMausBot on that PC, signed in to MausBot Cloud: it shares that PC with you by itself. It is a PC: call it that, never a Mac unless it is one.");
     const mac = cloudHomePrompt(false, [], [{ name: "Ash’s MacBook", platform: "darwin" }, { name: "ASH-PC", platform: "win32" }]);
-    expect(mac).toContain("You cannot see or use their Mac (Ash’s MacBook), its screen or its files from here.");
+    expect(mac).toContain("No OpenMausBot sharing route to their Mac (Ash’s MacBook), its screen or its files is available this turn.");
     for (const text of [pc, mac, cloudHomePrompt(true), cloudHomePrompt(true, [], [{ name: "box", platform: "linux" }])]) {
       expect(text).not.toMatch(/this Mac|OMB Cloud|OpenMausBot Cloud|Mac or PC/u);
       if (text.includes("Settings →")) expect(text).toContain("Settings → MausBot Cloud");

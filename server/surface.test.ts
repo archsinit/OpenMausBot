@@ -177,16 +177,16 @@ describe("resolveSurface", () => {
     expect(plan.note).toMatch(/"Works on" setting is Off/);
     expect(plan.note).toMatch(/no computer and no built-in browser/);
     expect(resolveSurface({ destination: "off", browserOn: false })).toEqual(plan);
-    expect(surfacePrompt({ computer: null, browser: false }, { note: plan.note })).toBe(plan.note);
+    expect(surfacePrompt({ computer: null, browser: false }, { note: plan.note })).toContain(plan.note);
   });
 
   it("a Problems to look at turn that lost its computer is told why and that it has none", () => {
     const note = computerSkippedNote("The team's cloud computer is missing; explicitly create or retry it from the Team map.");
     expect(note).toMatch(/^ This turn answers a Team incidents report and your computer could not be prepared for it \(The team's cloud computer is missing; explicitly create or retry it from the Team map\), so no computer is mounted/);
     expect(note).toMatch(/never claim to have checked that computer yourself\.$/);
-    expect(surfacePrompt({ computer: null, browser: false }, { note })).toBe(note);
+    expect(surfacePrompt({ computer: null, browser: false }, { note })).toContain(note);
     const withBrowser = surfacePrompt({ computer: null, browser: true }, { note });
-    expect(withBrowser).toMatch(/^ Everything you do on screen happens in the built-in browser tab/);
+    expect(withBrowser).toMatch(/^ The mounted screen tools act in the built-in browser tab/);
     expect(withBrowser.endsWith(note)).toBe(true);
   });
 
@@ -231,8 +231,8 @@ describe("surfacePrompt", () => {
   it("names both surfaces and splits the work when both are mounted", () => {
     const text = surfacePrompt({ computer: "cloud", browser: true });
     expect(text).toMatch(/Two surfaces are mounted/);
-    expect(text).toMatch(/Web tasks → the built-in browser/);
-    expect(text).toMatch(/Desktop apps, files and shell → the cloud computer tools/);
+    expect(text).toContain("The built-in browser provides browser automation");
+    expect(text).toContain("the cloud computer provides desktop apps, files, shell");
     expect(text).not.toMatch(/Pick one surface for a task and stay on it/);
     expect(text).toContain("one task can use each for its own part (for example a website in the built-in browser and a desktop app or file on the computer) without asking anyone to switch");
     expect(text).toContain("keep any one website on one surface for the whole task");
@@ -246,35 +246,34 @@ describe("surfacePrompt", () => {
       const text = surfacePrompt({ computer, browser: true });
       const label = computer === "vm" ? "the Local VM" : "the cloud computer";
       expect(text).toContain(`The built-in browser and ${label} may not share sign-ins.`);
-      expect(text).toContain(`When you pick the surface for a new task and the user did not name a place, if you already saw its site signed in on ${label} with the account it needs, pick ${label} instead of the Browser tab, unless the task needs something already in the Browser tab, such as a cart; if the site turns out signed out on ${label}, use the Browser tab when it is signed in there.`);
+      expect(text).toContain("Choose according to the task, intended account and existing task state");
       expect(text).not.toMatch(/check whether the site is already signed in/);
     }
     expect(surfacePrompt({ computer: "vm", browser: false })).not.toContain("share sign-ins");
     expect(surfacePrompt({ computer: null, browser: true })).not.toContain("share sign-ins");
-    expect(surfacePrompt({ computer: "local", browser: true })).not.toContain("share sign-ins");
+    expect(surfacePrompt({ computer: "local", browser: true })).toContain("may not share sign-ins");
   });
 
   it("names only the computer when it is the only surface", () => {
     const text = surfacePrompt({ computer: "vm", browser: false });
-    expect(text).toMatch(/happens on the Local VM, web pages included/);
+    expect(text).toMatch(/mounted screen tools act on the Local VM, including its browser/);
     expect(text).toMatch(/no separate built-in browser/);
     expect(text).toMatch(/say in one short sentence where you are working/);
     expect(text).not.toMatch(/Two surfaces/);
     expect(surfacePrompt({ computer: "local", browser: false })).toMatch(/tell them it is on this computer/);
   });
 
-  it("on the person's own computer, sends web work to a connected app first, then the bot's own browser, and their screen last", () => {
+  it("allows task-appropriate automation on the person's computer without bypassing approval", () => {
     const beside = surfacePrompt({ computer: "local", browser: true });
-    expect(beside).toMatch(/Web tasks → the built-in browser/);
+    expect(beside).not.toContain("Web tasks →");
     expect(beside).toContain("This computer is the person's own: their screen, their apps and the browsers they are signed in to.");
-    expect(beside).toContain("use, in this order: a connected app that does it, your built-in browser, a cloud computer if select_computer offers one.");
-    expect(beside).toContain("Use their own browser or screen only when the task needs their own signed-in session and nothing else works.");
+    expect(beside).not.toContain("use, in this order:");
     expect(beside).toContain("OpenMausBot asks them once whether you may, at every approval level except Full access");
     expect(beside).toContain("never mention DevTools, CDP, debugging ports, profiles, grants, binding, attaching, endpoints or drivers");
     const alone = surfacePrompt({ computer: "local", browser: false });
     expect(alone).not.toMatch(/web pages included/);
-    expect(alone).toContain("use, in this order: a connected app that does it, web search and fetching pages, a cloud computer if select_computer offers one.");
-    expect(alone).toContain("Use their own browser or screen only when the task needs their own signed-in session");
+    expect(alone).toContain("Playwright, SSH");
+    expect(alone).toContain("respect permissions/refusals");
     // Other computers are the bot's own: their wording is unchanged.
     expect(surfacePrompt({ computer: "vm", browser: false })).not.toContain("the person's own");
     expect(surfacePrompt({ computer: "cloud", browser: true })).not.toContain("the person's own");
@@ -282,11 +281,11 @@ describe("surfacePrompt", () => {
 
   it("names only the browser tab when it is the only surface", () => {
     const text = surfacePrompt({ computer: null, browser: true });
-    expect(text).toMatch(/happens in the built-in browser tab/);
-    expect(text).toMatch(/no desktop computer this turn/);
+    expect(text).toMatch(/mounted screen tools act in the built-in browser tab/);
+    expect(text).toMatch(/no desktop computer is mounted this turn/);
     // The browser is only the screen: a coding engine's own shell and file tools still work.
     expect(text).not.toMatch(/file or shell computer/);
-    expect(text).toContain("your own shell and file tools still work for ordinary code and file tasks");
+    expect(text).toContain("other authorized automation, shell and file tools remain options when available");
     expect(text).toMatch(/Browser tab of the Screen panel/);
     expect(text).toMatch(/say in one short sentence where you are working/);
     expect(text).not.toMatch(/happens on the cloud computer/);
@@ -295,8 +294,8 @@ describe("surfacePrompt", () => {
   it("explains unavailable tools, and carries the pin line and the note", () => {
     expect(surfacePrompt({ computer: null, browser: false })).toContain("No computer or built-in browser tools are mounted");
     expect(surfacePrompt({ computer: "cloud", browser: false }, { pinned: "cloud" }))
-      .toContain("This conversation is pinned to the cloud computer; changing places requires");
-    expect(surfacePrompt({ computer: null, browser: false }, { note: " NOTE." })).toBe(" NOTE.");
+      .toContain("This conversation is pinned to the cloud computer; changing its mounted target requires");
+    expect(surfacePrompt({ computer: null, browser: false }, { note: " NOTE." })).toContain(" NOTE.");
   });
 
   it.each(["local", "vm", "cloud", "browser"] as const)("requires observed results on the actual %s tools", (place) => {
@@ -304,8 +303,8 @@ describe("surfacePrompt", () => {
     expect(text).toContain("verify its result before claiming success");
     expect(text).toContain("Announcing an action is not performing it");
     expect(text).toContain("never act on a different computer or describe a host window as a VM");
-    expect(text).toContain("use OpenMausBot's mounted browser/computer tools first");
-    expect(text).toContain("Do not substitute the provider's own desktop");
+    expect(text).toContain("Playwright, SSH, provider-native tools and shell-launched browsers are allowed");
+    expect(text).toContain("Never silently substitute a different target/account");
   });
 
   it("chooses and starts configured targets through chat instead of requiring menu nudges", () => {
@@ -321,7 +320,7 @@ describe("surfacePrompt", () => {
   it("keeps explicit destinations and uses a turn-bound switch when supported", () => {
     const text = surfacePrompt({ computer: "local", browser: false }, { pinned: "local", canSelect: true });
     expect(text).toContain("select the requested available place");
-    expect(text).toContain("changing places requires select_computer");
+    expect(text).toContain("changing its mounted target requires select_computer");
     expect(text).toContain("Never silently replace an explicitly requested VM with the host desktop");
     expect(text).not.toContain("ask the user to change where this conversation works");
   });
@@ -329,7 +328,7 @@ describe("surfacePrompt", () => {
   it("sends the person to the Screen panel, the place control both interface modes show", () => {
     const text = surfacePrompt({ computer: "cloud", browser: false }, { pinned: "cloud" });
     expect(text).toContain("explain the mismatch and ask the user to change where this conversation works in the Screen panel");
-    expect(text).toContain("changing places requires the user's choice in the Screen panel, not a different tool name");
+    expect(text).toContain("changing its mounted target requires the user's choice in the Screen panel, not a different tool name");
     expect(text).not.toContain("computer selector");
   });
 
@@ -355,7 +354,7 @@ describe("surfacePrompt", () => {
       const text = surfacePrompt(mounted, { ...opts, cloudHome: true });
       expect(text, JSON.stringify({ mounted, opts })).not.toMatch(/Local VM|\bVM\b|host desktop|user's host|host window/);
       if (mounted.computer || mounted.browser) {
-        expect(text).toContain("the cloud computer is remote, the built-in browser is a separate browser, and the user's own computer cannot be reached from here");
+        expect(text).toContain("the cloud computer is remote, the built-in browser is a separate browser, and the user's own computer is not mounted here; other authorized connections depend on actual runtime connectivity");
         expect(text).toContain("never act on a different computer.");
       }
       if (opts.canSelect) expect(text).toContain("select an available cloud computer without asking");
@@ -373,22 +372,23 @@ describe("surfacePrompt", () => {
       expect(text, where).not.toContain("cannot be reached from here");
       expect(text, where).not.toContain("Everything you do on screen happens");
       expect(text, where).not.toContain("You cannot open apps, click, or inspect a screen");
-      expect(text, where).toContain("Their PC (OFFICE-PC) is reached only through shared_computer, never select_computer: when they ask for something on it, check list_shared_computers, then use shared_computer on it (computer_tools, then computer_call, for its apps and screen), whatever this conversation is pinned to.");
+      expect(text, where).toContain("Their PC (OFFICE-PC) can be reached through shared_computer, never select_computer");
+      expect(text, where).toContain("Authorized SSH or other available transports to that same target are also allowed");
       expect(text, where).toContain("If list_shared_computers says this conversation can't use it, or that it doesn't lend what you need, say so in one sentence");
       if (mounted.computer || mounted.browser) expect(text, where).toContain("and their PC (OFFICE-PC) is not one of these places");
     }
     const pinned = surfacePrompt({ computer: "cloud", browser: false }, { pinned: "cloud", canSelect: true, cloudHome: true, ownComputer: lent });
-    expect(pinned).toContain(" The screen tools mounted this turn work on the cloud computer, web pages included, through its own browser");
+    expect(pinned).toContain(" The mounted screen tools act on the cloud computer, including its browser");
     expect(pinned).toContain("say so in one sentence and don't do it on the cloud computer instead unless they ask.");
     expect(surfacePrompt({ computer: null, browser: true }, { cloudHome: true, ownComputer: lent })).toContain("no desktop computer is mounted this turn");
     // Never lent yet: still their own computer, reached the same way once it is.
-    expect(surfacePrompt({ computer: "cloud", browser: false }, { cloudHome: true, ownComputer: [] })).toContain("Their own computer is reached only through shared_computer");
+    expect(surfacePrompt({ computer: "cloud", browser: false }, { cloudHome: true, ownComputer: [] })).toContain("Their own computer can be reached through shared_computer");
   });
 
-  it("still says the person's computer can't be reached when the turn has no shared-computer tools", () => {
+  it("does not infer network reachability from missing shared-computer tools", () => {
     for (const { mounted, opts } of shapes.filter(({ mounted }) => mounted.computer || mounted.browser)) {
       const text = surfacePrompt(mounted, { ...opts, cloudHome: true });
-      expect(text).toContain("the user's own computer cannot be reached from here");
+      expect(text).toContain("the user's own computer is not mounted here; other authorized connections depend on actual runtime connectivity");
       expect(text).not.toContain("shared_computer");
     }
   });
@@ -402,6 +402,17 @@ describe("surfacePrompt", () => {
     expect(surfacePrompt({ computer: "cloud", browser: true }, { canSelect: true }))
       .toContain("this computer is the user's host, Local VM is an isolated desktop, the cloud computer is remote");
   });
+});
+
+it("keeps unavailable mounted tools distinct from other authorized automation", () => {
+  for (const destination of ["off", "browser"] as const) {
+    const plan = resolveSurface({ destination, browserOn: false });
+    const text = surfacePrompt({ computer: null, browser: false }, { note: plan.note });
+    expect(text).toContain("Other available");
+    expect(text).not.toContain("you cannot open a page");
+    expect(text).not.toContain("you have no browser and no computer");
+  }
+  expect(resolveSurface({ destination: "off", browserOn: false }).note).toContain("respect any explicit user request not to access a target");
 });
 
 describe("surface parsing", () => {
@@ -485,16 +496,30 @@ describe("placeUnavailable", () => {
   });
 });
 
-describe("a connected app before any screen", () => {
-  const RULE = "When a connected app can do the task, use it before any browser or screen. If that app is refused or fails, say so in one plain line with what fixes it (connecting it, or who can), and ask before doing the task on a screen instead.";
+describe("task-appropriate automation without mandatory app priority", () => {
+  const RULE = "Choose any suitable available automation, including Playwright and SSH.";
   it("is said wherever a browser or a screen is mounted, a Cloud home's too", () => {
     for (const mounted of [{ computer: "local" as const, browser: true }, { computer: "local" as const, browser: false }, { computer: "cloud" as const, browser: true }, { computer: null, browser: true }]) {
       expect(surfacePrompt(mounted), JSON.stringify(mounted)).toContain(RULE);
       expect(surfacePrompt(mounted, { cloudHome: true }), JSON.stringify(mounted)).toContain(RULE);
     }
   });
-  it("is not said where nothing on a screen can be done", () => {
-    expect(surfacePrompt({ computer: null, browser: false })).not.toContain(RULE);
+  it("requires target switching only for mounted app tools, not independent automation", () => {
+    for (const guides of [true, false]) {
+      const mounted = surfacePrompt({ computer: "vm", browser: true }, { guides, canSelect: true });
+      expect(mounted).toContain("To use OpenMausBot tools on a different target");
+      expect(mounted).not.toContain("If the requested place differs from the mounted one");
+      const empty = surfacePrompt({ computer: null, browser: false }, { guides });
+      expect(empty).toContain("independent authorized connections need no app target switch");
+      expect(empty).not.toContain("If asked for screen work");
+    }
+  });
+  it("also permits authorized alternatives when no app screen tools are mounted", () => {
+    for (const canSelect of [true, false]) for (const guides of [true, false]) {
+      const text = surfacePrompt({ computer: null, browser: false }, { canSelect, guides });
+      expect(text).toContain(RULE);
+      expect(text).toContain("respect permissions/refusals");
+    }
   });
 });
 
@@ -514,11 +539,11 @@ describe("files on this computer while the bot works elsewhere", () => {
 
   it("tells a bot that can switch to offer it in one line and call select_computer, with the person's own way if that is refused", () => {
     const text = thisComputerSwitch({ place: "vm", bot: "Ada", canSelect: true });
-    expect(text).toBe("This bot works on its Private desktop, not on this computer. To use files on this computer, switch it to This computer: "
+    expect(text).toBe("This bot works on its Private desktop, not on this computer. For mounted access to files on this computer, switch it to This computer: "
       + "say so in one line, call select_computer with surface \"local\", then end your turn; the request continues on this computer by itself, "
       + "and the person allows it with one tap unless they gave you Full access. "
       + "If select_computer refuses, ask the person to open Bot's screen in this chat and choose This computer under “Where Ada works”. "
-      + "No other setting or menu does this, so never name one.");
+      + "No other setting or menu does this, so never name one. Alternatively, use an available authorized remote connection, including SSH, to this same computer; do not bypass refusals or permissions.");
   });
 
   it("lets a person's own request keep This computer as the bot's Works on through the settings it changes from chat", () => {
@@ -542,7 +567,7 @@ describe("files on this computer while the bot works elsewhere", () => {
 
   it("offers the switch in the prompt of a bot on its Private desktop, for any engine", () => {
     const text = surfacePrompt({ computer: "vm", browser: true }, { canSelect: true, ...ON_PRIVATE_DESKTOP });
-    expect(text).toContain("A file or folder on the person's own computer (a path such as C:\\Users\\…, their Desktop, Documents, Downloads or OneDrive, or \"my PC\") is on this computer, which the Local VM cannot reach");
+    expect(text).toContain("A file or folder on the person's own computer (a path such as C:\\Users\\…, their Desktop, Documents, Downloads or OneDrive, or \"my PC\") is on this computer, which the Local VM cannot directly reach");
     expect(text).toContain("call select_computer with surface \"local\", then end your turn");
     expect(text).toContain("“Where Ada works”");
     expect(surfacePrompt({ computer: "vm", browser: true }, { canSelect: true, thisComputer: { bot: "Ada", botId: "bot-7", platform: "win32" } }))

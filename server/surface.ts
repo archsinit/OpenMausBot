@@ -39,10 +39,10 @@ export function surfaceOfComputerKind(kind: "box" | "vps" | "vm" | "local" | nul
 }
 
 const NO_BROWSER_NOTE =
-  " This bot is set to work in the built-in browser, but the built-in browser is switched off in App Settings, so you have no browser and no computer this turn — say so instead of guessing.";
+  " This bot is set to work in the built-in browser, but the built-in browser is switched off in App Settings, so no browser and no computer tools are mounted this turn — say so instead of guessing. Other available authorized automation remains an option; do not claim to have used unavailable tools.";
 
 const OFF_NOTE =
-  " This bot's \"Works on\" setting is Off, so no computer and no built-in browser are mounted this turn: you cannot open a page, click, or type on any screen. If the user asks for something that needs one, tell them Works on is Off in this bot's settings — never claim you are opening a browser you do not have.";
+  " This bot's \"Works on\" setting is Off, so no computer and no built-in browser are mounted this turn: those tools cannot open a page, click, or type on any screen. Other available authorized automation, including Playwright or SSH, remains an option; respect any explicit user request not to access a target and all permissions. If the user asks for something that needs one, tell them Works on is Off in this bot's settings — never claim you are opening a browser you do not have.";
 
 export function computerSkippedNote(cause: string): string {
   const why = cause.trim().replace(/[\s.]+$/, "");
@@ -172,19 +172,15 @@ export function surfaceLabel(surface: Surface): string {
   }
 }
 
-/** This computer is the person's own: web work goes elsewhere first, and their first-use question is the harness's to ask. */
-const WEB_WORK_ORDER = "For web work such as finding, booking or looking something up, use, in this order:";
 const YOUR_COMPUTER_LAST =
-  " Use their own browser or screen only when the task needs their own signed-in session and nothing else works. Before your first action on it in a request, OpenMausBot asks them once whether you may, at every approval level except Full access: do not ask in chat yourself, and if they say no, finish another way. " + PLAIN_WORDS;
+  " Before your first action on it in a request, OpenMausBot asks them once whether you may, at every approval level except Full access: do not ask in chat yourself, and if they say no, respect that refusal; another tool is not permission to bypass it. " + PLAIN_WORDS;
 const YOUR_COMPUTER_BESIDE_BROWSER =
-  ` This computer is the person's own: their screen, their apps and the browsers they are signed in to. ${WEB_WORK_ORDER} a connected app that does it, your built-in browser, a cloud computer if select_computer offers one.${YOUR_COMPUTER_LAST}`;
+  ` This computer is the person's own: their screen, their apps and the browsers they are signed in to. The built-in browser and this computer may not share sign-ins; preserve the intended account and task state.${YOUR_COMPUTER_LAST}`;
 const YOUR_COMPUTER_ALONE =
-  ` Everything you do on screen happens on this computer, which is the person's own: their screen, their apps and the browsers they are signed in to; there is no built-in browser of yours this turn. ${WEB_WORK_ORDER} a connected app that does it, web search and fetching pages, a cloud computer if select_computer offers one.${YOUR_COMPUTER_LAST} If you need the user to sign in, tell them it is on this computer.`;
+  ` The mounted screen tools act on this computer, which is the person's own: their screen, their apps and the browsers they are signed in to; there is no built-in browser of yours this turn.${YOUR_COMPUTER_LAST} If you need the user to sign in, tell them it is on this computer.`;
 
-/** A connected app does a task more cheaply and surely than any screen, and one that is refused or broken is the person's
- * to fix: worked around on a screen, it stays broken and they never hear why. */
-const CONNECTED_APP_FIRST =
-  " When a connected app can do the task, use it before any browser or screen. If that app is refused or fails, say so in one plain line with what fixes it (connecting it, or who can), and ask before doing the task on a screen instead.";
+const AUTOMATION_CHOICES =
+  " Choose any suitable available automation, including Playwright and SSH. Preserve the intended target/account, respect permissions/refusals, verify results and report failures honestly.";
 
 /** Both surfaces stay mounted for the whole turn: a task that needs a website and a desktop app uses each for its part. */
 const BOTH_IN_ONE_TASK =
@@ -199,7 +195,7 @@ const ASK_TO_SWITCH = `explain the mismatch and ask the user to change where thi
 const REPORT_BACK = "tell the bot that gave you this job which place you need and end your turn, because no person watches this conversation";
 
 const SURFACE_AUTHORITY =
-  ` For browser and computer tasks, use OpenMausBot's mounted browser/computer tools first: inspect the target, perform the action, and verify its result before claiming success. Discover deferred tools by their server/name when needed. Do not substitute the provider's own desktop, a shell-launched browser, or another automation path for the selected OpenMausBot surface. Ordinary code and file tasks may still use their normal tools. Announcing an action is not performing it. A request naming another place does not move these tools: this computer is the user's host, Local VM is an isolated desktop, the cloud computer is remote, and the built-in browser is a separate browser. If the requested place differs from the mounted one, ${ASK_TO_SWITCH}; never act on a different computer or describe a host window as a VM.`;
+  ` For browser and computer tasks, choose available automation appropriate to the task: Playwright, SSH, provider-native tools and shell-launched browsers are allowed when authorized and operating on the intended target/account. Inspect the target, perform the action, and verify its result before claiming success. Discover deferred tools by their server/name when needed. Never silently substitute a different target/account or bypass a permission or background-control refusal. Ordinary code and file tasks may still use their normal tools. Announcing an action is not performing it. A request naming another place does not move these tools: this computer is the user's host, Local VM is an isolated desktop, the cloud computer is remote, and the built-in browser is a separate browser. To use OpenMausBot tools on a different target, ${ASK_TO_SWITCH}; never act on a different computer or describe a host window as a VM.`;
 
 /** The one control that moves a bot onto this computer, in the app's own words (en.json chat.botScreen,
  * computer.simple.whereWorks, vm.dest.local). A bot left to guess sent the person to a "Settings → Computers" screen it made up. */
@@ -225,7 +221,7 @@ export function thisComputerSwitch(input: { place: Surface | null; bot: string; 
   const keep = input.canSelect && input.botId
     ? ` When the person asks you to keep using this computer, also keep it there: app_settings set, id "bots.settings", value {"botId":"${input.botId}","computer":"local"}; it applies at once with Undo.`
     : "";
-  return `${where} To use files on this computer, switch it to This computer: ${how}.${keep} No other setting or menu does this, so never name one.`;
+  return `${where} For mounted access to files on this computer, switch it to This computer: ${how}.${keep} No other setting or menu does this, so never name one. Alternatively, use an available authorized remote connection, including SSH, to this same computer; do not bypass refusals or permissions.`;
 }
 
 /** A path only this computer's own disk has, by the platform this server runs on; another place never has it. */
@@ -249,17 +245,16 @@ export function failedOnHostPath(command: unknown, result: { exitCode?: unknown;
 /** On a server where This computer can be picked: a host path or "my PC" is this computer, never the mounted place. */
 function ownFilesSentence(own: { bot: string; botId?: string; platform: NodeJS.Platform }, place: Surface | null, canSelect: boolean): string {
   const example = HOST_PATHS[own.platform]?.example;
-  return ` A file or folder on the person's own computer (${example ? `a path such as ${example}, ` : ""}their Desktop, Documents, Downloads or OneDrive, or "my PC") is on this computer${place ? `, which ${surfaceLabel(place)} cannot reach` : ""}, and it is never one of the shared computers. ${thisComputerSwitch({ place, bot: own.bot, canSelect, ...(own.botId ? { botId: own.botId } : {}) })}`;
+  return ` A file or folder on the person's own computer (${example ? `a path such as ${example}, ` : ""}their Desktop, Documents, Downloads or OneDrive, or "my PC") is on this computer${place ? `, which ${surfaceLabel(place)} cannot directly reach` : ""}, and it is never one of the shared computers. ${thisComputerSwitch({ place, bot: own.bot, canSelect, ...(own.botId ? { botId: own.botId } : {}) })}`;
 }
 
-/** A Cloud home without the shared-computer tools cannot reach the person's own computer at all. */
-const UNREACHABLE_OWN = "the user's own computer cannot be reached from here";
+const UNREACHABLE_OWN = "the user's own computer is not mounted here; other authorized connections depend on actual runtime connectivity";
 
 /** With the shared-computer tools, what the wording above says of every screen holds only for this turn's places. */
 const OWN_COMPUTER_WORDING: ReadonlyArray<readonly [RegExp | string, string]> = [
   [/ Everything you do on screen happens (on|in) /, " The screen tools mounted this turn work $1 "],
   ["there is no desktop computer this turn", "no desktop computer is mounted this turn"],
-  ["You cannot open apps, click, or inspect a screen through OpenMausBot.", "No place's tools can open apps, click, or inspect a screen this turn."],
+  ["These unmounted tools cannot open apps, click, or inspect a screen through OpenMausBot.", "No mounted place's tools can open apps, click, or inspect a screen this turn."],
 ];
 
 /** A Cloud home has neither this computer nor a Local VM; each pair rewrites one phrase of the wording above. */
@@ -275,7 +270,7 @@ const CLOUD_HOME_WORDING: ReadonlyArray<readonly [string, string]> = [
  * place the conversation has. Saying it can't be reached there turned a bot away from a PC lent with its screen. */
 function ownComputerSentence(lent: ReadonlyArray<{ name: string; platform: LentPlatform | null }>, place: string | null): string {
   const { theirs } = theirComputer(lent);
-  return ` ${theirs[0]!.toUpperCase()}${theirs.slice(1)} is reached only through shared_computer, never select_computer: when they ask for something on it, check list_shared_computers, then use shared_computer on it (computer_tools, then computer_call, for its apps and screen), whatever this conversation is pinned to. If list_shared_computers says this conversation can't use it, or that it doesn't lend what you need, say so in one sentence${place ? ` and don't do it on ${place} instead unless they ask` : ""}.`;
+  return ` ${theirs[0]!.toUpperCase()}${theirs.slice(1)} can be reached through shared_computer, never select_computer: check list_shared_computers for its granted capabilities (computer_tools, then computer_call, for its apps and screen), whatever this conversation is pinned to. Authorized SSH or other available transports to that same target are also allowed; no transport bypasses a refusal or missing permission. If list_shared_computers says this conversation can't use it, or that it doesn't lend what you need, say so in one sentence${place ? ` and don't do it on ${place} instead unless they ask` : ""}.`;
 }
 
 /** Built from what was actually mounted, never from the setting, so the model is only told about tools it can call.
@@ -292,34 +287,32 @@ export function surfacePrompt(
   let text = "";
   if (mounted.computer === "local" && !opts.cloudHome) {
     text = mounted.browser
-      ? ` Two surfaces are mounted this turn: the built-in browser (the browser server's browser_navigate, browser_snapshot, browser_click, browser_fill and friends) and this computer (the computer server's tools). Web tasks → the built-in browser. Desktop apps, files and shell → this computer tools. ${BOTH_IN_ONE_TASK} If you need the user to sign in, say which surface — the Browser tab or this computer.${YOUR_COMPUTER_BESIDE_BROWSER}`
+      ? ` Two surfaces are mounted this turn: the built-in browser (the browser server's browser_navigate, browser_snapshot, browser_click, browser_fill and friends) and this computer (the computer server's tools). The built-in browser provides browser automation; this computer provides desktop apps, files, shell and its own browser sessions. ${BOTH_IN_ONE_TASK} If you need the user to sign in, say which surface — the Browser tab or this computer.${YOUR_COMPUTER_BESIDE_BROWSER}`
       : YOUR_COMPUTER_ALONE;
   } else if (computer && mounted.browser) {
-    // The two browsers usually share no cookies: "Web tasks → the built-in browser" alone sent a bot whose site was
-    // signed in on the computer to a signed-out tab, where it asked the person to sign in again.
     text =
-      ` Two surfaces are mounted this turn: the built-in browser (the browser server's browser_navigate, browser_snapshot, browser_click, browser_fill and friends) and ${computer} (the computer server's tools). Web tasks → the built-in browser. Desktop apps, files and shell → ${computer} tools. ${BOTH_IN_ONE_TASK} If you need the user to sign in, say which surface — the Browser tab or ${computer}. The built-in browser and ${computer} may not share sign-ins. When you pick the surface for a new task and the user did not name a place, if you already saw its site signed in on ${computer} with the account it needs, pick ${computer} instead of the Browser tab, unless the task needs something already in the Browser tab, such as a cart; if the site turns out signed out on ${computer}, use the Browser tab when it is signed in there.`;
+      ` Two surfaces are mounted this turn: the built-in browser (the browser server's browser_navigate, browser_snapshot, browser_click, browser_fill and friends) and ${computer} (the computer server's tools). The built-in browser provides browser automation; ${computer} provides desktop apps, files, shell and its own browser sessions. ${BOTH_IN_ONE_TASK} If you need the user to sign in, say which surface — the Browser tab or ${computer}. The built-in browser and ${computer} may not share sign-ins. Choose according to the task, intended account and existing task state, such as a cart; do not silently switch accounts or targets.`;
   } else if (computer) {
     text =
-      ` Everything you do on screen happens on ${computer}, web pages included, through its own browser; there is no separate built-in browser this turn. If you need the user to sign in, tell them it is on ${computer}.`;
+      ` The mounted screen tools act on ${computer}, including its browser; no separate built-in browser is mounted this turn. If you need the user to sign in, tell them it is on ${computer}.`;
   } else if (mounted.browser) {
     text =
-      " Everything you do on screen happens in the built-in browser tab; there is no desktop computer this turn, but your own shell and file tools still work for ordinary code and file tasks, if you have them. If you need the user to sign in, tell them it is in the Browser tab of the Screen panel.";
+      " The mounted screen tools act in the built-in browser tab; no desktop computer is mounted this turn, but other authorized automation, shell and file tools remain options when available. If you need the user to sign in, tell them it is in the Browser tab of the Screen panel.";
   }
   if (text) text += RESTATE_SENTENCE + (opts.canSelect
     ? SURFACE_AUTHORITY.replace(ASK_TO_SWITCH, "inspect connected choices with select_computer and select the requested available place; on a pending result end this turn so OpenMausBot can reconnect the correct tools and continue the original request")
     : reportBack ? SURFACE_AUTHORITY.replace(ASK_TO_SWITCH, REPORT_BACK) : SURFACE_AUTHORITY);
   else if (!opts.note && !opts.canSelect) {
-    text = ` No computer or built-in browser tools are mounted this turn. You cannot open apps, click, or inspect a screen through OpenMausBot. If asked for screen work, ${reportBack ? REPORT_BACK : "explain this and ask the user to choose where this conversation works in the Screen panel"}; do not claim to have opened or checked it.`;
+    text = ` No computer or built-in browser tools are mounted this turn. These unmounted tools cannot open apps, click, or inspect a screen through OpenMausBot. Other available authorized automation may still work. If those OpenMausBot tools are needed, ${reportBack ? REPORT_BACK : "ask the user to choose their target in the Screen panel"}; independent authorized connections need no app target switch. Never claim to have used unmounted tools.`;
   }
   if (opts.pinned) {
-    text += ` This conversation is pinned to ${surfaceLabel(opts.pinned)}; changing places requires ${opts.canSelect ? "select_computer or " : ""}the user's choice in ${PLACE_CONTROL}, not a different tool name.`;
+    text += ` This conversation is pinned to ${surfaceLabel(opts.pinned)}; changing its mounted target requires ${opts.canSelect ? "select_computer or " : ""}the user's choice in ${PLACE_CONTROL}, not a different tool name.`;
   }
-  if (opts.canSelect) text += " For a screen task, use select_computer with no arguments when you need to inspect the actual available targets. Choose the requested place from its result; if the user left the place open, use a suitable available target or surface auto instead of asking them to operate the menu. Browser-only work can stay in Browser; when it needs desktop apps or capabilities the current Browser lacks, select an available Local VM without asking the user to switch it manually. Choose before taking actions, and do not repeat actions already completed if the task must continue elsewhere. OpenMausBot can start an existing configured computer and highlight the selected target. If the right tools are already mounted, use them directly. On a pending switch, end this turn: the original request resumes automatically with the new tools, and then you must carry out the task. Only ask for input for a genuine blocker, such as missing setup, required sign-in or an approval. Never silently replace an explicitly requested VM with the host desktop.";
+  if (opts.canSelect) text += " For OpenMausBot screen tools, use select_computer with no arguments when you need to inspect the actual available targets. Choose the requested place from its result; if the user left the place open, use a suitable available target or surface auto instead of asking them to operate the menu. Browser-only work can stay in Browser; when it needs desktop apps or capabilities the current Browser lacks, select an available Local VM without asking the user to switch it manually. Choose before taking actions, and do not repeat actions already completed if the task must continue elsewhere. OpenMausBot can start an existing configured computer and highlight the selected target. If the right tools are already mounted, use them directly. On a pending switch, end this turn: the original request resumes automatically with the new tools, and then you must carry out the task. Only ask for input for a genuine blocker, such as missing setup, required sign-in or an approval. Never silently replace an explicitly requested VM with the host desktop.";
   if (opts.canSelect) text += " If no suitable computer is running but its provider is configured, select_computer can provision one for this computer task; reuse existing resources first. Do not provision merely for ordinary chat or inspection.";
-  if (opts.canSelect && !computer && !mounted.browser) text += " No computer or browser tools are mounted yet; select_computer is the way to connect them before screen work, not a reason to claim you already performed it.";
-  if (computer || mounted.browser) text += CONNECTED_APP_FIRST;
-  if (computer || mounted.browser) text += " For online research, use the selected OpenMausBot browser when a search service is unavailable. A failed tool proves only that this attempt failed, not that every browser is unavailable. Inspect the current page after navigation; report a sign-in page, redirect or error as such. A completed model turn is not proof that the user's task succeeded.";
+  if (opts.canSelect && !computer && !mounted.browser) text += " No computer or browser tools are mounted yet; select_computer connects these built-in tools before using them, not a reason to claim you already performed work.";
+  text += AUTOMATION_CHOICES;
+  if (computer || mounted.browser) text += " For online research, use available search or browser automation suitable for the task. A failed tool proves only that this attempt failed, not that every browser is unavailable. Inspect the current page after navigation; report a sign-in page, redirect or error as such. A completed model turn is not proof that the user's task succeeded.";
   if (opts.cloudHome) for (const [desktop, cloudHome] of CLOUD_HOME_WORDING) text = text.replace(desktop, cloudHome);
   if (opts.cloudHome && opts.ownComputer) {
     // What this turn's places reach, never every screen: their own computer is reachable too, through shared_computer.

@@ -2,17 +2,24 @@ import { readPromptBaseline } from "./prompt-baselines.ts";
 import type { PromptPart } from "./system-prompt.ts";
 
 const COMPUTER_FACTS = {
-  local: " You can act on the user's computer. Inspect the target app/window first; prefer window-targeted accessibility and background delivery. Do not activate apps just to inspect them. Browser work uses dedicated browser tools with the intended profile/account; supported OpenMausBot setup uses authorized configuration/proposal tools, not UI clicks. Full-desktop input, activation and foreground delivery require the user's request or agreement after background refusal; never bypass that refusal through another tool or script. If background input changes focus, report it and stop that route. Never promise arbitrary background control.",
+  local: " You can act on the user's computer. Inspect the target app/window first; prefer window-targeted accessibility and background delivery. Do not activate apps just to inspect them. Browser work may use dedicated browser tools, Playwright, SSH or other available automation appropriate to the task, preserving the selected target and intended profile/account; supported OpenMausBot setup uses authorized configuration/proposal tools, not UI clicks. Full-desktop input, activation and foreground delivery require the user's request or agreement after background refusal; never bypass that refusal through another tool or script. If background input changes focus, report it and stop that route. Never promise arbitrary background control.",
   "vm-private": " You have your own isolated Cua Linux sandbox reserved for this bot.",
   "vm-shared": " You have a shared, isolated Cua Linux sandbox on this machine.",
   box: " You control the assigned cloud computer. Screenshot coordinates refer to the full image; use its advertised tools for desktop actions and commands.",
   vps: " You have the user's own self-hosted remote Linux VPS through Cua, without a Boat API key. Its filesystem is wiped when its container is recreated: keep long-lived work somewhere durable or return it in chat.",
 } as const;
-const VM_FACTS = " Only /home/cua/workspace is durable. Their own computer's folders are not mounted: use This computer for those. Run commands and create files with vm_exec, not terminal screenshots or host file tools. Return VM files with attach_file, not VM-path links.";
+const VM_FACTS = " Only /home/cua/workspace is durable. Their own computer's folders are not mounted: use This computer or another authorized connection to that computer. vm_exec runs commands and creates files inside the VM; other available authorized remote connections, including SSH, are allowed for that same VM. Host file tools do not directly access VM paths. Return VM files with attach_file, not VM-path links.";
 const SANDBOX_FACTS = " Read a window with get_window_state before acting; use coordinates from its own screenshot. Keys, typing, scrolling and pixel clicks require delivery_mode foreground here: it changes focus only inside this desktop, never on the user's screen.";
 
 const computerManuals = Object.entries(COMPUTER_FACTS).map(([kind, facts]) => ({
   text: readPromptBaseline(`computer-${kind}.md`),
+  currentText: kind === "local" ? readPromptBaseline("computer-local.md").replace(
+    "Use the dedicated browser tools for browser work when available, keeping the user's intended browser profile/account, and OpenMausBot's configuration/proposal tools for supported bot setup rather than clicking through this app.",
+    "Use dedicated browser tools, Playwright, SSH or other available automation as appropriate to the task, keeping the user's intended browser profile/account and selected target. Use OpenMausBot's configuration/proposal tools for supported bot setup rather than clicking through this app.",
+  ) : readPromptBaseline(`computer-${kind}.md`).replace(
+    "Run every command with vm_exec, which returns the exit code and the output as text; do not type commands into a terminal window and read screenshots. Create files there with vm_exec too (a shell heredoc or a script it runs); your host file tools cannot reach the VM.",
+    "vm_exec runs commands and creates files inside the VM, returning exit codes and text output. Other available authorized remote connections, including SSH, are allowed for that same VM. Host file tools do not directly access VM paths. Verify command results from actual output.",
+  ).replace("are reached only on This computer.", "are reached through This computer or another authorized connection to that same computer."),
   facts: facts + (kind.startsWith("vm-") ? VM_FACTS : "") + (kind.startsWith("vm-") || kind === "vps" ? SANDBOX_FACTS : ""),
 }));
 const browserManuals = ["browser.md", "browser-chrome.md"].map(file => ({
@@ -44,7 +51,7 @@ export function indexedContextParts(parts: readonly PromptPart[]): PromptPart[] 
     if (part.id === "recall" && part.text === recallManual) return { ...part, text: "" };
     if (part.id === "coordination" && part.text.startsWith(provenanceManual)) return { ...part, text: part.text.slice(provenanceManual.length) };
     if (part.id === "computer") {
-      const manual = computerManuals.find(candidate => candidate.text === part.text);
+      const manual = computerManuals.find(candidate => candidate.text === part.text || candidate.currentText === part.text);
       if (manual) {
         return { ...part, text: manual.facts };
       }

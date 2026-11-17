@@ -38,9 +38,23 @@ describe("indexed context transformations", () => {
     for (const item of [part("just-do-it", JUST_DO_IT_PROMPT + " New policy."), part("recall", SESSION_SEARCH_SYSTEM_PROMPT + " New policy."), part("coordination", "New source policy. " + PROVENANCE_PROMPT)]) expect(indexedContextParts([item])[0]).toEqual(item);
   });
 
-  it("ships verbatim upstream computer/browser/data/connection manuals without changing default exports", () => {
+  it("recognizes frozen manuals and the exact updated local policy", () => {
     for (const kind of ["local", "vm-private", "vm-shared", "box", "vps"] as const) {
-      expect(readPromptGuide(`computer-${kind}.md`)).toBe(computerPrompt(kind));
+      if (kind === "local" || kind === "vm-private" || kind === "vm-shared") {
+        for (const manual of [readPromptGuide(`computer-${kind}.md`), computerPrompt(kind)]) {
+          const text = indexedContextParts([part("computer", manual)])[0]!.text;
+          if (kind === "local") {
+            expect(text).toContain("Playwright, SSH or other available automation");
+            expect(text).toContain("never bypass");
+          } else {
+            expect(text).toContain("including SSH");
+            expect(text).toContain("Host file tools do not directly access VM paths");
+          }
+          expect(text).not.toBe(manual);
+          const unknown = part("computer", manual + " New upstream policy.");
+          expect(indexedContextParts([unknown])[0]).toEqual(unknown);
+        }
+      } else expect(readPromptGuide(`computer-${kind}.md`)).toBe(computerPrompt(kind));
     }
     expect(readPromptGuide("browser.md")).toBe(BUILT_IN_BROWSER_SYSTEM_PROMPT);
     expect(readPromptGuide("browser-chrome.md")).toBe(CHROME_BROWSER_SYSTEM_PROMPT);

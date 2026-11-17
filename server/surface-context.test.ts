@@ -13,6 +13,7 @@ describe("brief screen context", () => {
       expect(compact.length).toBeLessThan(full.length);
       expect(compact).toContain(JSON.stringify(own.bot)); expect(compact).toContain(own.botId);
       expect(compact).toContain("Own-computer files are not on remote/shared targets");
+      expect(compact).toContain("authorized remote access, including SSH, is also allowed");
       if (canSelect) for (const text of ["never substitute", "Pending switches end", "never ordinary chat/inspection", "surface.md"]) expect(compact).toContain(text);
     }
   });
@@ -30,7 +31,7 @@ describe("brief screen context", () => {
     const text = "New surface permissions and owner facts.";
     expect(compactSurfaceContext(text, { computer: null, browser: false }, { canSelect: true, thisComputer: own })).toBe(text);
     const full = surfacePrompt({ computer: null, browser: false }, { canSelect: true });
-    const changed = full.replace("For a screen task, use select_computer", "New guard: choose via select_computer");
+    const changed = full.replace("For OpenMausBot screen tools, use select_computer", "New guard: choose via select_computer");
     const compact = compactSurfaceContext(changed, { computer: null, browser: false }, { canSelect: true });
     expect(compact).toContain("New guard: choose via select_computer");
   });
