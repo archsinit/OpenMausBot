@@ -12,7 +12,7 @@ No changes to tool implementations, permission checks or schema validation were 
 
 Same frozen disposable empty-history `Hi` fixture, Pi 1.5.2/model, synthetic credentials and blocked external provider transport. Observer runs after all payload hooks. Counts are Unicode characters in the complete provider-built JSON, excluding only the two human characters; not tokens or preview estimates.
 
-| Component | Production before: 0.1.165 | Production after: 0.1.166 |
+| Component | Production before: 0.1.165 | Initial 0.1.166 trial |
 | --- | ---: | ---: |
 | Native instructions | 371 | 371 |
 | Tool declarations | 2,008 | 2,008 |
@@ -27,7 +27,11 @@ Both before captures and both installed after captures are equal except cache ke
 
 The selection workflow now lives in the existing `surface.md` guide; the initial prompt retains its pointer, permission requirement and pending-switch stop. The actual per-turn `select_computer` permission remains inline, in shorter wording. Data discovery/tool-list procedures live in `data.md`, while actual Data availability remains inline. Exact known-text matching preserves changed/new upstream instructions and account-scoped text. Full/unindexed fallbacks are unchanged.
 
-The packaged candidate measures **7,361 characters** at its staged path, still five initial tools. Installed results will be recorded after deployment. Both guide files remain below 1,400 characters. This follow-up passed **31 suites / 645 tests**, typechecks, whole-project lint and packaged smoke. Independent review found no material defect; the native Pi adapter hash is unchanged from the qualified build.
+Installed complete overhead is now **7,365 characters**, still five initial tools: native 371, declarations 2,008, app prefix 4,518, framing 468. That is **459 characters below the initial trial (-5.87%)** and **223 below the pre-update fork (-2.94%)**. Both installed captures match except cache key. The staged candidate measured 7,361 because its guide path is four characters shorter.
+
+Follow-up implementation `a92659ae891d444a834dfcc816d252d1ab5e34c6` was pushed before deployment. Package SHA-256: `a1717e3165b989090bf8275aa1371110e7717d71f0568caa4dc6731bf68990a9`. Backup: `~/.local/state/openmausbot-fork-backups/20261117T182747Z/`. All **3,788 existing message rows** and four bots' model selections were preserved; service and HTTPS health passed. Main remains unchanged.
+
+Both guide files remain below 1,400 characters. This follow-up passed **31 suites / 645 tests**, typechecks, whole-project lint and packaged smoke. Independent review found no material defect; the native Pi adapter hash is unchanged from the qualified build.
 
 ## Verification
 
@@ -40,7 +44,7 @@ The packaged candidate measures **7,361 characters** at its staged path, still f
 
 Raw payloads, fixture receipts and private workspace backups are outside Git. No live conversations/provider calls were used for verification. Signed native installers, real browser/phone actions, actual Docker image builds and populated-user after token counts are not claimed.
 
-## Production deployment
+## Initial 0.1.166 deployment
 
 Implementation `d3fcb8c48f6ed77ca349c40d3d96808ba66b71fe` was pushed to the trial branch before deployment. Installed version: `0.1.166`. Package SHA-256: `591459a3c871035c4d3349eeb568e37177ba9b76061be4275748f162c8531a4e`. `FORK-BUILD.json` identifies this implementation and trial branch.
 
