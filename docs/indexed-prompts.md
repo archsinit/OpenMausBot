@@ -2,6 +2,8 @@
 
 Branch `indexed-prompt-guides` starts from upstream `main` at `49968d7f12f381ac38f33d9318208c04c7afef17` (0.1.165). It does not include the feature removals from the other fork branch. Its context-only layer now includes on-demand tool declarations. Deployment details are recorded below.
 
+Production trial of upstream **0.1.166** is recorded in [the integration/trial report](upstream-0.1.166-trial.md). The older deployment records below describe the preceding 0.1.165 context builds.
+
 ## Scope
 
 This is the upstream app with concise workflow instructions in indexed files, not a reduced-feature app. Browser/desktop/phone automation, Data, specialized helpers and all other upstream features remain. Tool execution handlers, schema constraints, approvals, settings and permissions are unchanged. Pi declarations now load on demand; only recognized stock tool prose is compacted. The stock Pi base is concise, while operator SYSTEM files and other authored resources retain precedence.
@@ -37,7 +39,7 @@ That brief-guide build is **45.06% smaller** than the prior deferred-tool build 
 
 Both final installed captures are equal except cache key. The staged candidate measured 7,317; its guide path is six characters shorter than the canonical installed path. The old approximately 5.8k-character reduced-feature build is not this branch.
 
-## Current automation-policy deployment
+## Previous 0.1.165 automation-policy deployment
 
 Implementation `a08b7e030d44ceaad41e97357cbcc2b2f5318dee` is pushed to both `main` and `indexed-prompt-guides`. Its isolated packaged candidate passed 31 suites / 633 tests, typechecks, lint and packaged smoke. Complete fresh-request overhead measured **7,588 characters** with five initial tools at both staged and installed paths: native instructions 371, tool declarations 2,008, app prefix 4,741 and framing 468. Repeated installed payloads match except cache key. No live conversation/provider action was used for verification.
 

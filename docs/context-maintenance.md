@@ -7,8 +7,8 @@ This branch keeps upstream features, settings, APIs, tool implementations, valid
 | Area | Isolated implementation | Integration |
 | --- | --- | --- |
 | Brief shared core and guide selection | `server/concise-context-core.ts`, `server/indexed-context.ts`, `server/prompt-guides/` | One indexed-only pass in `buildSystemPrompt`; original default exports stay intact |
-| Compatibility recognition | `server/prompt-baselines.ts` | Frozen original text, separate from the brief model-facing guides |
-| Memory/file guidance | `server/workspace-context.ts` | Optional guided mode in the two workspace prompt functions; five caller flags |
+| Compatibility recognition | `server/prompt-baselines.ts`, `server/prompt-stock-0166.ts` | Frozen original/reviewed stock text, separate from the brief model-facing guides |
+| Memory/file guidance | `server/workspace-context.ts` | Guided options in file/memory prompts; preserve upstream memory rules/volatile notes split across preview, direct and room assembly |
 | Screen selection and own-computer routing | `server/surface-context.ts` | One guided-only pass; unknown notes, selected targets and actual bot IDs remain |
 | Collaboration procedures | Brief coordination guides and exact-paragraph compaction | Optional guided mode; original identity/authority facts and complete rosters remain |
 | Pi tool declarations | `server/drivers/pi-tool-discovery.ts` | Register original MCP/ask-user definitions through a small adapter and finish discovery |

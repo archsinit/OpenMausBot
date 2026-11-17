@@ -12,16 +12,16 @@ No changes to tool implementations, permission checks or schema validation were 
 
 Same frozen disposable empty-history `Hi` fixture, Pi 1.5.2/model, synthetic credentials and blocked external provider transport. Observer runs after all payload hooks. Counts are Unicode characters in the complete provider-built JSON, excluding only the two human characters; not tokens or preview estimates.
 
-| Component | Production before: 0.1.165 | Staged 0.1.166 |
+| Component | Production before: 0.1.165 | Production after: 0.1.166 |
 | --- | ---: | ---: |
 | Native instructions | 371 | 371 |
 | Tool declarations | 2,008 | 2,008 |
-| App prefix | 4,741 | 4,975 |
+| App prefix | 4,741 | 4,977 |
 | Framing | 468 | 468 |
-| **Complete initial overhead** | **7,588** | **7,822** |
+| **Complete initial overhead** | **7,588** | **7,824** |
 | Initial tools | 5 | 5 |
 
-Both before captures match; both final staged captures have matching sizes. Installed-path measurements will be recorded after deployment. The remaining increase is app context, including upstream's separately cached selection rules/turn permission and Data availability; schemas have not grown. This is not an additive improvement over upstream's advertised stock-prompt reduction: the fork already offloads most of that prose.
+Both before captures and both installed after captures are equal except cache key. The staged candidate measured 7,822; its guide path is two characters shorter. Installed overhead rose **236 characters (+3.11%)**, entirely app context, including upstream's separately cached selection rules/turn permission and Data availability; native instructions and schemas have not grown. This is not an additive improvement over upstream's advertised stock-prompt reduction: the fork already offloads most of that prose.
 
 ## Verification
 
@@ -34,8 +34,14 @@ Both before captures match; both final staged captures have matching sizes. Inst
 
 Raw payloads, fixture receipts and private workspace backups are outside Git. No live conversations/provider calls were used for verification. Signed native installers, real browser/phone actions, actual Docker image builds and populated-user after token counts are not claimed.
 
+## Production deployment
+
+Implementation `d3fcb8c48f6ed77ca349c40d3d96808ba66b71fe` was pushed to the trial branch before deployment. Installed version: `0.1.166`. Package SHA-256: `591459a3c871035c4d3349eeb568e37177ba9b76061be4275748f162c8531a4e`. `FORK-BUILD.json` identifies this implementation and trial branch.
+
+Idle check passed. Package and complete private workspace were backed up under `~/.local/state/openmausbot-fork-backups/20261117T180111Z/`. Existing **3,719 message rows**, their checked conversation fields and model selections for **four bots** were preserved. All 33 guides are readable; service and HTTPS health passed. Initial post-restart check showed zero restarts and no matched fatal/module/syntax-error signatures. This short check is not a long-running stability qualification.
+
 ## Trial and rollback
 
-Before install: push the trial branch, verify idle turns, back up the installed package and complete private workspace, then compare existing message fields and model selections after restart. Keep main unchanged throughout the trial.
+Keep `main` unchanged throughout the trial; it remains `6ddb2b2fe`. No automatic merge, branch deletion or monitoring job has been scheduled.
 
 Accept after normal workloads show healthy service, preserved history/models, working discovery and no new permission/routing regressions. Do not automatically merge/delete the branch on a timer. For a later rollback, back up the current workspace first: never overwrite newer trial conversations with the pre-trial snapshot. Assess data compatibility before reverting the package; the immediate deployment-failure rollback is separate.
