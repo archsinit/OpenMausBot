@@ -23,9 +23,11 @@ export function compactSurfaceContext(text: string, mounted: { computer: Surface
   if (opts.canSelect) {
     const selection = opts.cloudHome ? SELECT.replace("select an available Local VM without asking", "select an available cloud computer without asking").replace(" Never silently replace an explicitly requested VM with the host desktop.", "") : SELECT;
     const currentSelection = selection.replace("For a screen task", "For OpenMausBot screen tools");
-    const selectionSummary = " For app screen tools: discover/select the requested target with select_computer; never substitute another place. Pending switches end the turn and automatically resume the task. Read surface.md before using these tools.";
+    const selectionSummary = " Read surface.md before app screen work. Honor turn permissions; end on pending switches.";
     const reviewedSelection = opts.cloudHome ? REVIEWED_SELECTION_RULES_0166.replace("select an available Local VM without asking", "select an available cloud computer without asking").replace(" Never silently replace an explicitly requested VM with the host desktop.", "") : REVIEWED_SELECTION_RULES_0166;
-    compact = compact.replace(reviewedSelection, selectionSummary + " Reuse configured resources; provision only for an actual screen task, never ordinary chat/inspection.").replace(currentSelection, selectionSummary).replace(selection, selectionSummary)
+    compact = compact.replace(" Choosing a computer, on a turn that says you may:" + reviewedSelection, selectionSummary)
+      .replace(reviewedSelection, selectionSummary).replace(currentSelection, selectionSummary).replace(selection, selectionSummary)
+      .replace(" This turn you may choose where to work with select_computer, by your rules for choosing a computer.", " select_computer allowed this turn.")
       .replace(PROVISION, " Reuse configured resources; provision only for an actual screen task, never ordinary chat/inspection.")
       .replace(EMPTY.replace("select_computer is the way to connect them before screen work, not a reason to claim you already performed it.", "select_computer connects these built-in tools before using them, not a reason to claim you already performed work."), " No app screen tools are mounted; select a target before using them or claiming their results.")
       .replace(EMPTY, " No app screen tools are mounted; select a target before using them or claiming their results.");

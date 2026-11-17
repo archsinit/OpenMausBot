@@ -30,6 +30,7 @@ const browserManuals = ["browser.md", "browser-chrome.md"].map(file => ({
 const EMPTY_MAILBOX = " No mailbox is connected. For mail on a normal host (not Gmail), call request_credential with credential_id email and the address if you know it: one card asks the person for it, then end the turn. Never ask for the password in chat or write your own mail client.";
 const MEETINGS_UNAVAILABLE = " You can't join meetings to take notes here, so you have no meeting tools. When the person asks you to join a meeting or sends a meeting link, tell them in one line: Meeting notes run on a cloud computer, and none is set up here. Add a Boat key in Settings → Desktops & browser, or use MausBot Cloud.";
 const MEETINGS_UNAVAILABLE_0166 = " You have no meeting tools here, so you can't join meetings to take notes. When the person asks you to join one or sends a meeting link, tell them in one line: Meeting notes run on a cloud computer, and none is set up here. Add a Boat key in Settings → Desktops & browser, or use MausBot Cloud.";
+const DATA_TOOLS_POINTER_0166 = " You have Data tools for tables, spreadsheets and charts (data_load, data_describe, data_sql, data_show, data_export); load them with tool search when needed.";
 const dataManual = readPromptBaseline("data.md");
 const appManual = readPromptBaseline("app-connections.md");
 const replyManual = readPromptBaseline("replies.md");
@@ -69,6 +70,7 @@ export function indexedContextParts(parts: readonly PromptPart[]): PromptPart[] 
     }
     if (part.id === "email" && part.text === EMPTY_MAILBOX) return { ...part, text: " No mailbox connected. Read app-connections.md; never write your own mail client." };
     if (part.id === "meetings" && (part.text === MEETINGS_UNAVAILABLE || part.text === MEETINGS_UNAVAILABLE_0166)) return { ...part, text: " No meeting tools/cloud computer here. Setup: app-connections.md." };
+    if (part.id === "data" && part.text === DATA_TOOLS_POINTER_0166) return { ...part, text: " Data tools available; read data.md before use." };
     if (part.id === "data" && (part.text === dataManual || part.text === stock.BUILT_IN_DATA_SYSTEM_PROMPT)) {
       return { ...part, text: " DuckDB Data tools available; use them, not UI automation. Read data.md." };
     }

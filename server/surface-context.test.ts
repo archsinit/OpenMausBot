@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { computerSelectionPrompt, surfacePrompt, type Surface } from "./surface.ts";
 import { compactSurfaceContext } from "./surface-context.ts";
+import { readPromptGuide } from "./prompt-guides.ts";
 
 const own = { bot: 'Case "A"', botId: "bot-42", platform: "linux" as const };
 describe("brief screen context", () => {
@@ -10,9 +11,14 @@ describe("brief screen context", () => {
       expect(computerSelectionPrompt({ cloudHome, guides: false })).toBe(full);
       const brief = computerSelectionPrompt({ cloudHome, guides: true });
       expect(brief.length).toBeLessThan(full.length);
-      for (const guard of ["never substitute", "Pending switches end", "never ordinary chat/inspection", "surface.md"]) expect(brief).toContain(guard);
+      expect(brief.length).toBeLessThan(100);
+      for (const guard of ["surface.md", "Honor turn permissions", "end on pending switches"]) expect(brief).toContain(guard);
+      const guide = readPromptGuide("surface.md");
+      for (const rule of ["no arguments", "available target or auto", "never silently replace a VM", "automatic resumption", "provision only for a real screen task"]) expect(guide).toContain(rule);
       const turn = surfacePrompt({ computer: null, browser: false }, { canSelect: true, selectionRules: false, guides: true, cloudHome });
-      expect(turn).toContain("by your rules for choosing a computer");
+      expect(turn).toContain("select_computer allowed this turn.");
+      expect(surfacePrompt({ computer: null, browser: false }, { canSelect: false, selectionRules: false, guides: true, cloudHome })).not.toContain("select_computer allowed this turn.");
+      expect(surfacePrompt({ computer: null, browser: false }, { canSelect: true, selectionRules: false, cloudHome })).toContain("by your rules for choosing a computer");
       expect(turn).not.toContain("If no suitable computer is running");
       const changed = full.replace("need to see the actual available targets", "need a new approval before selecting");
       expect(compactSurfaceContext(changed, { computer: null, browser: false }, { canSelect: true, cloudHome })).toBe(changed);
@@ -28,7 +34,7 @@ describe("brief screen context", () => {
       expect(compact).toContain(JSON.stringify(own.bot)); expect(compact).toContain(own.botId);
       expect(compact).toContain("Own-computer files are not on remote/shared targets");
       expect(compact).toContain("authorized remote access, including SSH, is also allowed");
-      if (canSelect) for (const text of ["never substitute", "Pending switches end", "never ordinary chat/inspection", "surface.md"]) expect(compact).toContain(text);
+      if (canSelect) for (const text of ["Honor turn permissions", "end on pending switches", "surface.md"]) expect(compact).toContain(text);
     }
   });
   it("preserves defaults, pins, cloud/lent-computer semantics and delegated restrictions", () => {

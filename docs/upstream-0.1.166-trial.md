@@ -23,6 +23,12 @@ Same frozen disposable empty-history `Hi` fixture, Pi 1.5.2/model, synthetic cre
 
 Both before captures and both installed after captures are equal except cache key. The staged candidate measured 7,822; its guide path is two characters shorter. Installed overhead rose **236 characters (+3.11%)**, entirely app context, including upstream's separately cached selection rules/turn permission and Data availability; native instructions and schemas have not grown. This is not an additive improvement over upstream's advertised stock-prompt reduction: the fork already offloads most of that prose.
 
+## Follow-up: offload added procedures
+
+The selection workflow now lives in the existing `surface.md` guide; the initial prompt retains its pointer, permission requirement and pending-switch stop. The actual per-turn `select_computer` permission remains inline, in shorter wording. Data discovery/tool-list procedures live in `data.md`, while actual Data availability remains inline. Exact known-text matching preserves changed/new upstream instructions and account-scoped text. Full/unindexed fallbacks are unchanged.
+
+The packaged candidate measures **7,361 characters** at its staged path, still five initial tools. Installed results will be recorded after deployment. Both guide files remain below 1,400 characters. This follow-up passed **31 suites / 645 tests**, typechecks, whole-project lint and packaged smoke. Independent review found no material defect; the native Pi adapter hash is unchanged from the qualified build.
+
 ## Verification
 
 - Clean critical run: **31 suites / 643 tests passed**.
