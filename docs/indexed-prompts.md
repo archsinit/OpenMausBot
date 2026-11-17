@@ -24,7 +24,7 @@ Agents may choose available, authorized Playwright, SSH, provider-native tools, 
 
 Matched empty-history `Hi` captures use the same Pi 1.5.2 model, frozen fixture state and provider serializer, with synthetic credentials and no provider transport. Counts are Unicode characters in complete provider JSON, excluding only the two human characters—not token estimates or app-preview sizes.
 
-| Component | Full indexed build | Deferred-tool build | Brief installed build |
+| Component | Full indexed build | Deferred-tool build | Previous brief-guide build |
 | --- | ---: | ---: | ---: |
 | Native instructions | 2,431 | 371 | 371 |
 | Tool declarations | 71,375 | 2,008 | 2,008 |
@@ -33,15 +33,15 @@ Matched empty-history `Hi` captures use the same Pi 1.5.2 model, frozen fixture 
 | **Complete initial overhead** | **94,983** | **13,328** | **7,323** |
 | Initially declared tools | 64 | 5 | 5 |
 
-The installed brief build is **45.06% smaller** than the prior deferred-tool build and **92.29% smaller** than the full indexed baseline, without removing features. The actual populated prior live request had 98 initial tools and 25,753 reported input tokens; that is a different environment, not the denominator in this matched comparison. No populated-user after token count is claimed. Authored context, history and tools actually loaded during work can increase future requests.
+That brief-guide build is **45.06% smaller** than the prior deferred-tool build and **92.29% smaller** than the full indexed baseline, without removing features. The actual populated prior live request had 98 initial tools and 25,753 reported input tokens; that is a different environment, not the denominator in this matched comparison. No populated-user after token count is claimed. Authored context, history and tools actually loaded during work can increase future requests.
 
 Both final installed captures are equal except cache key. The staged candidate measured 7,317; its guide path is six characters shorter than the canonical installed path. The old approximately 5.8k-character reduced-feature build is not this branch.
 
-## Automation-policy update: deployment deferred
+## Current automation-policy deployment
 
-Implementation `a08b7e030d44ceaad41e97357cbcc2b2f5318dee` is pushed to both `main` and `indexed-prompt-guides`. Its isolated packaged candidate passed 31 suites / 633 tests, typechecks, lint and packaged smoke. Complete fresh-request overhead measured 7,588 characters with five initial tools at the staged path. No live/provider action was used for verification.
+Implementation `a08b7e030d44ceaad41e97357cbcc2b2f5318dee` is pushed to both `main` and `indexed-prompt-guides`. Its isolated packaged candidate passed 31 suites / 633 tests, typechecks, lint and packaged smoke. Complete fresh-request overhead measured **7,588 characters** with five initial tools at both staged and installed paths: native instructions 371, tool declarations 2,008, app prefix 4,741 and framing 468. Repeated installed payloads match except cache key. No live conversation/provider action was used for verification.
 
-Deployment was refused by the idle-turn guard because an agent turn was active. The running package/workspace were not changed or interrupted; the unused staging directory was removed. Installed implementation remains `f05041c7a`, with its verified 7,323-character result below. The policy update still requires a deployment after the active turn finishes. Prepared package SHA-256: `c1465ecfa087da114c4b2103a07cc75c5e8de398a21a84e947c5fea87d7fdfa0`.
+Deployment was initially deferred while an agent turn was active. After the person requested a restart, the idle check passed and implementation `a08b7e030` was installed. Package/workspace backup: `~/.local/state/openmausbot-fork-backups/20261117T060109Z/`. All **4,321 existing message rows** and model selections for **11 bots** were preserved. Service and HTTPS health passed; the 33 brief guides are readable. Package SHA-256: `c1465ecfa087da114c4b2103a07cc75c5e8de398a21a84e947c5fea87d7fdfa0`.
 
 ## Previous brief-guide deployment
 
