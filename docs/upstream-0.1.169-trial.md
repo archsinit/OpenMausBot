@@ -1,5 +1,7 @@
 # Upstream 0.1.169 production trial
 
+**Status: deployed on 2026-11-18; production trial active, acceptance pending.** See successful deployment receipts below; earlier deferral notes are historical.
+
 Branch: `integration/upstream-0.1.169`, based on prepared 167 integration `8d0a9ffac11f575ccebb6f95cba49f87021f0e76`, not main. Fork main remains `e60945380a66b3354c8d498aeb8005fce52788c0`. Do not merge to main or delete the new branch before explicit trial acceptance.
 
 ## Published release and retained features
@@ -47,7 +49,7 @@ A disposable same-path-length no-offload control was built by adding an early re
 
 Final release npm archive SHA-256: `7905c9696960ef474615f8bcbb0d9f0253db6f654d332f75454135d645bc053e`. Manifest validates all 33 brief guides, original docs skill and runtime TS Pi extension; extension hash matches the actual-Pi qualification. Final candidate ordinary/app-help pairs reproduce the sizes above and are equal except cache key. Prior 167 safety source files remain unchanged. Independent prompt and runtime patch reviews found no remaining material blocker in their bounded scopes. Real provider/account behavior, non-Linux file fallback, real bubblewrap/native installers and actual Docker image builds are not qualified here.
 
-## Deployment deferred: active production turn
+## Earlier deployment deferral (historical)
 
 Implementation `5f610ddf49bbfb6dff39c4ed845a46c49c28ee60` was committed and pushed before the deployment attempt. The first idle gate refused it; a bounded two-minute wait also stayed busy. No service stop/swap, new successful backup or stage directory creation occurred. No unattended job is scheduled.
 
@@ -55,4 +57,25 @@ Production remains healthy **0.1.166/a92659ae8**, PID 450316, zero restarts, loc
 
 Ready final archive: `/tmp/omb-context-audit-20260527/upstream169.tgz` on maus-desktop. Candidate: `/tmp/omb169-candidate`. Deployment source: `/home/piweb/workspace/projects/openmausbot-context-audit/deploy-upstream169-remote.sh` (remote copy under the private audit tmp directory). It pins the final implementation/archive, refuses changed production/dependencies, checks idle before staging and before stop, backs up package/workspace, rolls back immediate failures, and verifies history/bot effort/thread/default model settings plus guides/health.
 
-Resume only when idle: refresh current baseline as appropriate, run the reviewed deployment script, repeat ordinary and skill-enabled app-help captures twice at the installed path, and record health/history/model/backup receipts. Use `fresh-capture-skills.py` for CLI-equivalent bundled skill availability. Keep main unchanged throughout trial; never overwrite later conversations with an older rollback snapshot.
+The earlier deferral was superseded by the successful deployment below. Use `fresh-capture-skills.py` for CLI-equivalent bundled skill availability.
+
+## Successful production deployment — 2026-11-18
+
+At the user's explicit request, deployed the verified fork implementation `5f610ddf49bbfb6dff39c4ed845a46c49c28ee60` from this trial branch. Both idle gates passed. Package/workspace backup: `/home/ubuntu/.local/state/openmausbot-fork-backups/20261118T202013Z/`; old package retained and workspace gzip integrity verified. Installed package SHA-256 matches the final release archive above; all **2,196 packaged files** match the archive content. `FORK-BUILD.json` identifies this implementation and trial branch.
+
+Service is healthy **0.1.169**, PID **746768**, static frontend available, public HTTPS health passing, zero restarts and no matched fatal/module/syntax-error signatures in the immediate post-deployment journal. All **9,502 original message rows** (checked original conversation fields) and all **five bots'** model selections, effort, thread overrides and default model settings were preserved. SQLite quick_check returned ok. Four Pi previews confirm indexed guides active; all 33 brief guides remain readable and below 1,400 characters. This immediate check is not a long-term stability qualification.
+
+Fresh installed-path, skill-aware fixture results, each captured twice:
+
+| Component | Before 166: Hi | Installed 169: Hi |
+| --- | ---: | ---: |
+| Native instructions | 371 | 371 |
+| Initial declarations | 2,008 | 2,008 |
+| App prefix | 4,518 | 4,528 |
+| JSON framing/escaping | 468 | 468 |
+| **Complete overhead** | **7,365** | **7,375** |
+| Initial tools | 5 | 5 |
+
+The **10-character increase** is the inline Full-access authorization clarification. The mounted app-help fixture measures **12,730** installed overhead (native 371, tools 2,008, prefix 9,787, framing/escaping 564), still five tools; 166 lacked that conditional skill and measured 7,365. All four before/after ordinary/app-help capture pairs are equal after removing only prompt_cache_key. Measurements use disposable synthetic fixtures, blocked transport and the last observer, not live chats or real provider calls. Raw payloads remain private. Receipts: remote `/tmp/omb-context-audit-20260527/deploy169-production-receipt.json`, captures `deploy169-before-*`, `deploy169-installed-*`, `deploy169-help-before-*`, `deploy169-help-installed-*`; local deployment/health logs under `/tmp/omb169-verification/`.
+
+Production trial is now active. Main stays e60945380; neither trial branch was merged or deleted. No automatic acceptance/merge job is scheduled. The deployment script pins the old 166 production build and is a completed one-time transition, not a generic reinstall script. For any later rollback, first back up the CURRENT workspace and assess compatibility; never restore the old snapshot over newer trial conversations.
