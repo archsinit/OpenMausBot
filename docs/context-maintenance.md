@@ -36,6 +36,8 @@ Loaded declarations remain available during the run; using more capabilities can
 
 ## Updating upstream
 
+Keep the [fresh-request overhead ledger](prompt-overhead-history.md) current with measured candidate/installed results, component breakdowns and comparison limits.
+
 1. Merge upstream into this branch, not the old feature-removal branch. Review conflicts only at the seams above; do not copy retirement fences or alter capability registries.
 2. Run prompt/default-output fingerprints, brief-guide semantic/length contracts, unknown-prose passthrough, memory/fact preservation, reader fallback, scope, discovery completeness and approval tests. A larger fallback prompt is safer than silently dropping new upstream policy.
 3. Review new upstream instructions before updating compatibility baselines, brief guides or fingerprints. Retain mandatory safety inline; offload procedures, not new permission rules or actual user data.
