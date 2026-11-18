@@ -66,6 +66,40 @@ The new app-help skill is selected only for matching requests. Its installed fre
 
 The exact reviewed page-routing section is replaced with guide/source pointers; the full source skill and unknown-instruction fallbacks remain. At matched staged path lengths, a disposable no-offload fork control measured **13,967** and the split candidate **12,622**, saving **1,345 complete JSON characters**. This is a controlled fork comparison, not stock-upstream token usage. The control predates the final Undo-only patch, which changes no prompt assembly; final candidate captures reproduced the split sizes. Skill-aware captures set OMB_SKILLS_DIR to reproduce packaged CLI behavior.
 
+## Earlier “5k” build versus current production
+
+5,000 was the target, not an achieved installed result. The earlier installed reduced-feature build was **5,843** (`0.1.161-archsinit.3`, `f98f8902b`); current full-feature production is **7,375** (`0.1.169`, `5f610ddf4`). Difference: **1,532 characters (+26.22%)**. These are recorded empty-history provider-payload measurements, not live-user context or token counts.
+
+| Component | Earlier installed | Current installed | Difference |
+| --- | ---: | ---: | ---: |
+| Native Pi instructions | 289 | 371 | +82 |
+| Initial tool declarations | 1,960 | 2,008 | +48 |
+| Application prefix | 3,144 | 4,528 | +1,384 |
+| JSON framing/escaping | 450 | 468 | +18 |
+| **Complete overhead** | **5,843** | **7,375** | **+1,532** |
+| Initially declared tools | 5 | 5 | unchanged |
+
+Both initially declare read, bash, edit, write and search_tools. Comparing the saved synthetic payloads shows that all four native tool declaration sizes are identical; the entire +48 declaration difference is search_tools. Its description now names browser/computer/Data/phone capabilities and explains repeated broad discovery. Discovery still executes no actions and loads original permitted callbacks/schemas.
+
+The native +82 is the added sentence: “Use listed tools directly; find and load unlisted task tools before calling them.” The old native base was an inline constant; the current base is a verified app-owned pi-base.md asset with operator SYSTEM precedence retained.
+
+Most growth is in the app prefix, not tool schemas. The explicit authority/safety core grew **683→1,092 characters (+409)**, covering ask-first behavior, access mode versus authorization, intended sign-in accounts, human-only secrets/questions, pending/applied outcomes and recall. The earlier core already retained consent, privacy and authority safeguards; this is expanded explicit coverage, not an assertion that the old build lacked safety. The remainder of the prefix difference includes restored-feature availability/routing and upstream application guidance. It has not been exhaustively allocated line by line, so do not assign the entire +1,384 to feature restoration alone.
+
+| Area | Earlier reduced-feature build | Current full-feature fork |
+| --- | --- | --- |
+| Built-in desktop/browser automation | Retired | Retained, subject to runtime availability and permissions |
+| Phone screen/app automation | Retired; mobile chat remained | Retained; mobile chat also remains |
+| Data/DuckDB tools and workspace | Retired | Retained |
+| Dedicated decide/extract/report_bug helpers | Retired | Retained in the supported tool surface |
+| Widgets, HTML/publishing, team chat and ordinary file tools | Retained | Retained |
+| Split instruction resources | Index + seven broad topic files | 33 brief resources including index/native base |
+| Initial tools | Five, with discovery for retained features | Same five, with discovery across the full permitted feature set |
+| Later upstream features | 0.1.161-era implementation | Integrated 165/166/167/169 changes, including conditional app help and MCP setup updates |
+
+More guide files do not mean all guides are sent initially. The new app-help skill is conditional and is not included in the ordinary 7,375 result. Returning to 5,843 by reinstalling the old branch would also reintroduce its retired feature surface and older application behavior; it is not a drop-in smaller prompt for the current codebase. Whether the current full-feature prompt can be made equally small would require a separate, measured optimization—not merely copying the old wording.
+
+Evidence: old committed `docs/concise-context.md` and `docs/lean-removal.md` via `git show f98f8902b:...`; saved synthetic `phase3-installed` and `deploy169-installed-1` payloads; current source core and pi-base.md. This comparison uses existing artifacts only; production was not changed or tested with real messages.
+
 ## Bottom line
 
 - Earliest controlled fresh baseline → current: **101,412 → 7,375**, down **94,037 characters (92.73%)** across the recorded evolution.
