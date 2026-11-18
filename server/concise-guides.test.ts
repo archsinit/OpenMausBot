@@ -41,6 +41,9 @@ const contracts: Record<string, string[]> = {
   ],
   "profile.md": [
     "propose_profile",
+    "propose_team_setup mcpServers",
+    "existing bot's full MCP server list",
+    "no other execution permission changes",
     "Chief",
     "blocker",
     "applied-results.md"

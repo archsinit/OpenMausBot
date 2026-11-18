@@ -1,6 +1,7 @@
 import { readPromptBaseline } from "./prompt-baselines.ts";
 import { REVIEWED_STOCK_0166 as stock } from "./prompt-stock-0166.ts";
 import type { PromptPart } from "./system-prompt.ts";
+import { indexedDocsSkill } from "./indexed-docs-skill.ts";
 
 const COMPUTER_FACTS = {
   local: " You can act on the user's computer. Inspect the target app/window first; prefer window-targeted accessibility and background delivery. Do not activate apps just to inspect them. Browser work may use dedicated browser tools, Playwright, SSH or other available automation appropriate to the task, preserving the selected target and intended profile/account; supported OpenMausBot setup uses authorized configuration/proposal tools, not UI clicks. Full-desktop input, activation and foreground delivery require the user's request or agreement after background refusal; never bypass that refusal through another tool or script. If background input changes focus, report it and stop that route. Never promise arbitrary background control.",
@@ -51,6 +52,7 @@ const GRANTS_POLICY = " Only the tools this bot was granted will run; when a nee
 /** Offload only recognized application prose; authored sections and unknown upstream text are never candidates. */
 export function indexedContextParts(parts: readonly PromptPart[]): PromptPart[] {
   const retained = parts.map(part => {
+    if (part.id === "skill-instructions") return { ...part, text: indexedDocsSkill(part.text) };
     if (part.id === "just-do-it" && (part.text === fullAccessManual || part.text === stock.JUST_DO_IT_PROMPT || part.text === fullAccessManual0167)) return { ...part, text: "" };
     if (part.id === "recall" && (part.text === recallManual || part.text === stock.SESSION_SEARCH_SYSTEM_PROMPT)) return { ...part, text: "" };
     if (part.id === "coordination") {

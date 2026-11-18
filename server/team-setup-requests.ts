@@ -9,6 +9,7 @@ import { recordProfileChange, type HistoryActor } from "./profile-versions.ts";
 import { validateBotCwd } from "./bot-cwd.ts";
 import { UNDO_STALE, type DirectApply } from "./direct-apply.ts";
 import { harnessCapabilityLines, type DriverCapabilities } from "./harness-capabilities.ts";
+import { MAX_MCP_SERVERS, mcpServerNameError } from "./mcp-registry.ts";
 import { redactSecretsInText } from "./redact.ts"; import { chiefLevel } from "./chief-level.ts"; import { defaultBotRefusal } from "./default-bot.ts";
 import type { BotRecord, OptionCardData } from "./store.ts"; import { outsideDepartmentReason } from "./peer-roster.ts";
 import type { TeamSetupFields, TeamSetupOperation, TeamSetupRequest, TeamSetupResult, TeamSetupUndo } from "../shared/team-setup.ts";
@@ -28,7 +29,10 @@ const fieldsSchema = z.object({
   cwd: z.string().optional(),
   section: z.string().trim().max(60).refine(fitsOnOneLine).refine((value) => redactSecretsInText(value) === value, "Team names cannot contain credentials").optional(),
   modelSelection: z.object({ instanceId: z.string().trim().min(1), model: z.string().trim().min(1), effort: z.string().optional(), variant: z.string().optional() }).strict().optional(),
+  mcpServers: z.array(z.string()).max(MAX_MCP_SERVERS, `Select at most ${MAX_MCP_SERVERS} MCP servers.`).optional(),
 }).strict();
+/** The card says which execution permission a plan changes when it changes a bot's MCP servers. */
+const touchesMcp = (request: TeamSetupRequest) => request.operations.some((operation) => operation.fields.mcpServers !== undefined);
 const planSchema = z.object({
   reason: z.string().trim().min(1).max(500),
   newTeams: z.array(teamName).max(8).default([]),
@@ -64,6 +68,7 @@ export function teamSetupRevision(bot: BotRecord, fields?: TeamSetupFields): str
       ...profileSnapshot(bot), section: section(bot.section), modelSelection: bot.modelSelection,
       hidden: Boolean(bot.hidden), chiefOfStaff: Boolean(bot.chiefOfStaff),
       managedSections: bot.managedSections,
+      mcpServers: bot.mcpServers === undefined ? null : [...new Set(bot.mcpServers)].sort(),
       approvalMode: bot.approvalMode, autoApprove: bot.autoApprove, approvalGrant: bot.approvalGrant,
       receipt: bot.lastTeamSetupReceipt?.requestId,
     })).digest("hex");
@@ -77,6 +82,7 @@ export function teamSetupRevision(bot: BotRecord, fields?: TeamSetupFields): str
   if (fields.section !== undefined) scope.section = section(bot.section);
   if (fields.modelSelection !== undefined) scope.modelSelection = bot.modelSelection;
   if (fields.chiefOfStaff !== undefined) scope.chiefOfStaff = Boolean(bot.chiefOfStaff);
+  if (fields.mcpServers !== undefined) scope.mcpServers = bot.mcpServers ?? null;
   return createHash("sha256").update(JSON.stringify(scope)).digest("hex");
 }
 
@@ -101,6 +107,8 @@ interface Options {
   autoApply?(botId: string, threadId: string): DirectApply | null;
   driverCapabilities?(instanceId: string): DriverCapabilities | undefined;
   validateChange?(before: BotRecord, fields: TeamSetupFields): void;
+  /** Why this MCP server cannot be given to this bot (unknown, or another bot's own); null when it can. */
+  mcpServerProblem?(name: string, botId: string): string | null;
   maxBots: number;
   ownsThread(botId: string, threadId: string): boolean;
   /** `request` only for a reviewed deletion; Undo of a creation deletes without one. */
@@ -134,7 +142,7 @@ export class TeamSetupRequestService {
   }
 
   private fields(input: z.infer<typeof fieldsSchema>, current?: BotRecord): TeamSetupFields {
-    const { section: targetSection, modelSelection, chiefOfStaff, cwd: rawCwd, ...profile } = input;
+    const { section: targetSection, modelSelection, chiefOfStaff, cwd: rawCwd, mcpServers, ...profile } = input;
     const safe = Object.fromEntries(Object.entries(profile).map(([key, value]) => [key, redactSecretsInText(value!)]));
     const parsed = parseBotProfilePatch(safe, true);
     if (!parsed.ok) throw new TeamSetupError(parsed.error);
@@ -152,6 +160,15 @@ export class TeamSetupRequestService {
       const error = this.options.validateModel(selection, current);
       if (error) throw new TeamSetupError(error);
       result.modelSelection = selection;
+    }
+    if (mcpServers !== undefined) {
+      if (!current) throw new TeamSetupError("MCP servers can only be chosen for an existing bot; a new bot starts with the Chief's apps");
+      const names = [...new Set(mcpServers)];
+      for (const name of names) {
+        const problem = mcpServerNameError(name) ?? this.options.mcpServerProblem?.(name, current.id) ?? null;
+        if (problem) throw new TeamSetupError(`MCP server ${JSON.stringify(name)}: ${problem}`);
+      }
+      result.mcpServers = names;
     }
     return result;
   }
@@ -315,6 +332,9 @@ export class TeamSetupRequestService {
               this.options.driverCapabilities((value as ModelSelection).instanceId),
             ));
           }
+        } else if (key === "mcpServers") {
+          const list = (names?: string[] | null) => names == null ? "every enabled server" : names.length ? names.join(", ") : "none";
+          lines.push(`MCP servers it can use: ${current ? `${list(current.mcpServers)} → ` : ""}${list(value as string[])}`);
         } else {
           const before = current ? (key === "section" ? current.section || "General" : String(current[key as keyof BotRecord] ?? "")) : undefined;
           const after = key === "section" ? (value as string) || "General" : String(value);
@@ -327,7 +347,7 @@ export class TeamSetupRequestService {
       if (request.operations.some((operation) => operation.action === "create")) {
         lines.push(`New bots stay owner-owned after creation: the same connected apps as @${chief.name}, the workspace's default access level, a private workspace by default, avatar untouched.`);
       }
-      lines.push("Existing execution permissions are unchanged.");
+      lines.push(touchesMcp(request) ? "Other execution permissions are unchanged." : "Existing execution permissions are unchanged.");
     }
     if (!immediate) lines.push("After this decision the Chief continues once with the result.");
     const title = request.deletion ? `Delete @${request.deletion.name}?`
@@ -429,7 +449,7 @@ export class TeamSetupRequestService {
     return { created, before, revisions };
   }
 
-  /** Reverses a setup that applied on its own; changes nothing once a bot it touched changed since or a new bot was used. */
+  /** Reverses a setup that applied on its own; refuses stale restoration, but completed deletions cannot be rolled back. */
   async undo(args: { botId: string; threadId: string; requestId: string }): Promise<{ claimed: false } | { claimed: true; state: "already_undone" | "undone" }
     | { claimed: true; state: "invalid"; error: string; status: number; stale?: true }> {
     const message = this.options.store.messagesFor(args.threadId).find((item) => item.card?.requestId === args.requestId && item.card.teamSetupRequest);
@@ -452,6 +472,7 @@ export class TeamSetupRequestService {
     if (refusal) return cannot(refusal);
     try {
       for (const id of created) await this.options.deleteBot(id, () => { if (changed([id])) throw new TeamSetupError(UNDO_STALE, 409); });
+      if (changed(before.map((entry) => entry.botId))) return { ...cannot(UNDO_STALE), stale: true };
       const restore = before.filter((entry) => Object.keys(entry.fields).length);
       if (restore.length) {
         this.applySetup({ version: 1, requestId: newId(), botId: request.botId, threadId: request.threadId, reason: request.reason,

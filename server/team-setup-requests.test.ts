@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { TeamSetupError, TeamSetupRequestService } from "./team-setup-requests.ts";
+import { teamSetupRevision, TeamSetupError, TeamSetupRequestService } from "./team-setup-requests.ts";
 import { botFolder } from "./bot-folder.ts";
 import { flushProfileHistory, readHistory } from "./profile-versions.ts";
 import { hasTeamAuthority } from "./peer-roster.ts";
@@ -54,6 +54,11 @@ function harness(caps?: Record<string, { driverKind: string; agentsMcp: boolean 
   const canPersist = vi.fn((): { ok: true } | { ok: false; status: number; error: string } => ({ ok: true }));
   const service = new TeamSetupRequestService({ store, teams: () => teams, maxBots: 100, hasTeamAuthority,
     canPersist, ownsThread: () => sourceExists, targetBusy, deleteBot, deletionRefusal, autoApply, validateChange,
+    mcpServerProblem: (name, botId) => {
+      const servers: Record<string, { bot?: string }> = { hindsight: {}, linear: {}, "clive-notes": { bot: "Clive" } };
+      if (!servers[name]) return "no such server";
+      return !servers[name].bot || servers[name].bot === botId ? null : "that server belongs to another bot";
+    },
     validateModel: (selection, current) => {
       if (!({ claude: ["sonnet", "opus"], codex: ["gpt-fixture"] }[selection.instanceId]?.includes(selection.model))) return "Model is not in the current catalog";
       return current?.approvalMode === "full" && selection.instanceId !== current.modelSelection.instanceId ? "Existing permissions are incompatible" : null;
@@ -210,7 +215,7 @@ describe("reviewed Chief team setup", () => {
   it("names where an unknown key is and what that level takes", () => {
     const h = harness();
     expect(() => h.propose([{ action: "update", botId: h.peer.id, fields: { model: "gpt" } }]))
-      .toThrow(/^operations\.0\.fields: Unrecognized key: "model"\. It takes chiefOfStaff, name, title, description, soul, soulAppend, cwd, section, modelSelection\.$/);
+      .toThrow(/^operations\.0\.fields: Unrecognized key: "model"\. It takes chiefOfStaff, name, title, description, soul, soulAppend, cwd, section, modelSelection, mcpServers\.$/);
     expect(() => h.service.propose({ botId: h.chief.id, threadId: h.chief.threadId, plan: { reason: "Requested", operations: [{ action: "update", botId: h.peer.id, fields: { title: "Lead" } }], teams: [] } }))
       .toThrow(/^Unrecognized key: "teams"\. It takes reason, newTeams, operations\.$/);
   });
@@ -595,6 +600,87 @@ describe("team setup that applies on its own", () => {
   });
 });
 
+describe("a bot's MCP servers in team setup", () => {
+  it("pins all, none and selected servers distinctly without mutating the orderless selection", () => {
+    const { peer } = harness();
+    const unrestricted = teamSetupRevision(peer);
+    peer.mcpServers = [];
+    const none = teamSetupRevision(peer);
+    peer.mcpServers = ["linear", "hindsight", "linear"];
+    const selected = teamSetupRevision(peer);
+    expect(new Set([unrestricted, none, selected]).size).toBe(3);
+    expect(peer.mcpServers).toEqual(["linear", "hindsight", "linear"]);
+    peer.mcpServers = ["hindsight", "linear"];
+    expect(teamSetupRevision(peer)).toBe(selected);
+  });
+  it.each([{ selection: [] }, { selection: ["linear"] }, { selection: undefined }])("refuses stale Undo after MCP reselection to $selection", async ({ selection }) => {
+    const h = harness(); h.autoApply.mockReturnValue("full-access");
+    const response = await h.submit([{ action: "update", botId: h.peer.id, fields: { mcpServers: ["hindsight"] } }]);
+    expect(response).toMatchObject({ applied: true, state: "applied" });
+    h.peer.mcpServers = selection;
+    const before = structuredClone(h.store.bots);
+    expect(await h.service.undo({ botId: h.chief.id, threadId: h.chief.threadId, requestId: response.requestId }))
+      .toMatchObject({ state: "invalid", stale: true, status: 409, error: "Changed since, so it can't be undone here." });
+    expect(h.store.bots).toEqual(before);
+    expect(h.apply).toHaveBeenCalledTimes(1);
+    expect(h.deleteBot).not.toHaveBeenCalled();
+    expect(h.messages[0].card?.undone).not.toBe(true);
+  });
+  it.each(["target", "requester"])("cancels a deletion card after the %s's MCP selection changes from all to none", async (changed) => {
+    const h = harness();
+    const response = await h.service.submitDeletion({ botId: h.chief.id, threadId: h.chief.threadId, targetBotId: h.peer.id, reason: "remove" });
+    expect(response.state).toBe("pending");
+    (changed === "target" ? h.peer : h.chief).mcpServers = [];
+    expect(await h.resolve(response.requestId)).toMatchObject({ result: { state: "cancelled" } });
+    expect(h.store.bot(h.peer.id)).toBe(h.peer);
+    expect(h.deleteBot).not.toHaveBeenCalled();
+    expect(h.apply).not.toHaveBeenCalled();
+  });
+  it("allows Undo after an order-only MCP reselection", async () => {
+    const h = harness(); h.autoApply.mockReturnValue("full-access");
+    h.peer.mcpServers = [];
+    const response = await h.submit([{ action: "update", botId: h.peer.id, fields: { mcpServers: ["linear", "hindsight"] } }]);
+    h.peer.mcpServers = ["hindsight", "linear"];
+    expect(await h.service.undo({ botId: h.chief.id, threadId: h.chief.threadId, requestId: response.requestId })).toMatchObject({ state: "undone" });
+    expect(h.peer.mcpServers).toEqual([]);
+  });
+  it("applies under Full Access like the plan's other changes, and Undo gives back every enabled server", async () => {
+    const h = harness(); h.autoApply.mockReturnValue("full-access");
+    const response = await h.submit([{ action: "update", botId: h.peer.id, fields: { mcpServers: ["linear", "hindsight", "linear"] } }]);
+    expect(response).toMatchObject({ applied: true, state: "applied" });
+    expect(response.detail).toContain("MCP servers it can use: every enabled server → linear, hindsight");
+    expect(response.detail).toContain("Other execution permissions are unchanged.");
+    expect(h.peer.mcpServers).toEqual(["linear", "hindsight"]);
+    expect(await h.service.undo({ botId: h.chief.id, threadId: h.chief.threadId, requestId: response.requestId })).toMatchObject({ state: "undone" });
+    expect(Array.isArray(h.apply.mock.calls.at(-1)![0].operations[0].fields.mcpServers)).toBe(false);
+  });
+  it("waits on the person's card below Full Access, like the plan's other changes, then applies the list they confirmed", async () => {
+    const h = harness();
+    const response = await h.submit([{ action: "update", botId: h.peer.id, fields: { mcpServers: ["hindsight"] } }]);
+    expect(response).toMatchObject({ applied: false, state: "pending" });
+    expect(h.apply).not.toHaveBeenCalled();
+    expect(h.messages[0].card?.options).toEqual(["Apply setup", "Cancel"]);
+    expect(await h.resolve(response.requestId)).toMatchObject({ result: { state: "applied" } });
+    expect(h.peer.mcpServers).toEqual(["hindsight"]);
+  });
+  it("cancels when the bot's list changed after the card was shown", async () => {
+    const h = harness();
+    const card = h.propose([{ action: "update", botId: h.peer.id, fields: { mcpServers: ["hindsight"] } }]);
+    h.peer.mcpServers = ["linear"];
+    expect((await h.resolve(card.requestId))?.result.state).toBe("cancelled");
+    expect(h.peer.mcpServers).toEqual(["linear"]);
+  });
+  it("refuses a new bot, an unknown server, another bot's own server, and a busy bot", () => {
+    const h = harness();
+    expect(() => h.propose([{ ...specialist("Mira", "Work"), fields: { ...specialist("Mira", "Work").fields, mcpServers: ["hindsight"] } }])).toThrow(/existing bot/);
+    expect(() => h.propose([{ action: "update", botId: h.peer.id, fields: { mcpServers: ["nope"] } }])).toThrow(/no such server/);
+    expect(() => h.propose([{ action: "update", botId: h.peer.id, fields: { mcpServers: ["clive-notes"] } }])).toThrow(/another bot/);
+    h.peer.busy = true;
+    expect(() => h.propose([{ action: "update", botId: h.peer.id, fields: { mcpServers: ["hindsight"] } }])).toThrow(/Stop @Ada/);
+    expect(h.messages).toHaveLength(0);
+  });
+});
+
 describe("team setup below Full access", () => {
   const undo = (h: ReturnType<typeof harness>, requestId: string) => h.service.undo({ botId: h.chief.id, threadId: h.chief.threadId, requestId });
 
@@ -634,6 +720,40 @@ describe("team setup below Full access", () => {
     h.messages.push({ id: "person-line", role: "user" });
     expect(await undo(h, created.requestId)).toMatchObject({ state: "invalid", stale: true });
     expect(h.deleteBot).not.toHaveBeenCalled();
+  });
+
+  it.each(["updated bot", "grant-only Chief", "unchanged"])("rechecks survivors after deferred deletion: %s", async (change) => {
+    const h = harness(); h.autoApply.mockReturnValue("level");
+    const apply = h.apply.getMockImplementation()!;
+    h.apply.mockImplementationOnce((request) => { h.chief.managedSections = ["Engineering", ...request.newTeams]; return apply(request); });
+    const response = await h.submit([specialist("Mira", "Research"), { action: "update", botId: h.peer.id, fields: { mcpServers: ["hindsight"] } }], ["Research"]);
+    const created = h.store.bots.find((bot) => bot.name === "Mira")!;
+    let resume!: () => void;
+    const deletion = new Promise<void>((resolve) => { resume = resolve; });
+    const remove = h.deleteBot.getMockImplementation()!;
+    h.deleteBot.mockImplementation(async (...parameters) => { await deletion; await remove(...parameters); });
+    const pending = undo(h, response.requestId);
+    expect(h.deleteBot).toHaveBeenCalledTimes(1);
+    expect(h.store.bot(created.id)).toBe(created);
+    if (change === "updated bot") h.peer.mcpServers = [];
+    if (change === "grant-only Chief") h.chief.managedSections = ["Engineering", "Research", "Private"];
+    const survivors = structuredClone([h.chief, h.peer]);
+    resume();
+    const result = await pending;
+    expect(h.store.bot(created.id)).toBeUndefined();
+    if (change === "unchanged") {
+      expect(result).toEqual({ claimed: true, state: "undone" });
+      expect(h.chief.managedSections).toEqual(["Engineering"]);
+      expect(Array.isArray(h.peer.mcpServers)).toBe(false);
+      expect(h.messages[0].card?.undone).toBe(true);
+    } else {
+      expect(result).toEqual({ claimed: true, state: "invalid", stale: true, status: 409, error: "Changed since, so it can't be undone here." });
+      expect([h.chief, h.peer]).toEqual(survivors);
+      expect(h.apply).toHaveBeenCalledTimes(1);
+      expect(h.messages[0].card?.undone).not.toBe(true);
+      expect(await undo(h, response.requestId)).toMatchObject({ state: "invalid", stale: true });
+      expect(h.deleteBot).toHaveBeenCalledTimes(1);
+    }
   });
 
   it("refuses Undo up front, deleting none of the bots it created, while one of them may not be deleted, and undoes it all once it may", async () => {
