@@ -1,3 +1,5 @@
+> **Fork documentation:** [Our changes](docs/fork-changes.md) · [Prompt overhead history](docs/prompt-overhead-history.md). These describe this fork; upstream downloads below are not the custom fork build.
+
 <div align="center">
 
 # OpenMausBot

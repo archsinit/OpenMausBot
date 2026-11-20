@@ -1,5 +1,7 @@
 # Maintaining the context-only fork
 
+See [our fork-only change inventory](fork-changes.md) for the current customizations, repair status and source locations.
+
 This branch keeps upstream features, settings, APIs, tool implementations, validation, approvals and permissions. The local changes concern instruction text and the declarations included in model context; they do not retire features or replace tool execution with a generic wrapper.
 
 ## Small integration seams
@@ -36,7 +38,7 @@ Loaded declarations remain available during the run; using more capabilities can
 
 ## Updating upstream
 
-Keep the [fresh-request overhead ledger](prompt-overhead-history.md) current with measured candidate/installed results, component breakdowns and comparison limits.
+Keep the [fork-only change inventory](fork-changes.md) and [fresh-request overhead ledger](prompt-overhead-history.md) current. Record intentional source/policy/repair differences separately from upstream features, and use measured candidate/installed results with component breakdowns and comparison limits.
 
 1. Merge upstream into this branch, not the old feature-removal branch. Review conflicts only at the seams above; do not copy retirement fences or alter capability registries.
 2. Run prompt/default-output fingerprints, brief-guide semantic/length contracts, unknown-prose passthrough, memory/fact preservation, reader fallback, scope, discovery completeness and approval tests. A larger fallback prompt is safer than silently dropping new upstream policy.
