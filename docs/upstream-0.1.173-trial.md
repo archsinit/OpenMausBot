@@ -1,6 +1,6 @@
 # Upstream 0.1.173 integration trial
 
-Status: merge resolved, build/package and focused verification passed; broad backend qualification is partial with an unresolved harness/lifecycle stall. **Integration branch only; not deployed or merged to main.** Production remains the verified 0.1.169 fork. Main and older trial branches must not be merged/deleted without acceptance.
+Status: merged and pushed as implementation `e9c9ed1d63b973c60d889937161157c77472d641` on `integration/upstream-0.1.173`. Build/package and focused verification passed; broad backend qualification is partial with an unresolved harness/lifecycle stall. **Integration branch only; not deployed or merged to main.** Production remains the verified 0.1.169 fork. Main and older trial branches must not be merged/deleted without acceptance.
 
 ## Published release and branch
 
@@ -65,5 +65,7 @@ Fresh current-production (169) captures repeated twice using fresh-capture-skill
 Final packaged candidate `/tmp/omb173-candidate` measured twice: ordinary Hi **7,339** / five tools (native371, declarations2008, prefix4492, framing468), app-help **12,622** / five tools (native371, declarations2008, prefix9679, framing564). Paired payloads match after excluding only prompt_cache_key. Each candidate payload is also structurally equal to its 169 candidate counterpart after changing only that cache key and `/tmp/omb169-candidate`→`/tmp/omb173-candidate` paths. Thus the reviewed offloads prevent initial-context growth despite new upstream tools/instructions.
 
 Candidate guide/skill root is 36 characters shorter than production; no smaller installed overhead is claimed. At the current production path the normal expectation is unchanged 7,375, but that is normalization, not an installed-173 capture. Labels: `update173-candidate-1/2`, `update173-help-candidate-1/2`. All33guides remain <1400chars, maximum1380; candidate corpus21,957 (61 more than169), read on demand.
+
+The compiled package corresponds to implementation `e9c9ed1d6`; subsequent branch changes only record these integration results. All C/T/P inventory entries and S1–S7 remain carried forward; S8/S9 are explicitly documented candidate-only repairs. Main is unchanged and all prior trial branches are retained.
 
 Final archive SHA-256: `afa24d8327b3f81ed11c8a4d84379b5a6b40cf1e022225c000a3f407833c6591`, local `/tmp/omb173-verification/openmausbot-0.1.173.tgz`, remote `/tmp/omb-context-audit-20260527/upstream173.tgz`. Manifest verification confirms version173, all33guide resources, original docs skill and the runtime TS Pi entry. The package is built and captured; broader backend qualification limitations are recorded separately. Production remains 169; this request merges upstream into the fork, not an authorization to skip trial acceptance, overwrite main or deploy automatically.
