@@ -9,7 +9,7 @@ This branch keeps upstream features, settings, APIs, tool implementations, valid
 | Area | Isolated implementation | Integration |
 | --- | --- | --- |
 | Brief shared core and guide selection | `server/concise-context-core.ts`, `server/indexed-context.ts`, `server/indexed-docs-skill.ts`, `server/prompt-guides/` | One indexed-only pass in `buildSystemPrompt`; original default exports stay intact; exact known app-help routing table offloads only while its mounted source remains readable and matching |
-| Compatibility recognition | `server/prompt-baselines.ts`, `server/prompt-stock-0166.ts`, exact reviewed aliases in `server/indexed-context.ts` | Frozen original/reviewed stock text and the 167 Full access label alias, separate from the brief model-facing guides |
+| Compatibility recognition | `server/prompt-baselines.ts`, `server/prompt-stock-0166.ts`, exact reviewed aliases in `server/indexed-context.ts` | Frozen original/reviewed text plus exact 167 Full access and 173 shell/trigger/app-help variants, separate from brief model-facing guides |
 | Memory/file guidance | `server/workspace-context.ts` | Guided options in file/memory prompts; preserve upstream memory rules/volatile notes split across preview, direct and room assembly |
 | Screen selection and own-computer routing | `server/surface-context.ts` | One guided-only pass; unknown notes, selected targets and actual bot IDs remain |
 | Collaboration procedures | Brief coordination guides and exact-paragraph compaction | Optional guided mode; original identity/authority facts and complete rosters remain |
@@ -50,7 +50,7 @@ Keep the [fork-only change inventory](fork-changes.md) and [fresh-request overhe
 
 ## Release-specific repairs
 
-The 0.1.167 and 0.1.169 trials include bounded upstream correctness/security repairs, separately described in their trial records. These are not context-size optimizations: retain runtime grant revocation, team-file ownership/quota enforcement, descriptor-bound image-file confinement and MCP-aware team-setup revision checks, with isolated regressions. Do not remove permission checks to match upstream byte-for-byte.
+The 0.1.167, 0.1.169 and 0.1.173 trials include bounded upstream correctness/security repairs, separately described in their trial records. These are not context-size optimizations: retain runtime grant revocation, team-file ownership/quota enforcement, descriptor-bound image-file confinement, MCP-aware team-setup revision checks, check-back cancellation/Stop semantics and immediate warm-session eviction, with isolated regressions. Do not remove permission checks to match upstream byte-for-byte.
 
 ## Limits
 

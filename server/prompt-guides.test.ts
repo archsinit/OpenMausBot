@@ -8,6 +8,7 @@ import { guideRoot, PROMPT_GUIDE_FILES, readPromptGuide } from "./prompt-guides.
 import * as prompts from "./system-prompt.ts";
 import { readPromptBaseline } from "./prompt-baselines.ts";
 import { REVIEWED_STOCK_0166 as stock } from "./prompt-stock-0166.ts";
+import { REVIEWED_SHELL_0173, REVIEWED_TRIGGER_0173 } from "./concise-context-core.ts";
 
 const sha256 = (text: string): string => createHash("sha256").update(text, "utf8").digest("hex");
 const UPSTREAM_49968D7F1 = [
@@ -56,7 +57,7 @@ describe("static prompt guides", () => {
   });
 
   it.each(UPSTREAM_49968D7F1)("preserves legacy recognition bytes and reviewed 0.1.166 %s", (name, filename, _exportHash, resourceHash) => {
-    expect(prompts[name]).toBe(stock[name]);
+    expect(prompts[name]).toBe(name === "TRIGGER_PROMPT" ? REVIEWED_TRIGGER_0173 : stock[name]);
     expect(sha256(readPromptBaseline(filename))).toBe(resourceHash);
   });
 
@@ -68,7 +69,7 @@ describe("static prompt guides", () => {
     expect(base).toContain(`${prompts.BASH_MAX_TIMEOUT_MS}, which is ${prompts.BASH_MAX_TIMEOUT_MS / 60_000} minutes`);
     for (const kind of [null, "local", "box", "vps", "vm-private", "vm-shared"] as const) {
       const isVm = kind === "vm-private" || kind === "vm-shared";
-      expect(prompts.longCommandsPrompt(kind)).toBe(stock.LONG_COMMANDS_TEXT + (isVm ? stock.VM_LONG_COMMANDS_TEXT : ""));
+      expect(prompts.longCommandsPrompt(kind)).toBe(REVIEWED_SHELL_0173 + (isVm ? stock.VM_LONG_COMMANDS_TEXT : ""));
     }
     expect(sha256(base + vm)).toBe(UPSTREAM_49968D7F1_SHELL_VM);
     expect(sha256(prompts.ROUTINE_EXECUTION_PROMPT)).toBe("df88bfd8fcff26c13201a4701d083a0fea715934188fbd10286b6f9c9773332a");

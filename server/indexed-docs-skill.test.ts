@@ -60,6 +60,20 @@ describe("indexed app docs routing", () => {
     expect(buildSystemPrompt("", "", parts, undefined, { guidesPath: "/guides" }).text).toContain(compact);
   });
 
+  it("recognizes the prior table too, but not new or changed routing rows", () => {
+    const row = "| The same bots on more than one computer or a phone, an empty Inbox on a new device | `multi-device.md` |";
+    expect(stock.instructions).toContain(row);
+    const prior = fixture(stock.instructions.replace(row + "\n", ""));
+    expect(indexedDocsSkill(render(prior))).not.toContain("| Approval levels,");
+    for (const instructions of [
+      stock.instructions.replace(row, row.replace("multi-device.md", "unknown.md")),
+      stock.instructions.replace(row, row + "\n| Unknown new route | `new.md` |"),
+    ]) {
+      const changed = fixture(instructions);
+      expect(indexedDocsSkill(render(changed))).toBe(render(changed));
+    }
+  });
+
   it("keeps unknown prose and complete fallbacks for missing readers' roots, changed tables and sources", () => {
     const skill = fixture();
     for (const text of [

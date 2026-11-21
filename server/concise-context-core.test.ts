@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { CONCISE_CONTEXT_CORE, indexedPromptParts } from "./concise-context-core.ts";
+import { CONCISE_CONTEXT_CORE, indexedPromptParts, REVIEWED_SHELL_0173, REVIEWED_TRIGGER_0173 } from "./concise-context-core.ts";
 import { buildSystemPrompt, botPersona, CREDENTIAL_PROMPT, LEARN_PROMPT, LEARN_RULES_PROMPT, PROFILE_PROMPT, TRIGGER_PROMPT, THREADS_PROMPT, WIDGET_PROMPT, longCommandsPrompt } from "./system-prompt.ts";
 import { indexedReplyHabits } from "./indexed-context.ts";
 import { readPromptBaseline } from "./prompt-baselines.ts";
+import { REVIEWED_STOCK_0166 as stock } from "./prompt-stock-0166.ts";
 
 describe("shared indexed core", () => {
   it("keeps mandatory guards once, with a short reply instruction", () => {
@@ -27,6 +28,20 @@ describe("shared indexed core", () => {
       for (const changed of ["New policy. " + text, text + " Unknown policy tail.", text!.slice(0, -1)]) {
         expect(indexedPromptParts([{ ...original, text: changed }], "/guides").find(p => p.id === id)?.text).toBe(changed);
       }
+    }
+  });
+
+  it("recognizes both frozen and reviewed check-back manuals without swallowing new policy", () => {
+    expect(longCommandsPrompt(null)).toBe(REVIEWED_SHELL_0173);
+    expect(TRIGGER_PROMPT).toBe(REVIEWED_TRIGGER_0173);
+    for (const [id, text] of [
+      ["shell", stock.LONG_COMMANDS_TEXT], ["routine", stock.TRIGGER_PROMPT],
+      ["shell", REVIEWED_SHELL_0173], ["routine", REVIEWED_TRIGGER_0173],
+    ]) {
+      const part = { id: id!, label: id!, text: text! };
+      expect(indexedPromptParts([part], "/guides").some(p => p.id === id)).toBe(false);
+      const changed = text!.replace("turn", "turn with unknown policy");
+      expect(indexedPromptParts([{ ...part, text: changed }], "/guides").find(p => p.id === id)?.text).toBe(changed);
     }
   });
 

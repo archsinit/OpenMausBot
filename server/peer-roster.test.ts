@@ -15,6 +15,7 @@ import {
   LIVE_PEER_ROSTER_MAX,
   livePeerRoster,
   livePeerRosterBlock,
+  namesTeammate,
   outsideDepartmentReason,
   peerAllowed,
   peerName,
@@ -28,6 +29,7 @@ import {
   roomPeerRosterSystemPrompt,
   roomRosterLine,
   teammateAvailabilityPrompt,
+  unreachableTeammate,
   type RosterMember,
 } from "./peer-roster.ts";
 import { chiefOfStaffSystemPrompt } from "./chief-of-staff.ts";
@@ -328,6 +330,39 @@ describe("peer coordination guides", () => {
       expect(guided.roster).toBe(full.roster);
       expect(peerRosterSystemPrompt(team, self, { guides: true })).toBe(guided.rules + "\n" + guided.roster);
     }
+  });
+});
+
+describe("a teammate named by the start of its id or its id in another case", () => {
+  const long: RosterMember[] = [
+    self,
+    { id: "5f1c9a2e-7b3d-4e8f-9a0b-1c2d3e4f5a6b", name: "Quill", section: "Work" },
+    { id: "5f1c9a2e-0000-4e8f-9a0b-1c2d3e4f5a6b", name: "Patch", section: "Work" },
+    { id: "9d8e7f6a-1111-4e8f-9a0b-1c2d3e4f5a6b", name: "Scout", section: "Work" },
+  ];
+
+  it("takes an id's first 8 characters or more, and an id in any case, as that id", () => {
+    expect(resolveTeammate(long, self, "9d8e7f6a")).toEqual({ id: long[3]!.id, byName: false });
+    expect(resolveTeammate(long, self, "9D8E7F6A-1111")).toEqual({ id: long[3]!.id, byName: false });
+    expect(resolveTeammate(long, self, "5F1C9A2E-7B3D-4E8F-9A0B-1C2D3E4F5A6B")).toEqual({ id: long[1]!.id, byName: false });
+    expect(resolveTeammate(long, self, "5f1c9a2e-7b3d")).toEqual({ id: long[1]!.id, byName: false });
+  });
+
+  it("refuses a start shared by two ids, and a start under 8 characters, rather than guess", () => {
+    expect(resolveTeammate(long, self, "5f1c9a2e")).toEqual({ error: 'More than one bot\'s id starts with "5f1c9a2e", so nothing was sent — call list_bots and copy the exact id from the result' });
+    expect(resolveTeammate(long, self, "9d8e7f6")).toMatchObject({ error: expect.stringContaining('No bot with id or name "9d8e7f6"') });
+  });
+
+  it("still resolves a name, and never takes a bot its caller may not be told of", () => {
+    expect(resolveTeammate(long, self, "Scout")).toEqual({ id: long[3]!.id, byName: true });
+    const hides = { reaches: () => false, hides: (bot: RosterMember) => bot.id === long[3]!.id, refusal: () => null };
+    expect(resolveTeammate(long, self, "9d8e7f6a", undefined, undefined, hides)).toMatchObject({ error: expect.stringContaining('No bot with id or name "9d8e7f6a"') });
+  });
+
+  it("names the same teammate in a routine's refused hand-off", () => {
+    expect(namesTeammate(long[3]!, "9D8E7F6A")).toBe(true);
+    expect(namesTeammate(long[3]!, "9d8e7f6")).toBe(false);
+    expect(unreachableTeammate([...long, { ...long[3]!, id: "77aa88bb-cc", visibility: "admins" }], self, "77AA88BB")?.id).toBe("77aa88bb-cc");
   });
 });
 

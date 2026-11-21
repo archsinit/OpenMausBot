@@ -6,15 +6,15 @@ This is the fork-only inventory, not a list of upstream features or releases.
 
 | Item | Recorded state |
 | --- | --- |
-| Integrated upstream base | Published `v0.1.169` (`b832de78c43c8d76e92d6f50fb1a8d33be364480`) |
+| Integrated upstream base on the new trial branch | Published `v0.1.173` (`799ebcd900309a9836162fdb766899cb68604abb`); not yet deployed |
 | Last verified production implementation | `5f610ddf49bbfb6dff39c4ed845a46c49c28ee60`, deployed 2026-11-18 |
-| Active trial branch | `integration/upstream-0.1.169`; later commits only document the same implementation |
+| Active integration branch | `integration/upstream-0.1.173`, based on the complete 169 fork including its documentation; older trial branches retained |
 | Fork main | `e60945380a66b3354c8d498aeb8005fce52788c0`; production-trial acceptance/merge pending |
-| Newer upstream | 0.1.173 release/source overview checked; **not integrated or deployed** |
-| Ordinary fresh-request overhead | **7,375 Unicode characters, five initial tools**; complete provider JSON minus human text, not tokens |
-| Split guide corpus | **33 resources / 21,896 characters**, each below 1,400; not all loaded initially |
+| Production versus candidate | Production remains 0.1.169; 0.1.173 is integrated/tested/packaged on its separate branch, not installed |
+| Ordinary fresh-request overhead | Production 169: **7,375 Unicode characters / five tools**. Candidate 173: **7,339 / five tools** at a path 36 characters shorter; normalized initial payload matches 169, not an installed-173 measurement |
+| Split guide corpus | Candidate 173: **33 resources / 21,957 characters**, each below 1,400; production 169 corpus is 21,896. Neither corpus is loaded in full initially |
 
-The runtime changes below are included in the deployed 169 fork. Documentation and test changes are maintained in source control; they do not require a production restart.
+The inventory describes the 173 integration. The 169 versions of the context/tool/policy changes and S1–S7 are already deployed. Reviewed 173 check-back guidance, expanded docs routing and S8–S9 remain candidate-only until deployment. Documentation/test commits do not change the installed package.
 
 ## 1. Prompt and context optimizations
 
@@ -25,8 +25,8 @@ The runtime changes below are included in the deployed 169 fork. Documentation a
 | C3 | Recognized-prose compaction only | Compacts reviewed stock persona/reply/manual/status text; unknown/new text passes through. Frozen original/reviewed text supports recognition and full fallbacks, not replacement of future policy | `server/prompt-baselines.ts`, `server/prompt-stock-0166.ts`, `server/indexed-context.ts` |
 | C4 | Memory and file guidance | Offloads procedures while retaining factual memory, paths and per-turn write refusals; preserves stable rules versus volatile notes. Relative paths require the correct native cwd; Files.shared alias only when roots actually match | `server/workspace-context.ts`, `server/workspace.ts` |
 | C5 | Coordination and runtime context | Shortens known procedures while retaining identities, complete rosters/IDs, authority, assignments, room context and scoped secret-name availability | `server/chief-of-staff.ts`, `server/peer-roster.ts`, `server/prompt-manual-parts.ts`, `server/index.ts` |
-| C6 | Screen-selection and Data guidance | Moves static selection/Data procedures to existing guides while retaining current selection, availability, permissions and pending-switch stop | `server/surface-context.ts`, `server/surface.ts`, `server/prompt-guides/surface.md`, `server/prompt-guides/data.md` |
-| C7 | Conditional app-help routing offload | Removes only the exact reviewed routing section from indexed skill text when its mounted source matches; points to the original skill table through workflow-details.md. Source SKILL.md and remaining instructions stay intact | `server/indexed-docs-skill.ts`, `server/prompt-guides/workflow-details.md` |
+| C6 | Screen-selection, Data and deferred-work guidance | Moves static procedures to existing guides while retaining live selection/availability/permissions. In 173, shell/automations guides distinguish check_back by time from wait_until by condition, preserving origin/room/delegation restrictions | `server/surface-context.ts`, `server/surface.ts`, `server/prompt-guides/surface.md`, `server/prompt-guides/data.md` |
+| C7 | Conditional app-help routing offload | Removes only exact reviewed routing sections when the mounted source matches, including the 173 multi-device row; points through workflow-details.md to the original table. Source SKILL.md, unknown additions and full fallback remain intact | `server/indexed-docs-skill.ts`, `server/prompt-guides/workflow-details.md` |
 | C8 | Conservative indexed-mode gates | Uses guides only with a known permitted file reader and complete readable catalog. Unsupported/fileless/confined/excluded-reader cases retain full inline instructions; no new mounts or grants | `server/prompt-guide-access.ts`, `server/system-prompt.ts` |
 
 User-authored soul, rules, profile, factual memory and active runtime facts are not deleted to meet a size budget. Current conditional app-help overhead is **12,730**, not the ordinary 7,375 baseline. Full-access wording distinguishes the access mode from an explicit user-authorized Chief MCP-server change; mode alone does not grant additional permissions.
@@ -64,6 +64,8 @@ These repair reviewed upstream defects; they are not mechanisms for shrinking pr
 | S5 | Bind image/markup containment, file type, size and bounded reads to the opened descriptor; retain valid in-root symlinks and VM paths | 169 integration | `server/image-edit-source.ts`, `server/routes/image-tools.ts`, `server/routes/image-tools-confinement.test.ts` |
 | S6 | Include normalized MCP selection in full team-setup revisions, distinguishing unrestricted from no servers; invalidate stale Undo/deletion cards | 169 integration | `server/team-setup-requests.ts`, `server/team-setup-requests.test.ts` |
 | S7 | Recheck surviving revision targets after awaited deletion and before synchronous Undo restoration, protecting newer MCP/Chief choices | 169 follow-up | `server/team-setup-requests.ts`, `server/team-setup-requests.test.ts` |
+| S8 | Recheck pending check-back membership/liveness across awaited starts; Stop invalidates the old dispatch tick even across restart | 173 integration, candidate only | `server/host/check-backs.ts`, `server/host/check-backs.test.ts` |
+| S9 | Register warm Codex sessions before synchronous capacity eviction, clear discarded timers and report admission truthfully | 173 integration, candidate only | `server/drivers/codex-warm.ts`, `server/drivers/codex-warm.test.ts` |
 
 Limits: upload coordination is per instance/process, not a filesystem lock against arbitrary external writers. Non-Linux image-reader fallback is unqualified. Mixed-plan Undo is not atomic: completed deletions remain completed if later drift prevents restoration, while newer survivor state is preserved and the card is not marked undone.
 
@@ -77,7 +79,7 @@ Limits: upload coordination is per instance/process, not a filesystem lock again
 | O4 | Record reproducible complete-request overhead and release/trial receipts, keeping raw payloads and backups private | [Overhead ledger](prompt-overhead-history.md), [maintenance contract](context-maintenance.md), 166/167/169 trial records |
 | O5 | Qualify actual Pi offline and deploy only after idle checks, backup and artifact pinning; verify health/history/models/guides afterward | Private audit/capture/deployment tools under `/home/piweb/workspace/projects/openmausbot-context-audit/`; not additional product features |
 
-Verification details and limitations live in [the 169 trial record](upstream-0.1.169-trial.md). It distinguishes clean scoped runs, focused follow-ups, skipped/unqualified platforms and earlier failed attempts; it does not claim one clean full-project suite.
+Verification details and limitations live in [the 169 production record](upstream-0.1.169-trial.md) and [173 integration record](upstream-0.1.173-trial.md). It distinguishes clean scoped runs, focused follow-ups, skipped/unqualified platforms and earlier failed attempts; it does not claim one clean full-project suite.
 
 ## Explicitly unchanged or excluded
 
@@ -86,11 +88,11 @@ Verification details and limitations live in [the 169 trial record](upstream-0.1
 - The old approximately 5.8k-character reduced-feature branch is separate and is not part of this implementation. Its removals must not be copied back.
 - Native tool implementations and schemas are not replaced with generic execute-anything wrappers to obtain context savings. Listed safety repairs intentionally change the defective runtime checks.
 - Upstream features such as Bitwarden, team files, image editing, voice and UI improvements are included because of upstream integration; they are not all custom fork inventions.
-- Upstream 173's check_back/compaction and other newer features are not yet integrated. Do not claim measured 173 overhead or silently update guides/fingerprints for that release.
+- Upstream 173's check_back, compaction and other released features are included in the new integration, not production yet. Candidate overhead is measured; installed-173 overhead is not. Reviewed shell/trigger/table variants are recognized exactly; frozen original baselines and unknown-prose passthrough remain intact.
 - No automatic merge to main, branch deletion, unattended deployment or provider-call test is authorized by this inventory. Trial acceptance remains explicit.
 
 ## Keep this inventory current
 
 For every update, compare against the exact integrated upstream tag, not unreleased main. Add or revise a stable ID above for each intentional fork delta; distinguish context changes, policy changes, runtime repairs, tests and process. When upstream absorbs a repair, record that evidence/status instead of silently forgetting it. Check implementation paths and regression coverage, preserve the maintenance contract, update the overhead ledger from actual isolated captures, and state deployment/main-merge status separately.
 
-Reproduce the current source-level inventory with `git diff --name-status v0.1.169 integration/upstream-0.1.169`. For future releases, replace the baseline tag only after that release has actually been integrated and reviewed. Documentation-only commits after implementation5f610ddf4 do not change the deployed package.
+Reproduce the new source-level inventory with `git diff --name-status v0.1.173 integration/upstream-0.1.173`. The deployed 169 comparison remains `git diff --name-status v0.1.169 integration/upstream-0.1.169`. For future releases, change the baseline only after integration/review. Integration and documentation commits do not deploy themselves; the installed package remains implementation `5f610ddf4` until a separate authorized deployment.

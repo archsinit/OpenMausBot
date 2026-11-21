@@ -39,12 +39,15 @@ The maintained full-feature fork begins at upstream 0.1.165 (`49968d7f1`). Featu
 | 0.1.166 procedural guide offload (`a92659ae8`) | 7,365 | −459 | 5 | Move selection/Data procedures to existing guides; keep live permissions/status inline |
 | Prepared 0.1.167 integration (`49fc691e9`) | not deployed | no installed result | 5 staged | Preserve full features and add four scoped safety repairs; candidate was 7,329 at a path 36 characters shorter than production |
 | 0.1.169 production trial (`5f610ddf4`) | **7,375** | **+10 vs installed 166** | **5** | Full-access mode-vs-user-authorization clarification; conditional app-help routing offload; runtime safety repairs |
+| 0.1.173 integration candidate | not deployed | no installed result; matched-path candidate unchanged from 169 | 5 staged | New check_back, delegation/compaction and other released features retained; exact new static procedures offloaded into existing guides |
 
 The 167 candidate's **7,329** is consistent with 7,365 at the longer production path, but that is path normalization, not an installed-167 measurement. The 169 candidate measured **7,339**, and its actual installed result is **7,375**. Do not count those candidate-to-installed path differences as code regressions or savings.
 
 No standalone fork overhead measurements are recorded here for 0.1.162–164 or 0.1.168. They must not be inferred. The current installation jumped directly from the optimized 166 build to the integrated 169 trial, carrying the prepared 167 changes.
 
-Evidence: [indexed prompt history](indexed-prompts.md), [166 trial](upstream-0.1.166-trial.md), [167 preparation](upstream-0.1.167-trial.md), [169 deployed trial](upstream-0.1.169-trial.md).
+The 173 candidate measured **7,339** for ordinary Hi and **12,622** for mounted app help, each repeated twice with equal payloads except cache key. Those payloads also exactly match the corresponding 169 candidate after replacing only the equal-length package root and dropping cache key. Its normal installed-path expectation remains 7,375, but 173 is not deployed, so no installed-173 number is claimed. This preserves initial-context size while adding exact reviewed check_back and multi-device routing procedures to on-demand guides.
+
+Evidence: [indexed prompt history](indexed-prompts.md), [166 trial](upstream-0.1.166-trial.md), [167 preparation](upstream-0.1.167-trial.md), [169 deployed trial](upstream-0.1.169-trial.md), [173 integration](upstream-0.1.173-trial.md).
 
 ## Component attribution for the full-feature track
 
@@ -58,7 +61,7 @@ Evidence: [indexed prompt history](indexed-prompts.md), [166 trial](upstream-0.1
 
 The largest savings came from not sending every tool declaration initially. Original permitted tools/callbacks remain available through discovery; five initial declarations do not mean only five total capabilities. Splitting instructions alone was not sufficient.
 
-The initial brief-guide build's guide corpus was 19,789 characters. Current 169 corpus is **21,896 across 33 files**, each below 1,400 characters. This entire corpus is not added to every fresh request; matching guides are read on demand.
+The initial brief-guide build's guide corpus was 19,789 characters. Installed 169 corpus is **21,896 across 33 files**. Candidate 173 corpus is **21,957 across the same 33 files** (+61), still each below 1,400 characters. These entire corpora are not added to every fresh request; matching guides are read on demand.
 
 ## Conditional app-help context in 169
 
@@ -106,6 +109,7 @@ Evidence: old committed `docs/concise-context.md` and `docs/lean-removal.md` via
 - Initial full-feature indexed fork → current: **94,983 → 7,375**, down **87,608 (92.24%)**.
 - First full-feature brief-guide build → current: **7,323 → 7,375**, net **+52 (0.71%)**, while retaining later features, explicit authorized automation and safeguards.
 - Current production: **0.1.169**, implementation `5f610ddf4`; deployed after idle/backup checks. Main is not merged pending trial acceptance.
+- Latest prepared integration: **0.1.173**, separate trial branch; same initial candidate payloads as 169 after path/cache-key normalization, not deployed.
 
 ## Keep tracking future updates
 

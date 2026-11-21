@@ -25,6 +25,7 @@ const contracts: Record<string, string[]> = {
     "Yes/no"
   ],
   "automations.md": [
+    "check_back for a later look in this chat",
     "action=events",
     "when=app_event",
     "filter",
@@ -53,6 +54,7 @@ const contracts: Record<string, string[]> = {
     "pending"
   ],
   "shell.md": [
+    "check_back (a time) or wait_until (a condition)",
     "86400000",
     "1440",
     "foreground",

@@ -10,15 +10,23 @@ const baseline = readPromptBaseline;
 const applied = " Follow the tool result: a change you ask for (your skills, profile or model, or as a Chief a teammate's) applies immediately at every access level and the person sees it with an Undo; then continue the requested work without asking for another confirmation. Only a pending result (a Cloud conversation its owner did not drive) waits for the owner: then end the turn. Never claim success before an applied result, and report failures honestly. Full Access does not grant another bot broader permissions.";
 const completion = " Before reporting a task finished, check its related automations with trigger_info. Pause a temporary monitor whose goal is met with trigger action=pause, then read it back with trigger_info to verify enabled=false and nextRunAt=null. Keep standing automations; delete only at the person's explicit request.";
 const shell = baseline("shell.md");
+export const REVIEWED_SHELL_0173 = stock.LONG_COMMANDS_TEXT.replace(
+  "set wait_until or a one-time trigger to check back",
+  "set check_back (a time) or wait_until (a condition)",
+);
+export const REVIEWED_TRIGGER_0173 = stock.TRIGGER_PROMPT.replace(
+  "A one-off request for now is not a trigger.",
+  "A one-off request for now is not a trigger; to look again later in this chat use check_back.",
+);
 const manuals: Record<string, readonly string[]> = {
   credential: [stock.CREDENTIAL_PROMPT, stock.THREADS_PROMPT, stock.WIDGET_PROMPT, baseline("credentials.md"), baseline("threads.md"), baseline("widgets.md")],
   threads: [stock.THREADS_PROMPT, baseline("threads.md")],
   widget: [stock.WIDGET_PROMPT, baseline("widgets.md")],
-  routine: [stock.TRIGGER_PROMPT, baseline("automations.md") + completion],
+  routine: [REVIEWED_TRIGGER_0173, stock.TRIGGER_PROMPT, baseline("automations.md") + completion],
   learn: [stock.LEARN_PROMPT, stock.LEARN_RULES_PROMPT, baseline("skills.md") + applied],
   profile: [stock.PROFILE_PROMPT, baseline("profile.md") + applied],
   "team-memory-manual": [stock.TEAM_MEMORY_PROMPT, baseline("team-memory.md")],
-  shell: [stock.LONG_COMMANDS_TEXT + stock.VM_LONG_COMMANDS_TEXT, stock.LONG_COMMANDS_TEXT, shell + baseline("shell-vm.md"), shell],
+  shell: [REVIEWED_SHELL_0173 + stock.VM_LONG_COMMANDS_TEXT, REVIEWED_SHELL_0173, stock.LONG_COMMANDS_TEXT + stock.VM_LONG_COMMANDS_TEXT, stock.LONG_COMMANDS_TEXT, shell + baseline("shell-vm.md"), shell],
 };
 
 export function indexedPromptParts(parts: PromptPart[], guidesPath: string): PromptPart[] {
